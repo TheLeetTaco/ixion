@@ -22,10 +22,10 @@ bash tests/integration/run.sh plugin-loads    # filter by name
 
 | File | What it exercises | Cost |
 |------|--------------------|------|
-| `cases/00-plugin-loads.test.sh` | `--plugin-dir` discovery; `/fly:*` palette entries appear | none (no model call) |
-| `cases/01-fly-work-resumes.test.sh` | `work-implementation` skill against a pre-seeded session: `progress.json` lands, validates, mode is `plan` | ~1-3 min, real API |
-| `cases/02-fly-plan-creates-spec.test.sh` | `plan-creation` skill end-to-end: writes `spec.json`, `session.json`, `active.json` | ~5-15 min, real API |
-| `cases/03-pipeline-end-to-end.test.sh` | Full chain in one tmux session: `/fly:plan` → `/fly:work` → `/fly:review` → `/fly:work` (fix-findings). Asserts every phase's artifacts. | ~25-45 min, real API |
+| `cases/00-plugin-loads.test.sh` | `--plugin-dir` discovery; `/yolo`, `/plan`, `/work` palette entries appear | none (no model call) |
+| `cases/01-fly-work-resumes.test.sh` | `work` skill against a pre-seeded session: `progress.json` lands, validates, mode is `plan` | ~1-3 min, real API |
+| `cases/02-fly-plan-creates-spec.test.sh` | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~5-15 min, real API |
+| `cases/03-pipeline-end-to-end.test.sh` | `/yolo` runs the whole pipeline in one shot: plan → work → review → fix-findings. Asserts every phase's artifacts. No autopilot. | ~25-45 min, real API |
 
 ## Layout
 

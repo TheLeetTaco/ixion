@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
-# Integration: full Flywheel pipeline driven through one tmux session.
+# Integration: full Flywheel pipeline driven by /yolo in a single shot.
 #
-#   /fly:plan   -> plan-creation -> plan-review -> plan-consolidation
-#   /fly:work   -> work-implementation (plan mode)
-#   /fly:review -> work-review
-#   /fly:work   -> work-implementation (fix-findings mode)
+# /yolo is the autonomous orchestrator. It chains:
+#   plan-creation -> plan-review -> plan-consolidation
+#                 -> work (plan mode) -> work-review
+#                 -> work (fix-findings mode)
 #
-# All four commands run against the SAME claude session, the SAME
-# sandbox directory, and the SAME flywheel session id. Each step's
-# completion signal is an artifact on disk:
+# without any AskUserQuestion calls. Auto-resolves open questions during
+# consolidation using the recommendation. Stops after one fix-cycle.
 #
-#   plan        -> spec.json AND spec.json.pre-consolidation present,
-#                  review.findings.json absent (was consumed by consolidation)
-#   work plan   -> progress.json with mode=plan, status=completed
-#   work-review -> review.findings.json present (validates against schema)
-#   work fix    -> progress.json.plan-mode archive present, fresh
-#                  progress.json with mode=fix-findings (any status)
+# Pass criteria (all artifact-based, observed in flow order):
+#   1. spec.json appears                              — plan-creation done
+#   2. spec.json.pre-consolidation appears AND
+#      review.findings.json absent                    — consolidation done
+#   3. progress.json mode=plan, status=completed      — work plan-mode done
+#   4. notes.py, app.py, tests/test_notes.py present  — implementation landed
+#   5. review.findings.json reappears                 — work-review done
+#   6. progress.json mode=fix-findings                — work fix-findings started
+#
+# No autopilot. /yolo's contract is "no AskUserQuestion calls." If a child
+# skill triggers a prompt anyway, this test deadlocks — and that's the
+# point. The deadlock surfaces the bug instead of being papered over.
 #
 # Real Anthropic API calls. The full pipeline against a trivial spec
 # typically takes 20-40 minutes. Plan accordingly.
@@ -31,7 +36,7 @@ SCHEMAS="$REPO_ROOT/flywheel/schemas"
 
 pass=0
 fail=0
-SESSION="flywheel-int-pipeline"
+SESSION="flywheel-int-yolo"
 SBOX=""
 
 dump_pane() {
@@ -49,7 +54,7 @@ trap cleanup EXIT
 AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
 
 # ---- Sandbox setup ---------------------------------------------------------
-SBOX=$(make_sandbox "pipeline")
+SBOX=$(make_sandbox "yolo")
 
 # No seed. The plan creates a small Python notes API from scratch — file
 # I/O + HTTP handler + tests. Big enough to surface several review
@@ -73,14 +78,18 @@ if tmux_capture "$SESSION" | grep -q "Quick safety check"; then
 fi
 note_pass "claude TUI started"
 
-# ---- Step 1: /fly:plan -----------------------------------------------------
-# Single, terse prompt avoids open-questions in plan-review which would
-# block plan-consolidation on AskUserQuestion.
-PLAN_PROMPT="Build a small Python notes API with two source files and tests. notes.py is the storage layer (save_note, list_notes, read_note) writing .txt files in a data/ folder relative to cwd. app.py uses stdlib http.server on port 8000 with POST /notes (body JSON {name, content}, returns 201), GET /notes (returns JSON list of names), and GET /notes/{name} (returns JSON {content} or 404). tests/test_notes.py with unittest covers the storage layer happy paths. Stdlib only — no pip install."
-tmux_send_line "$SESSION" "/fly:plan $PLAN_PROMPT"
+# ---- Single /yolo invocation drives everything ----------------------------
+# Single, terse prompt. The "stdlib only" hint is deliberate: it surfaces
+# during plan-review as an open question (pytest vs unittest). /yolo's
+# auto-resolve rule should pick the recommended option ("stdlib only —
+# tests too"), and plan-consolidation Phase 4 should propagate that
+# decision INTO the spec's verification commands.
+PROMPT="Build a small Python notes API with two source files and tests. notes.py is the storage layer (save_note, list_notes, read_note) writing .txt files in a data/ folder relative to cwd. app.py uses stdlib http.server on port 8000 with POST /notes (body JSON {name, content}, returns 201), GET /notes (returns JSON list of names), and GET /notes/{name} (returns JSON {content} or 404). tests/test_notes.py with unittest covers the storage layer happy paths. Stdlib only — no pip install."
+tmux_send_line "$SESSION" "/yolo $PROMPT"
 
+# ---- Milestone 1: plan-creation produces a session ------------------------
 # active.json appears once plan-creation has chosen a session id.
-if ! wait_for_file_with_autopilot "$SESSION" "$ACTIVE" 600; then
+if ! wait_for_file "$ACTIVE" 600; then
   note_fail "active.json never appeared (plan-creation stalled)"
   dump_pane; finalize
 fi
@@ -92,39 +101,26 @@ fi
 SDIR="$SESSIONS_DIR/$SESSION_ID"
 note_pass "plan-creation: session_id=$SESSION_ID"
 
-# Consolidation produces TWO observable transitions, in order:
-#   - Phase 2: spec.json.pre-consolidation sidecar appears (early)
-#   - Phase 6: review.findings.json is deleted (consumed) AND spec.json
-#             is rewritten
-# The TRUE end-of-pipeline signal is: pre-consolidation sidecar present
-# AND review.findings.json absent. Sidecar alone is not enough — using
-# it as the gate caused the test to fire /fly:work and /fly:review while
-# consolidation was still surfacing P3 questions. Now we wait for the
-# combined predicate.
-#
-# Auto-pilot is critical here: plan-consolidation surfaces P3 findings
-# and open questions one-at-a-time via AskUserQuestion. Without Enter
-# being driven on each prompt the pipeline deadlocks.
+# ---- Milestone 2: consolidation completes ---------------------------------
+# Two observable transitions, in order:
+#   - Phase 1: spec.json.pre-consolidation sidecar appears
+#   - Phase 6: review.findings.json deleted (consumed) AND spec.json rewritten
+# True end-of-consolidation signal: sidecar present AND findings absent.
 i=0
-last_fire=0
 consolidated=false
-while [ "$i" -lt 1800 ]; do
+while [ "$i" -lt 1500 ]; do
   if [ -f "$SDIR/spec.json.pre-consolidation" ] && [ ! -f "$SDIR/review.findings.json" ]; then
     consolidated=true
     break
   fi
-  now=$(date +%s)
-  if [ $((now - last_fire)) -ge "$AUTOPILOT_COOLDOWN" ]; then
-    if autopilot_respond "$SESSION"; then last_fire="$now"; fi
-  fi
-  sleep 2
-  i=$((i + 2))
+  sleep 5
+  i=$((i + 5))
 done
 
 if [ "$consolidated" = "true" ]; then
   note_pass "plan-consolidation completed: sidecar present, findings consumed"
 else
-  note_fail "plan-consolidation did not complete (pre-consolidation=$(test -f "$SDIR/spec.json.pre-consolidation" && echo yes || echo no), findings=$(test -f "$SDIR/review.findings.json" && echo present || echo absent))"
+  note_fail "plan-consolidation did not complete in 25min (pre-consolidation=$(test -f "$SDIR/spec.json.pre-consolidation" && echo yes || echo no), findings=$(test -f "$SDIR/review.findings.json" && echo present || echo absent))"
   dump_pane; finalize
 fi
 
@@ -140,14 +136,13 @@ else
 fi
 
 # Decision-propagation assertion: plan-review surfaces an open question
-# about whether 'stdlib only' applies to tests (pytest vs unittest). The
-# autopilot picks the recommended answer ("Stdlib only — tests too").
-# Plan-consolidation Phase 4.5 must propagate that decision INTO the
-# spec — verification commands and task descriptions should reflect
-# unittest, NOT pytest. If pytest still appears in verification commands
-# after consolidation, the decision evaporated into conversation history
-# and the implementer will produce wrong output (this happened in a
-# prior run).
+# about whether 'stdlib only' applies to tests (pytest vs unittest). /yolo's
+# auto-resolve rule picks the recommended answer ("stdlib only — tests too").
+# Plan-consolidation Phase 4 must propagate that decision INTO the spec —
+# verification commands and task descriptions should reflect unittest, NOT
+# pytest. If pytest still appears in verification commands after consolidation,
+# the decision evaporated into conversation history and the implementer will
+# produce wrong output.
 verifications=$(jq -r '.phases[].verification' "$SDIR/spec.json" 2>/dev/null)
 if echo "$verifications" | grep -qi "pytest"; then
   note_fail "consolidated spec verification uses pytest — 'stdlib only' decision not propagated into spec"
@@ -163,43 +158,30 @@ else
   echo "----- end -----"
 fi
 
-# ---- Step 2: /fly:work (plan mode) -----------------------------------------
-tmux_send_line "$SESSION" "/fly:work"
-
-# work-implementation writes progress.json early (Phase 1 init), then
-# transitions through pending -> in_progress -> completed as chunks land.
-if ! wait_for_file_with_autopilot "$SESSION" "$SDIR/progress.json" 300; then
-  note_fail "/fly:work did not create progress.json within 5min"
-  dump_pane; finalize
-fi
-note_pass "/fly:work: progress.json created"
-
-# Wait for status=completed. For a 1-task spec this should land within
-# 10-15 minutes. Drive any AskUserQuestion prompts that appear.
+# ---- Milestone 3: work plan-mode completes --------------------------------
+# /yolo flows directly into work after consolidation. Wait for status=completed
+# AND mode=plan.
 i=0
-last_fire=0
+plan_done=false
 while [ "$i" -lt 1500 ]; do
-  status=$(jq -r '.status // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
-  if [ "$status" = "completed" ]; then break; fi
-  now=$(date +%s)
-  if [ $((now - last_fire)) -ge "$AUTOPILOT_COOLDOWN" ]; then
-    if autopilot_respond "$SESSION"; then last_fire="$now"; fi
+  if [ -f "$SDIR/progress.json" ]; then
+    status=$(jq -r '.status // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
+    mode=$(jq -r '.mode // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
+    if [ "$status" = "completed" ] && [ "$mode" = "plan" ]; then
+      plan_done=true
+      break
+    fi
   fi
-  sleep 2
-  i=$((i + 2))
+  sleep 5
+  i=$((i + 5))
 done
-if [ "$(jq -r .status "$SDIR/progress.json")" = "completed" ]; then
-  note_pass "/fly:work: progress.json status=completed"
-else
-  note_fail "/fly:work did not reach status=completed"
-  echo "----- progress.json -----"; cat "$SDIR/progress.json"; echo "----- end -----"
-  dump_pane; finalize
-fi
 
-if [ "$(jq -r .mode "$SDIR/progress.json")" = "plan" ]; then
-  note_pass "/fly:work: mode=plan"
+if [ "$plan_done" = "true" ]; then
+  note_pass "/yolo work plan-mode: status=completed, mode=plan"
 else
-  note_fail "expected mode=plan, got $(jq -r .mode "$SDIR/progress.json")"
+  note_fail "/yolo did not finish work plan-mode within 25min"
+  echo "----- progress.json -----"; cat "$SDIR/progress.json" 2>/dev/null; echo "----- end -----"
+  dump_pane; finalize
 fi
 
 # Implementation should have created the notes API. The plan enumerates
@@ -221,24 +203,32 @@ else
   note_fail "tests/test_notes.py was NOT created"
 fi
 
-# ---- Step 3: /fly:review ---------------------------------------------------
-# Snapshot the plan-mode progress so we can detect the archive later.
-PLAN_PROGRESS_BEFORE_REVIEW=$(jq -c . "$SDIR/progress.json")
+# ---- Milestone 4: work-review writes findings -----------------------------
+# /yolo proceeds to work-review automatically. Wait for review.findings.json
+# to reappear (it was consumed earlier by plan-consolidation; this is the
+# work-review output, not the plan-review output).
+i=0
+review_done=false
+while [ "$i" -lt 1500 ]; do
+  if [ -f "$SDIR/review.findings.json" ]; then
+    review_done=true
+    break
+  fi
+  sleep 5
+  i=$((i + 5))
+done
 
-tmux_send_line "$SESSION" "/fly:review"
-
-# work-review writes review.findings.json once all reviewers have
-# returned and the synthesizer has merged.
-if ! wait_for_file_with_autopilot "$SESSION" "$SDIR/review.findings.json" 1500; then
-  note_fail "/fly:review did not produce review.findings.json within 25min"
+if [ "$review_done" = "true" ]; then
+  note_pass "/yolo work-review: review.findings.json produced"
+else
+  note_fail "/yolo did not produce work-review findings within 25min"
   dump_pane; finalize
 fi
-note_pass "/fly:review: review.findings.json produced"
 
 if "${AJV[@]}" validate -s "$SCHEMAS/findings.schema.json" -d "$SDIR/review.findings.json" >/dev/null 2>&1; then
-  note_pass "review.findings.json validates"
+  note_pass "work-review findings validate"
 else
-  note_fail "review.findings.json failed schema validation"
+  note_fail "work-review findings failed schema validation"
   echo "----- validation error -----"
   "${AJV[@]}" validate -s "$SCHEMAS/findings.schema.json" -d "$SDIR/review.findings.json" 2>&1 | head -20
   echo "----- file content -----"
@@ -247,46 +237,35 @@ else
 fi
 
 FINDING_COUNT=$(jq '.findings | length' "$SDIR/review.findings.json" 2>/dev/null || echo 0)
-echo "INFO: review surfaced $FINDING_COUNT findings"
+echo "INFO: work-review surfaced $FINDING_COUNT findings"
 
-# ---- Step 4: /fly:work (fix-findings mode) --------------------------------
-# work-implementation should detect that progress.json has mode=plan,
-# status=completed AND review.findings.json exists -> archive the old
-# progress to progress.json.plan-mode and start fresh fix-findings.
-tmux_send_line "$SESSION" "/fly:work"
-
-# The real signal that work-implementation transitioned into fix-findings
-# mode is progress.json.mode == "fix-findings". The SKILL.md documents
-# an atomic rename to progress.json.plan-mode before the fresh init, but
-# models sometimes skip that step while still producing the correct
-# fresh state — we accept both. The archive file presence is observed
-# and reported but is NOT a pass/fail gate.
+# ---- Milestone 5: work transitions to fix-findings mode -------------------
+# /yolo's last step is the fix-cycle: invoke work again, which auto-detects
+# fix-findings mode (progress.json.mode=plan, status=completed,
+# review.findings.json present). The transition rewrites progress.json
+# to mode=fix-findings and (canonically) archives the plan-mode progress
+# to progress.json.plan-mode.
 i=0
-last_fire=0
 transitioned=false
 while [ "$i" -lt 1200 ]; do
   if [ -f "$SDIR/progress.json" ]; then
     mode=$(jq -r '.mode // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
     if [ "$mode" = "fix-findings" ]; then transitioned=true; break; fi
   fi
-  now=$(date +%s)
-  if [ $((now - last_fire)) -ge "$AUTOPILOT_COOLDOWN" ]; then
-    if autopilot_respond "$SESSION"; then last_fire="$now"; fi
-  fi
-  sleep 2
-  i=$((i + 2))
+  sleep 5
+  i=$((i + 5))
 done
 
 if [ "$transitioned" = "true" ]; then
-  note_pass "/fly:work: progress.json transitioned to mode=fix-findings"
+  note_pass "/yolo work fix-findings: progress.json transitioned to mode=fix-findings"
 else
-  note_fail "progress.json.mode never became fix-findings"
+  note_fail "progress.json.mode never became fix-findings within 20min"
   echo "----- progress.json -----"; cat "$SDIR/progress.json" 2>/dev/null; echo "----- end -----"
   dump_pane; finalize
 fi
 
 if [ -f "$SDIR/progress.json.plan-mode" ]; then
-  note_pass "plan-mode progress was archived (proper transition path)"
+  note_pass "plan-mode progress was archived (canonical transition path)"
 else
   echo "INFO: progress.json.plan-mode absent — model transitioned without archiving plan-mode history"
 fi

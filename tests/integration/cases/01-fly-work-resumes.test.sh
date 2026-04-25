@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Integration: /fly:work resumes a pre-seeded session.
+# Integration: /work resumes a pre-seeded session.
 #
 # Pre-seeds the sandbox with a tiny but valid spec.json + session.json +
-# active.json. Spawns claude with the local plugin, sends `/fly:work`,
-# and waits for progress.json to appear in the session dir.
+# active.json. Spawns claude with the local plugin, sends `/work`, and
+# waits for progress.json to appear in the session dir.
 #
 # Pass criteria:
-#   - work-implementation skill writes progress.json (mode: plan).
-#   - session.json gets active_skill stamped to work-implementation.
+#   - work skill writes progress.json (mode: plan).
+#   - session.json gets active_skill stamped to work.
 #
 # This test invokes a real skill against the real model, so it makes
 # Anthropic API calls. Plan on ~1-3 minutes.
@@ -23,7 +23,7 @@ SCHEMAS="$REPO_ROOT/flywheel/schemas"
 
 pass=0
 fail=0
-SESSION="flywheel-int-fly-work"
+SESSION="flywheel-int-work"
 SBOX=""
 
 cleanup() {
@@ -32,7 +32,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-SBOX=$(make_sandbox "fly-work")
+SBOX=$(make_sandbox "work")
 SESSION_ID="smoketask-2026-04-24"
 SDIR="$SBOX/.flywheel/plugin/sessions/$SESSION_ID"
 mkdir -p "$SDIR"
@@ -40,11 +40,11 @@ mkdir -p "$SBOX/.flywheel/plugin"
 
 # Seed: a trivial valid spec. No actual code changes will succeed since the
 # files referenced do not exist in the sandbox; that's fine — we only need
-# work-implementation to reach the point where it writes progress.json.
+# the work skill to reach the point where it writes progress.json.
 cat > "$SDIR/spec.json" <<'EOF'
 {
   "schema_version": 1,
-  "summary": "Pre-seeded fixture used by the /fly:work integration test. The plan describes a single trivial phase that prints 'hello' to stdout. The point of the fixture is to give work-implementation enough valid input to bootstrap its progress.json — the spec content itself is never executed end-to-end during the test.",
+  "summary": "Pre-seeded fixture used by the /work integration test. The plan describes a single trivial phase that prints 'hello' to stdout. The point of the fixture is to give the work skill enough valid input to bootstrap its progress.json — the spec content itself is never executed end-to-end during the test.",
   "context": { "key_files": ["hello.sh"], "patterns": [], "gotchas": [] },
   "phases": [
     {
@@ -111,9 +111,9 @@ if tmux_capture "$SESSION" | grep -q "Quick safety check"; then
 fi
 
 # Drive: ask the skill to run against the active session.
-tmux_send_line "$SESSION" "/fly:work"
+tmux_send_line "$SESSION" "/work"
 
-# work-implementation Phase 1 writes progress.json atomically. Wait up to
+# The work skill's Phase 1 writes progress.json atomically. Wait up to
 # 4 minutes — the skill loads the spec, may dispatch a probe subagent, then
 # checkpoints. Real-world this should hit the file within ~60-120s.
 if wait_for_file "$SDIR/progress.json" 240; then

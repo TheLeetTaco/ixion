@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# Integration: /fly:plan creates a session with a valid spec.json.
+# Integration: /plan creates a session with a valid spec.json.
 #
 # Spawns claude in tmux against an empty sandbox (no pre-existing session),
-# sends `/fly:plan <trivial feature>`, and waits for plan-creation to write
+# sends `/plan <trivial feature>`, and waits for plan-creation to write
 # spec.json + session.json + active.json into a fresh session dir.
 #
-# This is the most expensive case — plan-creation does codebase research
-# and may dispatch locator/analyzer subagents, then plan-review fires
-# every reviewer agent in parallel, then plan-consolidation refines.
-# We wait only for the plan-creation step (spec.json + active.json) to
-# avoid paying for the full pipeline; if plan-review/consolidation also
-# complete inside the timeout, we cross-check those outputs too.
+# /plan is an orchestrator that runs plan-creation, plan-review, and
+# plan-consolidation in sequence. We wait only for the plan-creation
+# step (spec.json + active.json) to avoid paying for the full pipeline;
+# if plan-review/consolidation also complete inside the timeout, we
+# cross-check those outputs too.
 #
 # Real Anthropic API calls. Plan on 3-10 minutes per run.
 
@@ -25,7 +24,7 @@ SCHEMAS="$REPO_ROOT/flywheel/schemas"
 
 pass=0
 fail=0
-SESSION="flywheel-int-fly-plan"
+SESSION="flywheel-int-plan"
 SBOX=""
 
 cleanup() {
@@ -34,7 +33,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-SBOX=$(make_sandbox "fly-plan")
+SBOX=$(make_sandbox "plan")
 
 # Seed a target file so the planner has something concrete to plan against.
 # Without a real codebase the model tends to refuse or stall.
@@ -59,7 +58,7 @@ fi
 # Drive: ask plan-creation to plan a trivial change to hello.sh.
 # Avoid apostrophes in the prompt — tmux send-keys can mangle them and
 # leave the input box stuck without ever submitting Enter.
-tmux_send_line "$SESSION" "/fly:plan Update hello.sh to print hello world instead of hi"
+tmux_send_line "$SESSION" "/plan Update hello.sh to print hello world instead of hi"
 
 ACTIVE="$SBOX/.flywheel/plugin/active.json"
 SESSIONS_DIR="$SBOX/.flywheel/plugin/sessions"
