@@ -235,7 +235,7 @@ Print the spec's `summary` field + next-steps hint.
 | Option | Action |
 |--------|--------|
 | Run review (Recommended) | Invoke `skill: plan-review` |
-| Proceed to work | Invoke `skill: work-implementation` |
+| Proceed to work | Invoke `skill: work` |
 | Done for now | Display path and exit |
 
 ---

@@ -38,7 +38,7 @@ Note: `active_skill: null` because plan-creation sets the field only while runni
 
 ---
 
-## At work-implementation Start (Phase 1 exit)
+## At work Start (Phase 1 exit)
 
 After Phase 1 initializes progress.json:
 
@@ -50,14 +50,14 @@ After Phase 1 initializes progress.json:
   "status": "active",
   "started_at": "2026-04-23T12:00:00Z",
   "last_checkpoint_at": "2026-04-23T12:05:00Z",
-  "active_skill": "work-implementation"
+  "active_skill": "work"
 }
 ```
 
 Changes from initial form:
 
 - `last_checkpoint_at`: timestamp of Phase 1 completion.
-- `active_skill`: `"work-implementation"` while the skill is executing.
+- `active_skill`: `"work"` while the skill is executing.
 
 ---
 
@@ -73,7 +73,7 @@ Each chunk completion updates `last_checkpoint_at`. Other fields stay stable:
   "status": "active",
   "started_at": "2026-04-23T12:00:00Z",
   "last_checkpoint_at": "2026-04-23T12:35:00Z",
-  "active_skill": "work-implementation"
+  "active_skill": "work"
 }
 ```
 
@@ -105,7 +105,7 @@ The trap ensures cleanup runs even on script crashes. `session.status` stays `"a
 
 ## Session Completion
 
-When work-implementation finishes a full, successful run **and** the user chooses to ship (via `/fly:ship`), `/fly:ship` sets `session.status = "completed"`. work-implementation itself does **not** mark the session completed — that's ship's job. work-implementation's exit simply clears `active_skill`.
+When work finishes a full, successful run **and** the user chooses to ship (via `/ship`), `/ship` sets `session.status = "completed"`. work itself does **not** mark the session completed — that's ship's job. work's exit simply clears `active_skill`.
 
 ---
 
@@ -138,16 +138,16 @@ The `mv` is atomic on local POSIX filesystems. `.tmp` is scratch; stranded `.tmp
 
 ## Resume Detection
 
-When `/fly:work` is called with no arguments:
+When `/work` is called with no arguments:
 
 1. Read `.flywheel/plugin/active.json`.
 2. Load `session.json` from the active session.
-3. If `active_skill == "work-implementation"` is already set, another instance may be running — warn the user (do not auto-switch; ask to confirm).
-4. Otherwise, set `active_skill = "work-implementation"` and enter Phase 1 resume path (see `load-resume-procedures.md`).
+3. If `active_skill == "work"` is already set, another instance may be running — warn the user (do not auto-switch; ask to confirm).
+4. Otherwise, set `active_skill = "work"` and enter Phase 1 resume path (see `load-resume-procedures.md`).
 
 ### "Carry On" Shorthand
 
-"carry on", "continue", "resume" — all route through the same Phase 0 procedure as bare `/fly:work`:
+"carry on", "continue", "resume" — all route through the same Phase 0 procedure as bare `/work`:
 
 1. Read active.json.
 2. Resolve session dir (with stale-pointer rescue if needed).
@@ -158,7 +158,7 @@ When `/fly:work` is called with no arguments:
 ## Common Mistakes
 
 - **Forgetting to clear `active_skill` on exit** — a lingering value makes the next invocation think another instance is running. Always use the trap-based cleanup pattern.
-- **Setting `status: "completed"` in work-implementation** — that belongs to ship. work-implementation only manipulates `active_skill` and `last_checkpoint_at`.
+- **Setting `status: "completed"` in work** — that belongs to ship. work only manipulates `active_skill` and `last_checkpoint_at`.
 - **Writing session.json directly (not through `.tmp`)** — use the atomic write pattern.
 
 ---

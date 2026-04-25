@@ -1,6 +1,6 @@
 # Research Workflow
 
-Canonical locate → consolidate → analyze flow used by every research caller (`plan-creation`, `codebase-research`, `brainstorm`). Every caller runs all three phases. Caller-specific synthesis (how analyzer outputs map to the caller's downstream artifact) lives in each caller's own reference file.
+Canonical locate → consolidate → analyze flow used by every research caller (`plan-creation`, `research`, `brainstorm`). Every caller runs all three phases. Caller-specific synthesis (how analyzer outputs map to the caller's downstream artifact) lives in each caller's own reference file.
 
 All locators and analyzers run in **documentarian mode** — document what exists, do not suggest changes. Substitute `<topic>` with the caller's input (feature description, research question, brainstorm idea).
 

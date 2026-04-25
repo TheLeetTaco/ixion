@@ -1,7 +1,12 @@
 ---
-name: fly:plan
-description: Full planning workflow - create (with integrated validation), review, and consolidate. Orchestrates three independent skills.
+name: plan
+description: Full planning workflow — create (with integrated validation), review, and consolidate. Orchestrates plan-creation, plan-review, and plan-consolidation. Triggers on "/plan", "create plan", "plan for".
 argument-hint: "[feature description OR path to *-design.md OR slug of existing session]"
+allowed-tools:
+  - Read
+  - Bash
+  - Skill
+  - AskUserQuestion
 ---
 
 # Full Planning Workflow
@@ -35,7 +40,7 @@ skill: plan-review
 
 **DO NOT WRITE OR EDIT ANY CODE DURING PLANNING!**
 
-This workflow is for research and planning only. Implementation happens in `/fly:work`.
+This workflow is for research and planning only. Implementation happens in `/work`.
 
 ---
 
@@ -87,10 +92,10 @@ Display summary: session id, session dir path, phases completed, findings count,
 
 ## Examples
 
-- `/fly:plan Add user authentication with OAuth2` — Full mode (all 3 phases, creates a new session)
-- `/fly:plan docs/plans/oauth2-design.md` — Design mode (creation uses design doc as input, creates a new session)
-- `/fly:plan feat-user-auth` — Review mode if a session slug `feat-user-auth-*` already exists (skips creation, starts at review)
+- `/plan Add user authentication with OAuth2` — Full mode (all 3 phases, creates a new session)
+- `/plan .flywheel/plugin/designs/oauth2-design.md` — Design mode (creation uses design doc as input, creates a new session)
+- `/plan feat-user-auth` — Review mode if a session slug `feat-user-auth-*` already exists (skips creation, starts at review)
 
 ---
 
-After consolidation, the session dir contains: `spec.json` (refined with findings integrated), `spec.json.pre-consolidation` (backup of the pre-refinement spec), and `session.json`. The `review.findings.json` is consumed and removed. Ready for `/fly:work`.
+After consolidation, the session dir contains: `spec.json` (refined with findings integrated), `spec.json.pre-consolidation` (backup of the pre-refinement spec), and `session.json`. The `review.findings.json` is consumed and removed. Ready for `/work`.

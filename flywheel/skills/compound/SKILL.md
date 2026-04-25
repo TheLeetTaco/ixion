@@ -32,7 +32,7 @@ Document solved problems to build searchable institutional knowledge.
 
 **Auto-invoke after:** "that worked", "it's fixed", "working now", "problem solved"
 
-**OR manual:** `/fly:compound` command
+**OR manual:** `/compound` command
 
 **Non-trivial problems only:**
 - Multiple investigation attempts needed

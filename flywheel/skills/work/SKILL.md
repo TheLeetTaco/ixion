@@ -1,5 +1,5 @@
 ---
-name: work-implementation
+name: work
 description: Execute spec.json (plan mode) or review.findings.json (fix-findings mode) by dispatching subagents per chunk. Triggers on "work on", "implement", "execute plan", "carry on", "continue".
 allowed-tools:
   - Read
@@ -37,7 +37,7 @@ Read `references/session-detection.md`.
 
 Decision tree:
 
-1. **No args, active.json missing** → error: `"No active session. Run /fly:plan or /fly:work <slug>."` Exit.
+1. **No args, active.json missing** → error: `"No active session. Run /plan or /work <slug>."` Exit.
 2. **No args, active.json points to missing session dir** → error: `"Session <id> not found. Clearing active pointer."` Clear active.json. Exit.
 3. **No args, active.json present** → use it.
 4. **Slug arg** → prefix-scan; tiebreak by lexical-desc sort (ISO-date semantics); update active.json to winner.
@@ -56,7 +56,7 @@ Procedure:
    - `progress.json` exists with `mode: "fix-findings"` → resume fix-findings.
    - `progress.json` exists with `mode: "plan"` AND `status: "completed"` AND `review.findings.json` exists → start fresh fix-findings (archive old `progress.json` to `progress.json.plan-mode`).
    - `progress.json` exists with `mode: "plan"` → resume plan mode.
-   - `progress.json` missing AND `review.findings.json` exists AND `spec.json` exists → error: `"Run /fly:plan-consolidation to merge review findings before starting work."`
+   - `progress.json` missing AND `review.findings.json` exists AND `spec.json` exists → error: `"Run /plan-consolidation to merge review findings before starting work."`
    - `progress.json` missing AND `spec.json` exists → start fresh plan mode.
    - else → error: `"No spec.json or review.findings.json in session."`
 
@@ -76,7 +76,7 @@ Procedure:
 
    Atomic write (`.tmp` → `mv`).
 
-3. **Session update**: `active_skill = "work-implementation"`, `last_checkpoint_at = <now>`. Atomic write.
+3. **Session update**: `active_skill = "work"`, `last_checkpoint_at = <now>`. Atomic write.
 
 4. **Skill-exit trap** to clear `active_skill`:
 
@@ -264,8 +264,8 @@ This check uses the same evidence discipline as `references/verification-gates.m
 All chunks complete and verified.
 
 What's next?
-1. Review the work — /fly:review (recommended for substantive changes)
-2. Ship it — /fly:ship (commit, PR, compound learnings)
+1. Review the work — /work-review (recommended for substantive changes)
+2. Ship it — /ship (commit, PR, compound learnings)
 ```
 
 After the user's choice:

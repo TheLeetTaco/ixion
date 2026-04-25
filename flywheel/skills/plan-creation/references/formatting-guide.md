@@ -30,7 +30,7 @@ Conventions for the session directory plan-creation writes.
   session.json                 # plan-creation writes; status/active_skill metadata
   spec.json.pre-consolidation  # plan-consolidation writes before refinement
   review.findings.json         # plan-review and work-review write here (consumed by next skill)
-  progress.json                # work-implementation checkpoint state
+  progress.json                # work checkpoint state
 ```
 
 The `plugin/` infix exists so plugin sessions coexist with TUI sessions (`.flywheel/sessions/`) in the same repo without collision.

@@ -4,7 +4,7 @@
 
 If the user clears context mid-execution (or the orchestrator compacts):
 
-1. User says "carry on" or runs `/fly:work` with no arguments.
+1. User says "carry on" or runs `/work` with no arguments.
 2. Phase 0 resolves the active session via `.flywheel/plugin/active.json` (see `session-detection.md` for the full procedure).
 3. Phase 1 reads `progress.json` from the session directory.
 4. Resume entry point: the first chunk whose ID is not in `progress.completed[]`.
@@ -38,7 +38,7 @@ Follow the **3-Strike Error Protocol** from `flywheel-conventions`:
 - **Test failures**: Fix before checkpointing (3-Strike applies). Never append a chunk ID to `completed[]` with failing tests.
 - **Missing files**: Warn during probe; clarify with the user before dispatch.
 - **Schema version mismatch** (spec.json, review.findings.json, progress.json with unsupported `schema_version`): Halt with the literal message `"Unsupported schema version <N>. Re-run the producing skill to regenerate."`
-- **Stale active.json** (pointer refers to a deleted session): clear the pointer per the Phase 0 rescue procedure; exit asking the user to provide a slug or run `/fly:plan`.
+- **Stale active.json** (pointer refers to a deleted session): clear the pointer per the Phase 0 rescue procedure; exit asking the user to provide a slug or run `/plan`.
 
 ## Skill Exit Protocol
 

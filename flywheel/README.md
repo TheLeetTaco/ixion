@@ -15,14 +15,14 @@ AI agents struggle with large codebases because context windows fill with search
 
 This keeps context utilization in the 40-60% range where models perform best.
 
-**Session Recovery:** If you need to clear context mid-work, just run `/fly:work` (Claude Code) or `/fly/work` (OpenCode) with no arguments. The session file remembers where you left off.
+**Session Recovery:** If you need to clear context mid-work, just run `/work` with no arguments. The session file remembers where you left off.
 
 ### Knowledge walks out the door
 
 When an agent solves a problem, the solution lives in chat history and disappears. Flywheel captures lessons so they persist:
 
-- **`/fly:compound`** (Claude Code) or **`/fly/compound`** (OpenCode) - Document solutions while context is fresh
-- **`/fly:ship`** - Automatically compounds learnings when opening a PR, so knowledge capture is built into the shipping flow
+- **`/compound`** - Document solutions while context is fresh
+- **`/ship`** - Automatically compounds learnings when opening a PR, so knowledge capture is built into the shipping flow
 - **`docs/solutions/`** - Searchable knowledge base with YAML frontmatter
 - **Automatic discovery** - Planning skills surface relevant past solutions
 
@@ -76,8 +76,7 @@ Both installers will prompt you to configure the Context7 MCP server (optional, 
 | Component | Count |
 |-----------|-------|
 | Agents | 15 |
-| Commands | 8 |
-| Skills | 13 |
+| Skills | 15 |
 
 ## Agents
 
@@ -117,48 +116,32 @@ Understand HOW things work by reading files. Use sonnet model. Documentarian mod
 | `analyzer-web` | WebFetch, Read | Fetch and analyze web content deeply |
 | `analyzer-git-history` | Bash, Read, Grep, Glob | Analyze git history for code evolution and development insights |
 
-## Commands
-
-### Workflow Commands
-
-Core workflow commands use `fly:` prefix in Claude Code and `fly/` prefix in OpenCode:
-
-| Command (Claude Code) | Command (OpenCode) | Description |
-|-----------------------|-------------------|-------------|
-| `/fly:brainstorm` | `/fly/brainstorm` | Conversational exploration of ideas. One question at a time, explores 2-3 approaches, validates design incrementally. |
-| `/fly:research` | `/fly/research` | Comprehensive codebase research using locate→analyze pattern. Creates persistent research documents. |
-| `/fly:plan` | `/fly/plan` | Create or refine implementation plans with research persistence. Handles design docs, feature descriptions, or existing plans. |
-| `/fly:work` | `/fly/work` | Execute work plans efficiently. Loads context files, follows patterns, tests continuously. |
-| `/fly:review` | `/fly/review` | Perform exhaustive code reviews using multi-agent analysis. Creates todo files for findings. |
-| `/fly:compound` | `/fly/compound` | Document solved problems using parallel subagents. Captures solutions while context is fresh. |
-| `/fly:debug` | `/fly/debug` | Iterative debug loop: gather problem, investigate, fix-verify cycle. |
-| `/fly:ship` | `/fly/ship` | Create branch, commit, push, open a PR, and compound learnings from the session. |
-
-**Core Workflow:**
-```
-/fly:plan → /fly:work → /fly:ship
-```
-
-Brainstorm and research are optional entry points. Review can be added before shipping. Ship automatically compounds learnings.
-
-(In OpenCode, replace `:` with `/` in all commands.)
-
 ## Skills
+
+Every flywheel capability is a skill. Skills are user-invocable as `/<skill-name>` in both Claude Code and OpenCode.
 
 ### Workflow Skills
 
 | Skill | Description |
 |-------|-------------|
-| `brainstorm` | Conversational exploration of ideas before planning |
-| `codebase-research` | Comprehensive research using locate→analyze pattern |
-| `plan-creation` | Research codebase, validate claims, and draft plans in a single pass |
-| `plan-review` | Critique from multiple reviewer perspectives (architecture, perf, data integrity, etc.) |
-| `plan-consolidation` | Resolve open questions with user; create actionable checklists |
-| `work-implementation` | Execute plans following patterns, testing continuously |
-| `work-review` | Multi-agent code reviews with todo file creation |
-| `compound` | Capture solved problems as categorized documentation |
-| `debug` | Iterative debug loop with verification after each fix attempt |
-| `ship` | Branch creation, commit, push, PR creation, and compound learnings |
+| `/plan` | **Orchestrator** — runs plan-creation → plan-review → plan-consolidation in sequence |
+| `/brainstorm` | Conversational exploration of ideas before planning |
+| `/research` | Comprehensive codebase research using locate→analyze pattern |
+| `/plan-creation` | Research codebase, validate claims, emit a work-ready spec.json |
+| `/plan-review` | Critique a plan from multiple reviewer perspectives (architecture, perf, data integrity, elegance, etc.) |
+| `/plan-consolidation` | Resolve open questions with the user; merge findings into the spec |
+| `/work` | Execute the active session's plan or review findings |
+| `/work-review` | Multi-agent code review on PRs, branches, or current changes |
+| `/compound` | Capture solved problems as categorized documentation |
+| `/debug` | Iterative debug loop with verification after each fix attempt |
+| `/ship` | Branch creation, commit, push, PR creation, and compound learnings |
+
+**Core Workflow:**
+```
+/plan → /work → /ship
+```
+
+`/brainstorm` and `/research` are optional entry points. `/work-review` can be added before shipping. `/ship` automatically compounds learnings.
 
 ### Domain-Specific Skills
 
@@ -195,7 +178,7 @@ While Flywheel provides the same functionality on both clients, there are a few 
 | Aspect | Claude Code | OpenCode |
 |--------|------------|----------|
 | Distribution | Plugin marketplace or local install | `install_opencode.py` script |
-| Command syntax | `/fly:command` | `/fly/command` |
+| Command syntax | `/skill-name` | `/skill-name` |
 | Config location | `~/.claude/plugins/cache/...` | `~/.config/opencode/` |
 | Auto-update | Marketplace toggle | Re-run install script |
 | Context7 MCP | Bundled in plugin or configured via installer | Configured via installer into `opencode.json` |

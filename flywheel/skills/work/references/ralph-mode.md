@@ -43,7 +43,7 @@ Options:
 
 ### 3. If User Clears
 
-New instance runs `/fly:work` with no args:
+New instance runs `/work` with no args:
 
 1. Phase 0 resolves session via `active.json`.
 2. Phase 1 reads `progress.json`, skips init (progress already exists).

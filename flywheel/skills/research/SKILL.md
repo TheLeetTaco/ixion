@@ -1,5 +1,5 @@
 ---
-name: codebase-research
+name: research
 description: "Conduct comprehensive codebase research producing a persistent document. Use when you need to understand something BEFORE planning, or for pure exploration. Triggers on \"research\", \"investigate\", \"explore codebase\"."
 user-invocable: true
 allowed-tools:
@@ -73,7 +73,7 @@ The canonical analyzers' flags fold into a "Concerns & Open Questions" section:
 - `EXISTING_SOLUTION`, `DRY_VIOLATION`, `PATTERN_CONFLICT`, `INTEGRATION_RISK` → "Concerns" subsection with file:line citations.
 - `OPEN_QUESTION`, `CLAIM_INVALID`, `VERSION_ISSUE` → "Open Questions" subsection.
 
-These are documentarian observations (not recommendations) so they belong in the persisted research even though codebase-research doesn't act on them — downstream consumers (plan-creation, brainstorm) read the doc and act.
+These are documentarian observations (not recommendations) so they belong in the persisted research even though research doesn't act on them — downstream consumers (plan-creation, brainstorm) read the doc and act.
 
 Write to `docs/research/YYYY-MM-DD-<topic-slug>.md`. Optionally git-commit the research document.
 

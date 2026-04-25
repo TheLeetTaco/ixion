@@ -11,7 +11,7 @@ Mode detection, fresh-start initialization, resume invariants. Read before Phase
 
 ## Mode Detection
 
-If the user passed an explicit findings-path argument (`/fly:work <path-to-review.findings.json>`), force fresh fix-findings mode regardless of prior session state. Archive any pre-existing `progress.json` first. This is the override path for "I want to fix the review now, skipping consolidation."
+If the user passed an explicit findings-path argument (`/work <path-to-review.findings.json>`), force fresh fix-findings mode regardless of prior session state. Archive any pre-existing `progress.json` first. This is the override path for "I want to fix the review now, skipping consolidation."
 
 Otherwise, use session contents:
 
@@ -43,7 +43,7 @@ elif [ -f "$PROGRESS" ]; then
     INIT_MODE=resume   # Resume whatever mode is current.
   fi
 elif [ -f "$FINDINGS" ] && [ -f "$SPEC" ]; then
-  echo "Error: review.findings.json exists but spec.json was not consolidated. Run /fly:plan-consolidation, OR re-invoke /fly:work with the findings path explicitly to fix-findings directly." >&2
+  echo "Error: review.findings.json exists but spec.json was not consolidated. Run /plan-consolidation, OR re-invoke /work with the findings path explicitly to fix-findings directly." >&2
   exit 1
 elif [ -f "$SPEC" ]; then
   INIT_MODE=plan
@@ -88,7 +88,7 @@ If `progress.json` exists with `status != "completed"`:
 
 1. Read `progress.json`. The `completed[]` list is the source of truth.
 2. The next chunk to dispatch is the first one whose ID is not in `completed[]`.
-3. Update `session.json.last_checkpoint_at` to now; `active_skill = "work-implementation"`.
+3. Update `session.json.last_checkpoint_at` to now; `active_skill = "work"`.
 
 No hash check. No baseline read. No per-phase strikes ledger.
 

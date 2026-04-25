@@ -27,7 +27,7 @@ Plan identifier via `$ARGUMENTS`. If empty, the skill reads the active session p
 If `.flywheel/plugin/active.json` does not exist, error with:
 
 ```
-No active session. Run /fly:plan first.
+No active session. Run /plan first.
 ```
 
 ---
@@ -185,18 +185,18 @@ Top findings:
 
 Findings written to: .flywheel/plugin/sessions/<session_id>/review.findings.json
 
-Next step: /fly:plan-consolidation
+Next step: /plan-consolidation
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
 
-No markdown write to `docs/plans/`. The durable artifact is `review.findings.json` in the session dir.
+No markdown write outside the session dir. The durable artifact is `review.findings.json` in the session dir.
 
 ---
 
 ## Error Handling
 
-- **Active session missing**: error with "No active session. Run /fly:plan first."
+- **Active session missing**: error with "No active session. Run /plan first."
 - **Reviewer timeout**: treat as incomplete output → synthetic P1 against that reviewer.
 - **Reviewer returns empty or unparseable prose**: synthetic P1 against that reviewer.
 - **50% of reviewers fail**: surface in chat summary but still write findings.json with whatever did parse.
@@ -209,7 +209,7 @@ No markdown write to `docs/plans/`. The durable artifact is `review.findings.jso
 - **Silently drop wrong-tier locations** — surface the violation as a P1
 - **Fail the whole synthesis when one reviewer is malformed** — continue with remaining reviewers
 - **Ask reviewers to emit JSON** — they emit prose; the synthesizer structures
-- **Write to docs/plans/** — the markdown append was removed in the rigor-gradient refactor
+- **Write review summaries as markdown anywhere** — the markdown append was removed in the rigor-gradient refactor; `review.findings.json` in the session dir is the durable artifact
 - **Resolve disagreements by picking winners** — the user decides; surface conflicts as distinct findings
 
 ---

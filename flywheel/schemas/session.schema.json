@@ -15,7 +15,7 @@
     "last_checkpoint_at": { "type": ["string", "null"], "format": "date-time" },
     "active_skill": {
       "oneOf": [
-        { "enum": ["plan-creation", "plan-review", "plan-consolidation", "work-implementation", "work-review"] },
+        { "enum": ["plan-creation", "plan-review", "plan-consolidation", "work", "work-review"] },
         { "type": "null" }
       ]
     }

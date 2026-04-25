@@ -30,7 +30,7 @@ The review target is provided via `$ARGUMENTS`. Can be:
 The **active session** is resolved via `.flywheel/plugin/active.json`. If that file is missing, error with:
 
 ```
-No active session. Run /fly:plan first.
+No active session. Run /plan first.
 ```
 
 ---
@@ -280,12 +280,12 @@ The "Top findings" list shows 3-5 highest-severity finding titles, ordered by se
 
 ```
 What's next?
-1. Implement review findings (invoke /fly:work on the review file)
-2. Ship as-is (skip to /fly:ship)
+1. Implement review findings (invoke /work on the review file)
+2. Ship as-is (skip to /ship)
 ```
 
-- Option 1: invoke the `work-implementation` skill with the `review.findings.json` path as input.
-- Option 2: proceed directly to `/fly:ship`.
+- Option 1: invoke the `work` skill with the `review.findings.json` path as input.
+- Option 2: proceed directly to `/ship`.
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
 
@@ -296,13 +296,13 @@ What's next?
 - **P1 findings block merge.** Present them prominently in the chat summary.
 - **Run reviewers in parallel.** Single message, multiple Task calls.
 - **BLOCKING: Always persist the review.** Write `review.findings.json` before presenting the summary. The JSON is the single durable artifact that survives context clears.
-- **Prompt for implementation.** After presenting findings, offer to invoke `work-implementation` on the review file.
+- **Prompt for implementation.** After presenting findings, offer to invoke `work` on the review file.
 
 ---
 
 ## Error Handling
 
-- **Active session missing**: error with "No active session. Run /fly:plan first."
+- **Active session missing**: error with "No active session. Run /plan first."
 - **Reviewer failures**: emit synthetic P1 against that reviewer, continue with others. Minimum 50% reviewer success before proceeding.
 - **Git/GitHub failures**: if PR not found, verify number. If branch inaccessible, suggest worktree. If gh CLI not authenticated, surface setup instructions.
 - **File write failure**: retry once with the `.tmp` pattern; if still failing, include full findings in the chat summary rather than losing them.

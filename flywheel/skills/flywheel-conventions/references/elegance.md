@@ -3,7 +3,7 @@
 Two outputs, one source of truth:
 
 - **Anti-Pattern Catalog** — named violations used by reviewers and plan-consolidation. Plan-consolidation routes "structural failure" findings by the names below — when a finding's Failure paragraph leads with one of them (or a Universal Principle), consolidation re-shapes the affected phase rather than patching the task description.
-- **Elegance Dispatch Bar** — the contract pasted verbatim into every work-implementation subagent dispatch. The orchestrator reads the bar from this file and pastes it into the dispatch text; subagents receive it inline.
+- **Elegance Dispatch Bar** — the contract pasted verbatim into every work subagent dispatch. The orchestrator reads the bar from this file and pastes it into the dispatch text; subagents receive it inline.
 
 Both encode the same principle: every line must do important work. The catalog names what failure looks like; the bar tells the implementer how to avoid it.
 
@@ -62,7 +62,7 @@ Both encode the same principle: every line must do important work. The catalog n
 
 ## Elegance Dispatch Bar
 
-The orchestrator pastes the section below verbatim into every work-implementation dispatch. The dispatched subagent treats this as the binding contract.
+The orchestrator pastes the section below verbatim into every work dispatch. The dispatched subagent treats this as the binding contract.
 
 ### Maximize elegance, not minimal churn
 

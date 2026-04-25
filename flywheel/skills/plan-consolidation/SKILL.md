@@ -133,7 +133,7 @@ Present each P3 via AskUserQuestion with three options:
 
 1. Validate the refined spec against `flywheel/schemas/task-list.schema.json`.
 2. Atomic write `.flywheel/plugin/sessions/<id>/spec.json` (`.tmp` → `mv`).
-3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/fly:work` that no unhandled review remains.
+3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/work` that no unhandled review remains.
    ```bash
    rm .flywheel/plugin/sessions/<id>/review.findings.json
    ```
@@ -144,7 +144,7 @@ Present each P3 via AskUserQuestion with three options:
    Deferred: N
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
-   - Start `/fly:work` (Recommended)
+   - Start `/work` (Recommended)
    - Done for now
 
 ---

@@ -107,7 +107,7 @@ Please verify manually: <from phase.manual_verification>
 Handle:
 - **Continue**: proceed to next chunk.
 - **Continue all**: set a session-scoped flag to skip future manual pauses this run.
-- **Stop here**: stop the loop and wait for the user. Resume picks up from the same chunk on next `/fly:work`.
+- **Stop here**: stop the loop and wait for the user. Resume picks up from the same chunk on next `/work`.
 
 ## `commands_run` Accuracy
 

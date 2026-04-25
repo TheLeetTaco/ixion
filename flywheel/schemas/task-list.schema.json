@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "flywheel/schemas/task-list.schema.json",
   "title": "Task list (spec.json)",
-  "description": "Plan output consumed by work-implementation. Tasks live inside phases for grouping; no behavioral contracts, no fulfills claims, no origin metadata.",
+  "description": "Plan output consumed by work. Tasks live inside phases for grouping; no behavioral contracts, no fulfills claims, no origin metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "summary", "context", "phases", "success_criteria"],

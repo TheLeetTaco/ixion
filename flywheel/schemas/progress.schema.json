@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "flywheel/schemas/progress.schema.json",
   "title": "Work progress (progress.json)",
-  "description": "Runtime state for work-implementation. Single completion list per mode. Atomic writes via progress.json.tmp -> mv.",
+  "description": "Runtime state for work. Single completion list per mode. Atomic writes via progress.json.tmp -> mv.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "mode", "status", "completed", "in_progress", "artifacts"],

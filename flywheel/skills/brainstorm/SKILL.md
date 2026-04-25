@@ -129,7 +129,7 @@ Present design in **small chunks (200-300 words each)**.
 
 Read `references/design-document-template.md` before proceeding -- contains the full document template, approach format, and validation sections.
 
-Write to `docs/plans/<topic>-design.md`. Include ALL explored approaches (not just selected), validated sections, selection rationale, and open questions.
+Write to `.flywheel/plugin/designs/<topic>-design.md` (run `mkdir -p .flywheel/plugin/designs` first). Include ALL explored approaches (not just selected), validated sections, selection rationale, and open questions.
 
 ---
 
@@ -145,7 +145,7 @@ If user has feedback on the design: confirm understanding of changes, research i
 
 Read `references/design-document-template.md` before proceeding -- contains the handoff presentation format and AskUserQuestion options.
 
-When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/fly:plan`, `/fly:work`, continue exploring, or save for later.
+When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/plan`, `/work`, continue exploring, or save for later.
 
 ---
 

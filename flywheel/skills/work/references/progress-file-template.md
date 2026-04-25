@@ -144,7 +144,7 @@ Fabricating exit codes or stdout violates the discipline that `verification` is 
 
 ## Recovery Process
 
-If orchestrator compacts mid-execution (or user runs `/fly:work` with no args):
+If orchestrator compacts mid-execution (or user runs `/work` with no args):
 
 1. Phase 0 resolves `SESSION_DIR` via `active.json`.
 2. Phase 1 reads `progress.json`.
