@@ -77,18 +77,27 @@ Return findings as natural-language prose (see your Output Format). Use code-sco
 Do NOT write to any files. The synthesizer owns all file writes.
 ```
 
-Dispatch to all six reviewers:
+### Reviewer set selection (cost vs. coverage)
 
-- reviewer-architecture
-- reviewer-code-quality
-- reviewer-patterns
-- reviewer-performance
-- reviewer-data-integrity
-- reviewer-elegance
+Determine the diff size before dispatching:
+
+```bash
+git diff <base>...HEAD --shortstat
+# Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
+```
+
+Choose the set:
+
+- **Default — all six** for changes ≥50 lines, refactors, new features, or anything the user flagged as design-impacting.
+- **Slim — four (architecture, code-quality, patterns, data-integrity)** for hotfix-sized changes <50 lines that aren't refactors. Skip `reviewer-elegance` (highest value at design time, lower-leverage on tiny code patches) and `reviewer-performance` (rarely fires for small diffs).
+
+When in doubt, run the default set. The slim set exists only to cut latency on small changes — coverage matters more than speed for design-impacting work.
+
+Dispatch the chosen reviewers in parallel.
 
 ### Conditional reviewers
 
-Still dispatch reviewer-data-integrity for every review. If the change contains migration files (`**/migrations/**`, `alembic/`, `prisma/migrations/`), the reviewer will naturally emphasize migration-safety findings.
+Always include reviewer-data-integrity. If the change contains migration files (`**/migrations/**`, `alembic/`, `prisma/migrations/`), it will naturally emphasize migration-safety findings.
 
 ---
 
@@ -276,8 +285,3 @@ What's next?
 - Don't write markdown review docs to `docs/reviews/` — removed in the rigor-gradient refactor
 - Don't end without prompting the user to implement findings
 
----
-
-## Checklists
-
-See `checklists/` for domain-specific review checklists (loaded on demand).

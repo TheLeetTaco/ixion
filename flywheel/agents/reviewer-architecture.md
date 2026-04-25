@@ -68,7 +68,7 @@ Return findings as natural-language prose. The orchestrating skill parses your o
 For each finding, provide all of:
 
 - **Title** — a short scannable phrase (no period).
-- **Severity** — `P1` (blocks merge), `P2` (should fix), or `P3` (nice-to-have).
+- **Severity** — `P1`, `P2`, or `P3`. See `flywheel-conventions` Severity definitions.
 - **Location** — format provided by the invoker. Code review: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Plan review: `<phase_id>` or `<phase_id>/<task_id>`.
 - **Failure** — a paragraph covering intent (what should happen), observation (what's wrong), and reasoning (why this matters). See `flywheel-conventions` "Lead with the Failure" for the structure.
 - **Fix** — a concrete proposed change. The implementer treats this as a hypothesis, so be specific without over-prescribing.

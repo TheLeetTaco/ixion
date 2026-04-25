@@ -121,6 +121,40 @@ Quick check of the chunk's files. Flag missing files; warn if any single file >5
 
 **BLOCKING: every chunk runs inside a Task subagent.** Main agent does probe → dispatch → checkpoint, never Edit/Write on source files.
 
+#### Shared Elegance Bar (paste verbatim into every dispatch)
+
+Both dispatch templates below paste this block under `## Elegance bar (NON-NEGOTIABLE)` in the prompt. Maintaining it in one place keeps plan-mode and fix-findings aligned.
+
+```
+Maximize elegance over minimizing churn. Pick the more elegant design even if it means a larger refactor.
+- Every line you add must do important work. If you can't name what concretely breaks when a line is removed, delete it.
+- Single source of truth — read from existing state, don't duplicate.
+- Use the language/framework's idiomatic primitive before reaching for a wrapper.
+- Wrappers and helpers must add capability, not move code around. No shallow wrappers, no forwarding chains.
+- No speculative code, no defensive checks for impossible cases, no backward-compat shims for nonexistent consumers.
+- Prefer deletion to modification. The best fix is often less code, not more.
+
+### Counter-examples (the shapes we reject)
+
+BAD: `export const getUser = (id) => userService.findById(id);` — shallow wrapper.
+GOOD: callers use `userService.findById(id)` directly.
+
+BAD: `try { return parseDate(x); } catch { return null; }` — swallows the failure.
+GOOD: throw a typed error so the caller routes to retry.
+
+BAD: `if (config?.options?.advanced?.timeout) { ... }` — speculative depth on always-present config.
+GOOD: `timeout` is required; remove the optional chain.
+
+### Reporting requirements (BLOCKING)
+
+- `simplifications_made[]` MUST contain at least one entry. If you genuinely deleted or consolidated nothing, the entry must read "No simplifications warranted because <concrete reason>" — not "phase was small," not "everything was needed."
+- Diff self-check before claiming done. Re-read your diff end-to-end and answer with concrete evidence:
+  1. Is there any line whose removal would NOT change behavior? Name one or confirm none exists.
+  2. Is the same value stored in two places? Name where or confirm one source of truth.
+  3. Is there a check guarding a case that cannot occur in this codebase? Name one or confirm none.
+  If you can't answer with evidence, you didn't actually re-read the diff.
+```
+
 **Plan mode dispatch:**
 
 ```
@@ -140,19 +174,16 @@ Execute phase <id>: <phase.goal>
 - Already completed: <progress.completed>
 
 ## Elegance bar (NON-NEGOTIABLE)
-Maximize elegance over minimizing churn. Pick the more elegant design even if it means a larger refactor.
-- Every line you add must do important work. If you can't name what concretely breaks when a line is removed, delete it.
-- Single source of truth — read from existing state, don't duplicate.
-- Use the language/framework's idiomatic primitive before reaching for a wrapper. Search the codebase first.
-- Wrappers and helpers must add capability, not move code around. No shallow wrappers, no forwarding chains.
-- No speculative code, no defensive checks for impossible cases, no backward-compat shims for nonexistent consumers.
-- Follow existing patterns; deviate when the existing pattern is itself inelegant — note it in your report.
+[INSERT THE ENTIRE "#### Shared Elegance Bar" SECTION FROM SKILL.md HERE — verbatim, including the bullet list, the "### Counter-examples" subsection, and the "### Reporting requirements (BLOCKING)" subsection. Copy the literal text into the dispatch; do NOT summarize, paraphrase, or leave this bracketed instruction in place of the content.]
+
+Plan-mode addendum:
+- Search the codebase for an existing helper before adding new utility code.
+- Follow existing patterns; deviate when the existing pattern is itself inelegant — note the deviation in your report.
 
 ## Constraints
-- TDD per task (RED → GREEN → REFACTOR). REFACTOR is mandatory: after green, re-read each touched file and ask 'would a reader ask why any line is here?' If yes, simplify or delete. Skip TDD only for pure refactor, docs, or config-only changes.
-- Before claiming a task done, confirm every added line has a concrete purpose. Anything that doesn't, delete.
+- TDD per task (RED → GREEN → REFACTOR). REFACTOR is mandatory. Skip TDD only for pure refactor, docs, or config-only changes.
 - Record commands run with literal command + actual exit_code.
-- Report: outcomes, files_modified[], commands_run[], simplifications_made[] (places you deleted or consolidated instead of adding).
+- Report: outcomes, files_modified[], commands_run[], simplifications_made[] (per shared block).
 "
 ```
 
@@ -176,20 +207,14 @@ These findings are clustered because they likely share a structural cause. Diagn
 3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
 
 ## Elegance bar (NON-NEGOTIABLE)
-Maximize elegance over minimizing churn. If the cleaner shape requires touching files outside the findings list, take it — note the drift in your report.
-- Every line you keep must do important work; every line you add too.
-- Prefer deletion to modification. The best fix is often less code, not more.
+[INSERT THE ENTIRE "#### Shared Elegance Bar" SECTION FROM SKILL.md HERE — verbatim, including the bullet list, the "### Counter-examples" subsection, and the "### Reporting requirements (BLOCKING)" subsection. Copy the literal text into the dispatch; do NOT summarize, paraphrase, or leave this bracketed instruction in place of the content.]
 
-## Holistic re-read (mandatory before claiming done)
-After applying changes, re-read each touched file end-to-end. Ask:
-- Is the result simpler than what I started with?
-- Does any line in this diff lack a concrete purpose?
-- Would a reader ask 'why is this here?' about anything I added?
-If the diff is longer or more complex than the pre-fix code, you patched instead of refactored. Redo as a refactor.
+Fix-findings addendum:
+- If the cleaner shape requires touching files outside the findings list, take it — note the drift in your report.
 
 ## Constraints
 - Run tests after the change set; capture exit_code.
-- Report: which finding IDs were addressed, files_modified[], commands_run[], structural_change (one-sentence summary of what shape change resolved the theme).
+- Report: which finding IDs were addressed, files_modified[], commands_run[], simplifications_made[] (per shared block), structural_change (one-sentence summary of what shape change resolved the theme).
 "
 ```
 
@@ -197,7 +222,7 @@ If the diff is longer or more complex than the pre-fix code, you patched instead
 
 ### 2.2a TDD Cycle
 
-Read `flywheel-conventions/references/tdd-cycle.md` for RED/GREEN/REFACTOR. Skip TDD for pure refactoring, config-only, or docs changes.
+Skip TDD only for pure refactoring, config-only, or docs changes. Otherwise the dispatch prompt above is the contract: RED (write a failing test) → GREEN (minimum code to pass) → REFACTOR (re-read, simplify, delete).
 
 ### 2.3 Checkpoint (Atomic Write)
 
@@ -274,4 +299,3 @@ Read `references/recovery-and-errors.md`.
 - `references/verification-gates.md` — Verification protocol
 - `references/recovery-and-errors.md` — Resume flow, 3-Strike protocol
 - `references/ralph-mode.md` — Stateless agent loop triggers, checkpoint format
-- `flywheel-conventions/references/tdd-cycle.md` — RED/GREEN/REFACTOR; skip conditions

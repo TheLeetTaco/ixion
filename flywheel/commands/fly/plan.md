@@ -52,8 +52,8 @@ This orchestrator runs three skills in sequence. After each skill completes, imm
 After plan-creation, the session dir at `.flywheel/plugin/sessions/<session-id>/` contains the spec.json and session.json that subsequent skills read. The active pointer `.flywheel/plugin/active.json` is the connecting glue — no explicit path-passing between phases.
 
 1. **plan-creation** → writes `spec.json`, `session.json` into the session dir; updates `active.json`
-2. **plan-review** → reads the active session's spec.json, writes `findings.json`
-3. **plan-consolidation** → merges `findings.json` into `spec.json`; backs up pre-consolidation spec to `spec.json.pre-consolidation`
+2. **plan-review** → reads the active session's spec.json, writes `review.findings.json`
+3. **plan-consolidation** → merges `review.findings.json` into `spec.json`; backs up pre-consolidation spec to `spec.json.pre-consolidation`
 
 If the input was a slug that resolved to an existing session (review mode), start at step 2.
 

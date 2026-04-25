@@ -8,7 +8,7 @@ argument-hint: "[PR number, GitHub URL, branch name, session slug, or empty for 
 
 **MANDATORY FIRST ACTION — You MUST route to the correct skill BEFORE doing anything else. Do NOT read files, search code, or respond to the user first.**
 
-`/fly:review` is a dispatcher — it has no skill of its own. It routes to either `plan-review` (when the target is a spec that hasn't been executed yet) or `work-review` (when the target is executed code). The routing helper is authored in `flywheel/skills/work-implementation/references/session-detection.md` under "**/fly:review Routing Heuristic (D9)**" and validated by `tests/work/routing.test.sh`.
+`/fly:review` is a dispatcher — it has no skill of its own. It routes to either `plan-review` (when the target is a spec that hasn't been executed yet) or `work-review` (when the target is executed code). The routing helper is authored in `flywheel/skills/work-implementation/references/session-detection.md` under "**/fly:review Routing Heuristic (D9)**".
 
 <review_target> #$ARGUMENTS </review_target>
 

@@ -78,7 +78,7 @@ This is a **shared helper** authored here per D9 and referenced by `flywheel/com
 | `$ARGUMENTS` empty AND session has `spec.json` but no `progress.json` | `plan-review` (spec not yet executed) |
 | `$ARGUMENTS` empty AND neither file present | error "No spec to review. Run /fly:plan first." |
 
-### Procedure (pseudocode matching `tests/work/routing.test.sh`)
+### Procedure
 
 ```bash
 route_review() {

@@ -5,7 +5,7 @@
   "description": "Runtime state for work-implementation. Single completion list per mode. Atomic writes via progress.json.tmp -> mv.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "mode", "completed", "in_progress", "artifacts"],
+  "required": ["schema_version", "mode", "status", "completed", "in_progress", "artifacts"],
   "properties": {
     "schema_version": { "const": 1 },
     "mode": { "enum": ["plan", "fix-findings"] },

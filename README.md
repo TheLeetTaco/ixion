@@ -74,9 +74,9 @@ claude mcp add --header "CONTEXT7_API_KEY: your-key-here" \
 
 AI agents struggle with large codebases because context windows fill with search results, file contents, and tool outputs. Flywheel manages this through deliberate compaction at each phase:
 
-- **Research** produces compact `.context.md` files, not sprawling chat
-- **Plans** distill research into actionable checklists
-- **Subagents** get fresh context for tasks, return compact results
+- **Research** produces compact persistent docs, not sprawling chat
+- **Plans** distill research into actionable phases (`spec.json`)
+- **Subagents** get fresh context per chunk, return compact results
 - **Session files** enable recovery without re-reading everything
 
 This keeps context utilization low, which is where models perform best.

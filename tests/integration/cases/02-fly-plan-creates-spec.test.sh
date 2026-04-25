@@ -110,11 +110,12 @@ else
   echo "----- end -----"
 fi
 
-# plan_id should match the session-id naming pattern.
-if jq -re '.plan_id' "$SDIR/spec.json" 2>/dev/null | grep -E -q "^[a-z0-9-]+-2[0-9]{3}-[0-9]{2}-[0-9]{2}(-[0-9]+)?$"; then
-  note_pass "spec.plan_id has session-id shape"
+# summary should fall within the schema-enforced 100-5000 char range
+# (a quick smoke check beyond raw schema validation).
+if jq -re '(.summary | length) >= 100 and (.summary | length) <= 5000' "$SDIR/spec.json" >/dev/null 2>&1; then
+  note_pass "spec.summary length is within schema bounds"
 else
-  note_fail "spec.plan_id does not match expected pattern"
+  note_fail "spec.summary length is out of schema bounds"
 fi
 
 # session.json should also exist and validate.
