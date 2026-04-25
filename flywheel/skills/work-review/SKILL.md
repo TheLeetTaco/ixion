@@ -35,7 +35,7 @@ No active session. Run /fly:plan first.
 
 ---
 
-## Phase 1: Setup
+## Phase 0: Setup
 
 ### Determine review target
 
@@ -52,9 +52,21 @@ gh pr view <PR_NUM> --json title,body,files
 
 Ensure the code is ready for analysis before dispatching reviewers.
 
+### Discover project context
+
+Use Glob to find architectural docs once at the orchestrator level — reviewers consume the resulting paths instead of doing parallel discoveries:
+
+- `CLAUDE.md`
+- `agents.md`
+- `docs/architecture.md`
+- `docs/adrs/**/*.md`
+- `docs/coding-guidelines*.md`
+
+Collect the matching paths into `PROJECT_CONTEXT_PATHS`. Inline them in every reviewer dispatch under "PROJECT CONTEXT PATHS." If no docs match, pass `none` — reviewers skip discovery and apply universal principles only.
+
 ---
 
-## Phase 2: Dispatch Reviewer Agents
+## Phase 1: Dispatch Reviewer Agents
 
 Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST include:
 
@@ -68,16 +80,19 @@ Read the active session's `spec.json` and `progress.json` before composing the d
 **Standard reviewer prompt shape:**
 
 ```
-Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md` and the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`. The elegance lens applies to every domain — don't defer to reviewer-elegance.
+Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md`, the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`, and the project context paths listed below. The elegance lens applies to every domain — don't defer to reviewer-elegance.
 
 Required output discipline:
-1. Each Failure paragraph MUST begin with a named principle from the elegance reference (e.g., "Shallow Wrapper.", "Parallel State.", "God Class.", "Single Source of Truth.", "Working with the Grain.") OR a SOLID/DRY principle name. The synthesizer routes structural failures by this prefix; missing it forces patching when the right answer is redesign.
+1. Format each Failure as four slots: `**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.` Principle name = any well-known principle (elegance catalog, SOLID, DRY, language-specific anti-pattern, performance/data-integrity canonical name like "N+1 Query" or "Race Condition"). The synthesizer uses the leading name to route structural failures to redesign vs patch — keep it the first token.
 2. Each Fix MUST propose the elegant alternative concretely, not just flag the issue. The implementer treats your Fix as a hypothesis — be specific without over-prescribing.
 
 Review this change.
 
 CHANGE:
 [diff or PR content, or path the reviewer should Read]
+
+PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
+[list of paths from the Discover-project-context step in Phase 0, or "none" if no docs exist]
 
 PLAN CONTEXT (from spec.json — the planner's design rationale):
 - summary: <spec.summary>
@@ -120,11 +135,11 @@ Dispatch the chosen reviewers in parallel.
 
 ---
 
-## Phase 3: Synthesize Findings
+## Phase 2: Synthesize Findings
 
 The synthesizer reads each reviewer's prose output and structures it into `flywheel/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
 
-### 3.1 Read each reviewer's prose output
+### 2.1 Read each reviewer's prose output
 
 For each reviewer response:
 
@@ -144,7 +159,7 @@ Synthetic P1 shape (constructed by the synthesizer, in schema):
 }
 ```
 
-### 3.2 Validate location format
+### 2.2 Validate location format
 
 This is work-review context, so location must be code-scope (`<repo-relative-path>` or `<repo-relative-path>:<line>`). If a reviewer emitted a plan-scope location like `phase-2/t1`, that's a disambiguation failure. Construct a synthetic P1 against the reviewer:
 
@@ -160,16 +175,16 @@ This is work-review context, so location must be code-scope (`<repo-relative-pat
 
 Retain the original (mistargeted) finding alongside so the user can see what was flagged.
 
-### 3.3 Semantic dedup
+### 2.3 Semantic dedup
 
 Walk the findings and group those describing the same issue — reviewers may phrase a shared concern differently (e.g., "missing type hints on handlers" vs "handlers lack return annotations" — same problem). Group by meaning, not by string match.
 
 For each group:
 - Take max severity (P1 > P2 > P3). Severity is not promoted by corroboration; a P3 that three reviewers flagged is still a P3.
-- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning.
+- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning. Preserve the leading principle name from the four-slot format — do not paraphrase the first token.
 - Pick the strongest Fix or merge them into a single coherent proposal.
 
-### 3.3a Drift arbitration (files outside spec scope)
+### 2.3a Drift arbitration (files outside spec scope)
 
 When a reviewer finding targets a file that is NOT in `spec.phases[].files[]`, the synthesizer arbitrates before including it in the final output.
 
@@ -194,7 +209,7 @@ Creep signals:
 
 The synthesizer applies this judgment once at merge time.
 
-### 3.4 Triage P3 findings
+### 2.4 Triage P3 findings
 
 After dedup, present P3 findings to the user:
 
@@ -214,7 +229,7 @@ Keep only the P3s the user selects. Dropped P3s are omitted from `review.finding
 
 If there are no P3 findings, skip this step.
 
-### 3.5 Structure into schema and write
+### 2.5 Structure into schema and write
 
 Compose the final JSON, conforming to `flywheel/schemas/findings.schema.json`:
 
@@ -238,7 +253,7 @@ Write atomically: write to `review.findings.json.tmp` then rename.
 
 ---
 
-## Phase 4: Chat Summary & Next Steps
+## Phase 3: Summary & Next Steps
 
 Print a condensed summary:
 

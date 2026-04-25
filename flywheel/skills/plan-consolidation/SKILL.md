@@ -21,7 +21,7 @@ No arguments. Reads the active session from `.flywheel/plugin/active.json`.
 
 ---
 
-## Phase 1: Load Active Session
+## Phase 0: Load Active Session
 
 1. Read `.flywheel/plugin/active.json` to resolve `session_id`
 2. Compute session directory: `.flywheel/plugin/sessions/<session_id>/`
@@ -37,7 +37,7 @@ No arguments. Reads the active session from `.flywheel/plugin/active.json`.
 
 ---
 
-## Phase 2: Back Up to Sidecar (D7)
+## Phase 1: Back Up to Sidecar (D7)
 
 ```bash
 cp .flywheel/plugin/sessions/<id>/spec.json \
@@ -48,16 +48,16 @@ Cleaned on `ship`.
 
 ---
 
-## Phase 3: No-Op Check
+## Phase 2: No-Op Check
 
 If `review.findings.json` has zero findings and zero open questions:
 
 - Print: "No refinements needed — spec is already work-ready."
-- Skip to Phase 7 (next-steps prompt).
+- Skip to Phase 6 (next-steps prompt).
 
 ---
 
-## Phase 4: Surface Open Questions
+## Phase 3: Surface Open Questions
 
 Questions to surface:
 
@@ -82,7 +82,7 @@ Record: user picks option → decision logged; "You decide" → apply recommenda
 
 ---
 
-## Phase 4.5: Propagate Decisions Into the Spec
+## Phase 4: Propagate Decisions Into the Spec
 
 **BLOCKING: Each resolved decision MUST be reflected in the spec's content, not just remembered in the conversation.** The implementer dispatches against the refined `spec.json`; if a decision isn't IN the spec, it won't be honored — that's a consolidation failure, not an implementer failure.
 
@@ -129,7 +129,7 @@ Present each P3 via AskUserQuestion with three options:
 
 ---
 
-## Phase 6: Write Refined Spec and Prompt
+## Phase 6: Write Refined Spec & Hand Off
 
 1. Validate the refined spec against `flywheel/schemas/task-list.schema.json`.
 2. Atomic write `.flywheel/plugin/sessions/<id>/spec.json` (`.tmp` → `mv`).
@@ -163,5 +163,5 @@ Present each P3 via AskUserQuestion with three options:
 - **Skip open-question resolution** — Don't refine with unresolved questions
 - **Multiple questions at once** — One at a time
 - **BLOCKING: Auto-drop a P1** — P1s integrate; only the user may downgrade to follow-up
-- **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.gotchas[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4.5).
+- **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.gotchas[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4).
 - **Fold structural failures into existing tasks** — Replace the affected phase or task with the simpler shape, don't patch the original. Surface the `failure` into `context.gotchas[]`.

@@ -75,25 +75,27 @@ Suppress if:
 
 ## Finding Quality: Lead with the Failure
 
-The `failure` field is the implementer's primary input. It must contain everything needed to understand the full scope of the problem in one read. **Three components, typically a paragraph (2-4 sentences):**
+The `failure` field is the implementer's primary input. It must contain everything needed to understand the full scope of the problem in one read. **Four slots:**
 
-1. **Intent** — what the code or plan was trying to achieve.
-2. **Observation** — what's specifically wrong (the discrepancy from intent).
-3. **Reasoning** — why this discrepancy matters: consequences for users, the system, or design integrity.
+1. **Principle name** — any well-known principle. Pick from the elegance catalog (`references/elegance.md`), SOLID, DRY, language-specific anti-patterns, or domain-canonical names ("N+1 Query", "Race Condition", "Layering Violation", "Convention Drift"). The synthesizer routes structural failures by this leading token — keep it first, with a period.
+2. **Intent** — what the code or plan was trying to achieve.
+3. **Observation** — what's specifically wrong (the discrepancy from intent).
+4. **Reasoning** — why this discrepancy matters: consequences for users, the system, or design integrity.
 
-Failure is broad: an **observable failure** (something doesn't work for someone) OR a **principle violation** (a design rule like SRP, DRY, or Single Source of Truth is broken). Both are failures; both are reasons the code or plan needs to change.
+Format: `<Principle>. <Intent>. <Observation>. <Reasoning>.`
 
-**Strong (observable):**
-> "parseDate is supposed to accept the common date formats users actually submit. It only handles YYYY-MM-DD and returns null for DD/MM/YYYY. The caller at line 78 treats null as 'expired' and logs the user out, so DD/MM/YYYY input becomes a silent logout — wrong outcome and confusing UX."
+**Strong (observable failure, named):**
+> "Silent Logout. parseDate is supposed to accept the common date formats users actually submit. It only handles YYYY-MM-DD and returns null for DD/MM/YYYY; the caller at line 78 treats null as 'expired' and logs the user out. DD/MM/YYYY input becomes a silent logout — wrong outcome and confusing UX."
 
-**Strong (principle):**
-> "Violates SRP. AuthService should expose only orchestration concerns; it currently imports React components and renders login forms inline. Every UI tweak forces re-testing auth logic, and headless contexts can't use the service."
+**Strong (principle violation, named):**
+> "God Class. AuthService should expose only orchestration concerns. It currently imports React components and renders login forms inline. Every UI tweak forces re-testing auth logic, and headless contexts can't use the service."
 
-**Weak (either flavor)** — names absence or is too terse:
-- "parseDate doesn't validate input format." ← describes absence; no intent, no consequence.
-- "AuthService is doing too much." ← vague; no specific intent or violation named.
+**Weak — drops the leading principle or is too terse:**
+- "parseDate doesn't validate input format." ← no principle, no intent, no consequence.
+- "AuthService is doing too much." ← no principle, no specific intent.
+- "Violates SRP and the auth code is bloated and ..." ← buries the principle mid-sentence; the synthesizer can't route it.
 
-If you can write the failure in one sentence, you're probably missing the intent or the reasoning. If you cannot articulate intent + observation + reasoning, the finding is advisory — mark P3 or suppress.
+If you can't lead with a principle name, the finding is observational only — mark P3 or suppress.
 
 ---
 

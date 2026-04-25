@@ -43,7 +43,7 @@ find docs/research -name "*<topic-slug>*" -mtime -14 2>/dev/null | head -3
 If matches found, read the YAML frontmatter (`topic`, `tags`) to assess relevance. If a strong match exists:
 
 **AskUserQuestion:** "Found recent research: `[filename]` ([N] days old). Reuse, refresh, or start new?"
-- **Reuse (Recommended)** — Read existing doc, skip to Phase 4 (present)
+- **Reuse (Recommended)** — Read existing doc, skip to Phase 3 (summary)
 - **Refresh** — Use existing doc as starting point, re-run locate/analyze to update
 - **Start new** — Proceed normally
 
@@ -51,47 +51,37 @@ If no matches or no `docs/research/` directory, proceed to Phase 1.
 
 ---
 
-## Phase 1: Locate (Parallel, Cheap)
+## Phase 1: Research Workflow
 
-Spawn locator agents in parallel (haiku model) to find files, patterns, and docs related to the topic. Each returns paths/references only — no file contents. Spawn a locator-web for external library research and/or discovering best practices.
+Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel.
 
-Locators: `locator-codebase`, `locator-patterns`, `locator-docs`, `locator-web`.
-
-Read `references/locate-analyze-dispatch.md` before proceeding — it contains the full dispatch templates with parameters and constraints for all locators.
-
-**IMPORTANT**: Run all locators in parallel (single message, multiple Task calls). Wait for all to complete.
+Read `flywheel/skills/flywheel-conventions/references/research-workflow.md` before proceeding — it contains locator templates, the consolidation rule (top-N selection per analyzer), and analyzer templates.
 
 ---
 
-## Phase 1b: Synthesize Locator Results
+## Phase 2: Synthesize & Persist
 
-Deduplicate paths across locators, rank by relevance (multi-locator hits rank higher), and select the top findings for deep analysis. Skip analyzer phase if total findings < 10.
+Map the canonical analyzer outputs to research-doc sections:
 
-Read `references/locate-analyze-dispatch.md` before proceeding — the "Ranking & Selection" section specifies exact selection counts per analyzer.
+- **analyzer-codebase findings** → "Codebase Map" (file structure, components, interactions; file:line refs).
+- **analyzer-patterns findings** → "Patterns" (named patterns with code examples and locations).
+- **analyzer-docs findings** → "Decisions & Constraints" (extracted ADR / doc content).
+- **analyzer-web findings** → "External References" (URL citations with extracted content).
 
----
+The canonical analyzers' flags fold into a "Concerns & Open Questions" section:
 
-## Phase 2: Analyze (Targeted, Expensive)
+- `EXISTING_SOLUTION`, `DRY_VIOLATION`, `PATTERN_CONFLICT`, `INTEGRATION_RISK` → "Concerns" subsection with file:line citations.
+- `OPEN_QUESTION`, `CLAIM_INVALID`, `VERSION_ISSUE` → "Open Questions" subsection.
 
-Spawn analyzer agents (sonnet model) on TOP FINDINGS ONLY from Phase 1b. Each analyzer reads the actual files/URLs and extracts structured findings in documentarian mode.
+These are documentarian observations (not recommendations) so they belong in the persisted research even though codebase-research doesn't act on them — downstream consumers (plan-creation, brainstorm) read the doc and act.
 
-Analyzers: `analyzer-codebase`, `analyzer-patterns`, `analyzer-docs`, `analyzer-web`.
-
-Read `references/locate-analyze-dispatch.md` before proceeding — it contains the full dispatch templates with parameters and constraints for all analyzers.
-
-**IMPORTANT**: Run analyzers in parallel where possible. Wait for all to complete.
-
----
-
-## Phase 3: Synthesize & Persist
-
-Write findings to `docs/research/YYYY-MM-DD-<topic-slug>.md`. Optionally git-commit the research document.
+Write to `docs/research/YYYY-MM-DD-<topic-slug>.md`. Optionally git-commit the research document.
 
 Read `references/research-document-template.md` before proceeding — it contains the full output document format with YAML frontmatter, all required sections, and the git commit template.
 
 ---
 
-## Phase 4: Present & Offer Next Steps
+## Phase 3: Summary & Next Steps
 
 Display a summary to the user (not the full document). Offer three options: create a plan from the research, continue researching, or exit.
 
@@ -111,8 +101,8 @@ Read `references/research-document-template.md` before proceeding — the "Integ
 
 This skill is context-heavy. Monitor usage:
 
-- **After Phase 1**: If >30 locator results, consolidate before Phase 2
-- **After Phase 2**: Write findings immediately, don't hold in context
+- **Within Phase 1, after locators**: If >30 locator results, consolidate aggressively before dispatching analyzers
+- **After Phase 1 completes**: Write findings immediately in Phase 2; don't hold in context
 - **Always**: Prefer file:line references over quoting code
 
 ---

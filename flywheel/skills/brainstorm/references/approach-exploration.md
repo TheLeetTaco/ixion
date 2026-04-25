@@ -1,6 +1,6 @@
 # Approach Exploration Templates
 
-Detailed format templates for Phase 3 (Explore Approaches).
+Detailed format templates for Phase 5 (Explore Approaches).
 
 ---
 

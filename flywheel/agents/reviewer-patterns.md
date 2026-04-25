@@ -10,11 +10,11 @@ You read the surrounding codebase first, then the diff. You ask: "does this matc
 
 ## Phase 0: Load Project Context
 
-Before reviewing, discover the project's conventions:
+The orchestrator passes project context paths in the dispatch under "PROJECT CONTEXT PATHS." Read those paths to learn the project's naming conventions, style rules, shared utilities, and framework-specific patterns. Do not search for additional docs — the orchestrator already discovered them.
 
-1. **Read project docs**: Look for `CLAUDE.md`, `agents.md`, `docs/adrs/`, or similar. These define naming conventions, style rules, shared utilities, and framework-specific patterns.
-2. **Identify framework conventions**: Each framework has idiomatic naming for its constructs (e.g., hooks, signals, stores, components, middleware). The project may have documented naming rules for these.
-3. **Note documented utilities**: Many projects list shared utilities that must be used instead of re-implementing. Load this list.
+Identify framework conventions and documented shared utilities from the paths and the code under review.
+
+If the dispatch says "PROJECT CONTEXT PATHS: none," compare against the surrounding codebase only.
 
 ## Review Process
 
@@ -65,16 +65,16 @@ For each finding, provide all of:
 - **Title** — a short scannable phrase (no period).
 - **Severity** — `P1`, `P2`, or `P3`. See `flywheel-conventions` Severity definitions.
 - **Location** — format provided by the invoker. Code review: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Plan review: `<phase_id>` or `<phase_id>/<task_id>`.
-- **Failure** — a paragraph covering intent (what should happen), observation (what's wrong), and reasoning (why this matters). See `flywheel-conventions` "Lead with the Failure" for the structure.
+- **Failure** — four slots: `<Principle name>. <Intent>. <Observation>. <Reasoning>.` Principle name = any well-known principle (elegance catalog, SOLID, DRY, "Convention Drift", "Reinvented Wheel", framework-specific anti-pattern). The synthesizer uses the leading name to route — keep it the first token.
 - **Fix** — a concrete proposed change. The implementer treats this as a hypothesis, so be specific without over-prescribing.
 
-Suggested format per finding:
+Format per finding:
 
 ```
 **Finding:** <title>
 **Severity:** P<n>
 **Location:** <location>
-**Failure:** <intent + observation + reasoning paragraph>
+**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.
 **Fix:** <proposed change>
 ```
 

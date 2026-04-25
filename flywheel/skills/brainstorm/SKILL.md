@@ -54,7 +54,7 @@ Run locators in parallel (codebase, patterns, docs, web), then analyze top findi
 
 ---
 
-## Phase 1.5: Research Review -- CHECKPOINT
+## Phase 2: Research Review -- CHECKPOINT
 
 **HIGH LEVERAGE checkpoint. Bad research leads to bad design leads to thousands of bad lines of code.**
 
@@ -64,7 +64,7 @@ Present a concise research summary (scope, key files, patterns, concerns). AskUs
 
 ---
 
-## Phase 2: Understand the Idea
+## Phase 3: Understand the Idea
 
 Ask questions **one at a time** to refine the idea.
 
@@ -91,7 +91,7 @@ Confirm understanding of problem, audience, success criteria, and scope boundari
 
 ---
 
-## Phase 2.5: Surface Relevant Learnings
+## Phase 4: Surface Relevant Learnings
 
 Read `references/research-dispatch.md` before proceeding -- contains the past solutions lookup procedure and presentation format.
 
@@ -99,7 +99,7 @@ Check `docs/solutions/` for relevant past solutions. If matches found, present t
 
 ---
 
-## Phase 3: Explore Approaches -- CHECKPOINT
+## Phase 5: Explore Approaches -- CHECKPOINT
 
 **ALWAYS present 2-3 approaches** -- even for "obvious" solutions.
 
@@ -109,7 +109,7 @@ Use best practices research to inform approaches. Present each with summary, tra
 
 ---
 
-## Phase 4: Validate Design Incrementally -- CHECKPOINT (per section)
+## Phase 6: Validate Design Incrementally -- CHECKPOINT (per section)
 
 Present design in **small chunks (200-300 words each)**.
 
@@ -125,7 +125,7 @@ Present design in **small chunks (200-300 words each)**.
 
 ---
 
-## Phase 5: Create Design Document
+## Phase 7: Create Design Document
 
 Read `references/design-document-template.md` before proceeding -- contains the full document template, approach format, and validation sections.
 
@@ -133,7 +133,7 @@ Write to `docs/plans/<topic>-design.md`. Include ALL explored approaches (not ju
 
 ---
 
-## Phase 5b: Design Iteration (if needed)
+## Phase 8: Design Iteration (if needed)
 
 Read `references/design-iteration.md` before proceeding -- contains the 5-step iteration procedure (confirm, research, propose, apply, re-validate).
 

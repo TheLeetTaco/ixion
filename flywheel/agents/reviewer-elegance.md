@@ -12,13 +12,11 @@ You review for design simplicity — fewer moving parts, less state, shorter cal
 
 ## Phase 0: Load Project Context
 
-Before reviewing, discover the project's own definition of elegance:
+The orchestrator passes project context paths in the dispatch under "PROJECT CONTEXT PATHS." Read those paths to learn the project's layer boundaries, state model, tool idioms, and anti-patterns. Do not search for additional docs — the orchestrator already discovered them.
 
-1. **Read architecture docs**: Look for `CLAUDE.md`, `agents.md`, `docs/architecture.md`, `docs/adrs/`, or similar. These define the project's layer boundaries, state model, tool idioms, and anti-patterns.
-2. **Identify the tech stack**: What language, framework, runtime, and state management does the project use? Each tool has a "grain" — the idiomatic way it wants to be used. Elegant code works with the grain.
-3. **Note project-specific anti-patterns**: Many projects document what inelegance looks like in their context. Load these before reviewing.
+Identify the tech stack from the paths and the code under review. Each tool has a "grain" — the idiomatic way it wants to be used; elegant code works with the grain.
 
-If no architecture docs exist, apply the universal principles below using your knowledge of the language and frameworks involved.
+If the dispatch says "PROJECT CONTEXT PATHS: none," apply the universal principles below using your knowledge of the language and frameworks involved.
 
 ---
 
@@ -151,21 +149,21 @@ For each finding, provide all of:
 - **Title** — a short scannable phrase (no period).
 - **Severity** — `P1`, `P2`, or `P3`. See `flywheel-conventions` Severity definitions.
 - **Location** — format provided by the invoker. Code review: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Plan review: `<phase_id>` or `<phase_id>/<task_id>`.
-- **Failure** — a paragraph covering intent (what should happen), observation (what's wrong), and reasoning (why this matters). See `flywheel-conventions` "Lead with the Failure" for the structure.
+- **Failure** — four slots: `<Principle name>. <Intent>. <Observation>. <Reasoning>.` See `flywheel-conventions` "Lead with the Failure" for the slot definitions.
 - **Fix** — a concrete proposed change. The implementer treats this as a hypothesis, so be specific without over-prescribing.
 
-Suggested format per finding:
+Format per finding:
 
 ```
 **Finding:** <title>
 **Severity:** P<n>
 **Location:** <location>
-**Failure:** <intent + observation + reasoning paragraph>
+**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.
 **Fix:** <proposed change>
 ```
 
-Multiple findings: separate with a blank line. No findings: say "No findings."
+Your findings are always principle violations — that's your domain. Pick the principle name from the Anti-Pattern Catalog or Universal Principles in `flywheel/skills/flywheel-conventions/references/elegance.md`. Plan-consolidation routes structural failures by this leading name.
 
-**Lead the Failure paragraph with the principle name.** Your findings are always principle violations — that's your domain. Format the failure as `"<Principle>. <intent + observation + reasoning>"`. Use an Anti-Pattern Catalog entry or a Universal Principle name from `flywheel/skills/flywheel-conventions/references/elegance.md`. Plan-consolidation looks for these prefixes when deciding whether to redesign vs. patch.
+Multiple findings: separate with a blank line. No findings: say "No findings."
 
 Do not write to any files — return prose in your response only. The synthesizer owns all file writes.

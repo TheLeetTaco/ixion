@@ -6,15 +6,15 @@ Detailed thresholds and actions for managing long brainstorm sessions.
 
 ## Warning Signs
 
-- >3 research cycles in Phase 1.5
-- >5 questions in Phase 2
-- >3 design iteration cycles in Phase 5b
+- >3 research cycles in Phase 2 (Research Review)
+- >5 questions in Phase 3 (Understand the Idea)
+- >3 design iteration cycles in Phase 8 (Design Iteration)
 
 ## Compaction Actions
 
-- After Phase 1.5: Write research summary to context file
-- After Phase 3: Archive non-selected approaches to design doc
-- After each Phase 4 section: Reference design doc path, not content
+- After Phase 2 (Research Review): Write research summary to context file
+- After Phase 5 (Explore Approaches): Archive non-selected approaches to design doc
+- After each Phase 6 section: Reference design doc path, not content
 
 ## If Context >40%
 

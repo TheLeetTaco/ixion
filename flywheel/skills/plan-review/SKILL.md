@@ -32,11 +32,12 @@ No active session. Run /fly:plan first.
 
 ---
 
-## Phase 1: Resolve Target
+## Phase 0: Load Target & Project Context
 
 1. If `$ARGUMENTS` is non-empty, treat as a plan path.
 2. Otherwise: read `.flywheel/plugin/active.json`, extract `session_id`, load `.flywheel/plugin/sessions/<session_id>/spec.json`.
 3. The review target (plan content or spec content) is passed inline to the reviewers.
+4. Use Glob to find the project's architectural docs once at the orchestrator level — reviewers read the resulting paths instead of doing six parallel discoveries: `CLAUDE.md`, `agents.md`, `docs/architecture.md`, `docs/adrs/**/*.md`, `docs/coding-guidelines*.md`. Collect into `PROJECT_CONTEXT_PATHS` and inline them in every reviewer dispatch under "PROJECT CONTEXT PATHS." If no docs match, pass `none`.
 
 **Plan reviewers:** reviewer-architecture, reviewer-code-quality, reviewer-patterns, reviewer-performance, reviewer-data-integrity, reviewer-elegance.
 
@@ -44,7 +45,7 @@ Reviewers may catch external claim issues (version mismatches, anti-patterns, se
 
 ---
 
-## Phase 2: Dispatch ALL Reviewers in Parallel
+## Phase 1: Dispatch ALL Reviewers in Parallel
 
 Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST include:
 
@@ -55,16 +56,21 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 **Standard reviewer prompt shape:**
 
 ```
-Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md` and the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`. The elegance lens applies to every domain — don't defer to reviewer-elegance.
+Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md`, the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`, and the project context paths listed below. The elegance lens applies to every domain — don't defer to reviewer-elegance.
 
 Required output discipline:
-1. Each Failure paragraph MUST begin with a named principle from the elegance reference (e.g., "Shallow Wrapper.", "Parallel State.", "God Class.", "Single Source of Truth.", "Working with the Grain.") OR a SOLID/DRY principle name. The synthesizer routes structural failures by this prefix; missing it forces patching when the right answer is redesign.
+1. Format each Failure as four slots: `**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.` Principle name = any well-known principle (elegance catalog, SOLID, DRY, language-specific anti-pattern, performance/data-integrity canonical name like "N+1 Query" or "Race Condition"). The synthesizer uses the leading name to route structural failures to redesign vs patch — keep it the first token.
 2. Each Fix MUST propose the elegant alternative concretely, not just flag the issue. The implementer treats your Fix as a hypothesis — be specific without over-prescribing.
 
 Review this plan.
 
 PLAN:
 [full plan content or spec.json content]
+
+PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
+[list of paths from Phase 0, or "none" if no docs exist]
+
+The plan's `context.gotchas[]` documents the planner's design rationale, including alternatives explicitly considered and rejected. Findings that contradict a documented rejection should explain why the rejection no longer holds — otherwise suppress them.
 
 Use plan-scope locations: `<phase_id>` or `<phase_id>/<task_id>` (e.g., "phase-2" or "phase-2/t1"). Do NOT emit JSON; the synthesizer structures your output.
 
@@ -81,11 +87,11 @@ Dispatch the same prompt shape (adapted to each reviewer's focus) to all six rev
 
 ---
 
-## Phase 3: Synthesize Findings
+## Phase 2: Synthesize Findings
 
 The synthesizer reads each reviewer's prose output and structures it into `flywheel/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
 
-### 3.1 Read each reviewer's prose output
+### 2.1 Read each reviewer's prose output
 
 For each reviewer response:
 
@@ -105,7 +111,7 @@ Synthetic P1 shape (constructed by the synthesizer, in schema):
 }
 ```
 
-### 3.2 Validate location format
+### 2.2 Validate location format
 
 This is plan-review context, so location must be plan-scope (`<phase_id>` or `<phase_id>/<task_id>`). If a reviewer emitted a code-scope location like `src/auth.ts:42`, that's a disambiguation failure. Construct a synthetic P1 against the reviewer:
 
@@ -121,16 +127,18 @@ This is plan-review context, so location must be plan-scope (`<phase_id>` or `<p
 
 Retain the original (mistargeted) finding alongside so the user can see what was flagged.
 
-### 3.3 Semantic dedup
+### 2.3 Semantic dedup
 
 Walk the findings and group those describing the same issue — reviewers may phrase a shared concern differently (e.g., "phase-2 missing fallback" and "phase-2 lacks retry logic" — same gap). Group by meaning, not by string match.
 
 For each group:
 - Take max severity (P1 > P2 > P3). Severity is not promoted by corroboration; a P3 that three reviewers flagged is still a P3.
-- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning.
+- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning. Preserve the leading principle name from the four-slot format — do not paraphrase the first token.
 - Pick the strongest Fix or merge them into a single coherent proposal.
 
-### 3.4 Structure into schema
+**Cross-finding pattern detection:** count findings by leading principle name. If the same name appears in 3+ distinct findings (e.g., three independent "Shallow Wrapper" findings across phases), tag the cluster as a spec-pattern issue. Plan-consolidation handles a tagged cluster as a single redesign of the relevant `context.patterns[]` entry, not N phase patches — the pattern was the source.
+
+### 2.4 Structure into schema
 
 Compose the final JSON, conforming to `flywheel/schemas/findings.schema.json`:
 
@@ -142,7 +150,7 @@ Compose the final JSON, conforming to `flywheel/schemas/findings.schema.json`:
 }
 ```
 
-### 3.5 Validate and write
+### 2.5 Validate and write
 
 Validate the structured JSON against `flywheel/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry. Reviewers are not at fault for synthesizer bugs.
 
@@ -157,7 +165,7 @@ mv "$tmp" "$final"
 
 ---
 
-## Phase 4: Chat Summary
+## Phase 3: Summary & Next Steps
 
 Print a condensed summary to the user (NOT the full findings.json):
 

@@ -12,11 +12,11 @@ You are NOT checking whether the code is correct, well-typed, or consistent with
 
 ## Phase 0: Load Project Context
 
-Before reviewing, discover the project's architectural rules:
+The orchestrator passes project context paths in the dispatch under "PROJECT CONTEXT PATHS." Read those paths to learn the project's layer boundaries, state ownership, event patterns, interface conventions, and lifecycle rules. Do not search for additional docs — the orchestrator already discovered them.
 
-1. **Read architecture docs**: Look for `CLAUDE.md`, `agents.md`, `docs/architecture.md`, `docs/adrs/`, or similar. These define layer boundaries, state ownership, event patterns, interface conventions, and lifecycle rules.
-2. **Identify the tech stack**: What state management, event system, and DI patterns does the project use? Each framework has architectural implications.
-3. **Note project-specific rules**: Many projects document dependency direction, which layer owns which concerns, and how state flows between layers.
+Identify the tech stack (state management, event system, DI patterns) from the paths and the code under review.
+
+If the dispatch says "PROJECT CONTEXT PATHS: none," apply the universal principles below.
 
 ## Review Process
 
@@ -70,16 +70,16 @@ For each finding, provide all of:
 - **Title** — a short scannable phrase (no period).
 - **Severity** — `P1`, `P2`, or `P3`. See `flywheel-conventions` Severity definitions.
 - **Location** — format provided by the invoker. Code review: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Plan review: `<phase_id>` or `<phase_id>/<task_id>`.
-- **Failure** — a paragraph covering intent (what should happen), observation (what's wrong), and reasoning (why this matters). See `flywheel-conventions` "Lead with the Failure" for the structure.
+- **Failure** — four slots: `<Principle name>. <Intent>. <Observation>. <Reasoning>.` Principle name = any well-known principle (elegance catalog, SOLID, DRY, language-specific anti-pattern, architectural canonical name like "Layering Violation" or "Bidirectional Coupling"). The synthesizer uses the leading name to route — keep it the first token.
 - **Fix** — a concrete proposed change. The implementer treats this as a hypothesis, so be specific without over-prescribing.
 
-Suggested format per finding:
+Format per finding:
 
 ```
 **Finding:** <title>
 **Severity:** P<n>
 **Location:** <location>
-**Failure:** <intent + observation + reasoning paragraph>
+**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.
 **Fix:** <proposed change>
 ```
 

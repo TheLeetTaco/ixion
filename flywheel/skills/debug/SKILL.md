@@ -133,7 +133,7 @@ For each iteration (1 to 10):
 
 ---
 
-## Phase 3: Completion
+## Phase 3: Summary & Next Steps
 
 ### Summarize the Fix
 

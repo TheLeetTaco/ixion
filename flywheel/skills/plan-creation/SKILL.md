@@ -48,20 +48,31 @@ If relevant knowledge found, use it as starting point for Phase 1. Fold key refe
 
 **BLOCKING:** Do NOT use Read/Grep/Glob for TARGET CODEBASE research — dispatch locator Tasks first, then feed results to analyzer Tasks. Skill references, plan artifacts, and template files are exempt.
 
-1. **Locate (parallel):** Run locator-codebase, locator-patterns, locator-docs Tasks simultaneously. Paths only.
-2. **Analyze:** Feed top 10-15 paths into an analyzer-codebase Task. Flag OPEN QUESTIONS.
-3. **Also check:** `CLAUDE.md` for team conventions; recent similar features for precedent.
-4. **Consolidate:** File paths with line numbers, existing patterns, team conventions, open questions.
+Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel. Read `flywheel/skills/flywheel-conventions/references/research-workflow.md` for locator templates, the consolidation rule, and analyzer templates.
 
-Read `references/research-dispatch.md` before proceeding (Task dispatch templates for locators, analyzer, DRY/integration checks).
+After the canonical workflow completes, also check `CLAUDE.md` for team conventions (if analyzer-docs didn't already surface it) and recent similar features for precedent.
 
----
+### Map analyzer outputs to spec.context
 
-## Phase 1.5: Research Validation Gate
+- **analyzer-codebase findings** → `key_files[]` (paths + one-line reasons). Flags fold into `gotchas[]`.
+- **analyzer-patterns findings** → `patterns[]` (named patterns with `file.ext:line` references the implementer can match).
+- **analyzer-docs findings** → `gotchas[]` (decisions, constraints, prerequisites, warnings from CLAUDE.md / ADRs / inline docs).
+- **analyzer-web findings** → `gotchas[]` (best practices, version constraints, deprecations from external sources).
 
-**BLOCKING:** Verify codebase research quality before drafting.
+### Flag handling
 
-1. **File paths exist**: Spot-check 3-5 referenced paths
+- `EXISTING_SOLUTION` → record in `gotchas[]` and adjust phases to reuse rather than reinvent.
+- `DRY_VIOLATION` → add a consolidation task to the affected phase.
+- `PATTERN_CONFLICT` → record in `gotchas[]` with rationale for keeping or correcting.
+- `INTEGRATION_RISK` → record in `gotchas[]` and add covering tests to the relevant phase.
+- `OPEN_QUESTION` → record in spec `open_questions[]`.
+- `CLAIM_INVALID` / `VERSION_ISSUE` → record in `open_questions[]`; may trigger Phase 2 Context7 deep-validation.
+
+### Validation gate (BLOCKING)
+
+Before proceeding to Phase 2, verify codebase research quality:
+
+1. **File paths exist**: Spot-check 3-5 referenced paths.
 2. **Patterns identified**: Found relevant existing implementations?
 3. **Conventions clear**: Know how this codebase handles similar features?
 4. **DRY checked**: No proposed work duplicates existing code?
@@ -88,7 +99,7 @@ Incorporate findings into the spec. Flag `CLAIM_INVALID` or `VERSION_ISSUE` as `
 
 ---
 
-## Phase 2.5: Design Synthesis (BLOCKING — every spec records elegance reasoning)
+## Phase 3: Design Synthesis (BLOCKING — every spec records elegance reasoning)
 
 Every spec MUST emit at least one `context.gotchas[]` entry recording the design decision. This preserves the reasoning so reviewers and implementers don't re-litigate, and it's the signal that elegance was on the table — not skipped.
 
@@ -106,7 +117,7 @@ Every spec MUST emit at least one `context.gotchas[]` entry recording the design
 
 ---
 
-## Phase 3: Compose and Write Artifacts
+## Phase 4: Compose and Write Artifacts
 
 Spec is a structured JSON document validated against `flywheel/schemas/task-list.schema.json`. Namespace: plugin uses `.flywheel/plugin/sessions/`.
 
@@ -135,7 +146,13 @@ Every task lists concrete test scenarios — sentences an implementer could turn
 
 Apply the Spec Quality Bar from `flywheel-conventions`. Verify: clear file paths, enumerated test scenarios, explicit verification commands. Unresolved uncertainty → `open_questions[]`, not vague tasks.
 
-Add at least one elegance criterion to `success_criteria[]`. Examples (pick one that fits the spec, or write your own):
+Add at least one elegance criterion to `success_criteria[]`. Anchor it to your Phase 3 rejection using this template:
+
+`No instance of <rejected-shape> in <scope>.`
+
+Example: Phase 3 rejected "wrap commander.option with a getOption() helper." Criterion: `No getOption-style wrapper around commander.option in src/cli/.`
+
+If Phase 3 recorded "Single obvious shape — no alternative considered," use one of these universals instead:
 
 - "No new helper added without first searching for an existing one."
 - "No new file imported by exactly one consumer (single-use abstractions inlined)."
@@ -211,7 +228,7 @@ Print the spec's `summary` field + next-steps hint.
 
 ---
 
-## Phase 4: Present & Next Steps
+## Phase 5: Summary & Next Steps
 
 **AskUserQuestion:** "Spec ready at `.flywheel/plugin/sessions/<id>/spec.json`. What next?"
 
@@ -250,6 +267,5 @@ Print the spec's `summary` field + next-steps hint.
 
 ## Detailed References
 
-- `references/research-dispatch.md` — Full Task dispatch templates for Phase 1 locate/analyze/DRY/integration pattern
 - `references/validation-research.md` — High-risk heuristic, Context7 workflow, external validation dispatch templates
 - `references/formatting-guide.md` — Session id format, directory layout, artifact filenames, collision behavior

@@ -88,12 +88,12 @@ GOOD: `timeout` is required; remove the optional chain.
 
 ### Reporting requirements (BLOCKING)
 
-`simplifications_made[]` MUST contain at least one entry. Each entry uses one of these forms:
+`simplifications_made[]` MUST contain at least one entry. Each entry uses one of these forms — pick the form by what you actually did:
 
-- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — reference a name from the Anti-Pattern Catalog above.
-- `Deleted <N> lines from <path> (<reason>)`
-- `Consolidated <path-A> + <path-B> → <path-C>`
-- `No simplifications: <concrete reason why none were warranted>`
+- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — use when the obvious approach would have introduced the named anti-pattern and you didn't. Reference a name from the Anti-Pattern Catalog above.
+- `Deleted <N> lines from <path> (<reason>)` — use when net change is negative.
+- `Consolidated <path-A> + <path-B> → <path-C>` — use when two things became one.
+- `No simplifications: <concrete reason why none were warranted>` — use when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance and patching is wrong (in fix-findings mode, this signals re-planning required).
 
 Free-form prose ("phase was small," "everything was needed") fails validation. The orchestrator rejects malformed entries and re-prompts.
 

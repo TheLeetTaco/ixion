@@ -111,6 +111,10 @@ The chunk unit depends on mode. In both modes, a chunk is a **phase + bullets** 
   - Themes don't have to be balanced. A scaffolding redesign with 3 findings is a theme; a polish pass with 9 P3s is also a theme.
   - Theme name should describe the change (e.g. `theme-loadmd-simplify`), not the file (e.g. `theme-load-step-markdown-ts`).
 
+### 2.0 Read the Elegance Dispatch Bar (once per session)
+
+Before entering the per-chunk loop, Read `flywheel/skills/flywheel-conventions/references/elegance.md` and extract the "Elegance Dispatch Bar" section. Hold the verbatim text for use in every dispatch this session — do not re-read on each chunk. Same bar applies to plan mode and fix-findings mode.
+
 For each chunk whose ID is NOT in `progress.completed[]`:
 
 ### 2.1 Probe Files
@@ -121,11 +125,7 @@ Quick check of the chunk's files. Flag missing files; warn if any single file >5
 
 **BLOCKING: every chunk runs inside a Task subagent.** Main agent does probe → dispatch → checkpoint, never Edit/Write on source files.
 
-#### Elegance Bar (sourced from flywheel-conventions)
-
-The dispatch templates below tell the orchestrator to read the "Elegance Dispatch Bar" section of `flywheel/skills/flywheel-conventions/references/elegance.md` and paste it verbatim under `## Elegance bar (NON-NEGOTIABLE)` in the prompt. That reference is the canonical source — anti-pattern catalog and reporting requirements live there.
-
-Plan-mode and fix-findings dispatches share the same bar; the reference keeps them aligned without duplication.
+The dispatch templates below paste the verbatim Elegance Dispatch Bar text captured in step 2.0. Same bar in plan mode and fix-findings mode — read once, reuse N times.
 
 **Plan mode dispatch:**
 
@@ -146,7 +146,7 @@ Execute phase <id>: <phase.goal>
 - Already completed: <progress.completed>
 
 ## Elegance bar (NON-NEGOTIABLE)
-[Read flywheel/skills/flywheel-conventions/references/elegance.md and paste the 'Elegance Dispatch Bar' section verbatim into this position. The reference is the single source of truth — do not paraphrase or summarize. The dispatched subagent receives the bar inline.]
+<paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
 
 Plan-mode addendum:
 - Search the codebase for an existing helper before adding new utility code.
@@ -172,7 +172,10 @@ Resolve theme: <theme-id> — <theme-description>
 - patterns: <spec.context.patterns>
 - gotchas: <spec.context.gotchas>
 
-When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong); flag this rather than patching the symptom.
+When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong). In that case, do NOT patch the codebase. Return:
+- `files_modified: []`
+- `simplifications_made: ["No simplifications: spec inelegant — <one-paragraph reason>. Re-planning required."]`
+The orchestrator surfaces this for re-planning instead of dispatching the next chunk.
 
 ## Findings (read all before fixing any)
 <paste each finding verbatim: title, severity, location, failure, fix>
@@ -184,7 +187,7 @@ These findings are clustered because they likely share a structural cause. Diagn
 3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
 
 ## Elegance bar (NON-NEGOTIABLE)
-[Read flywheel/skills/flywheel-conventions/references/elegance.md and paste the 'Elegance Dispatch Bar' section verbatim into this position. The reference is the single source of truth — do not paraphrase or summarize. The dispatched subagent receives the bar inline.]
+<paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
 
 Fix-findings addendum:
 - If the cleaner shape requires touching files outside the findings list, take it — note the drift in your report.
@@ -198,9 +201,13 @@ Fix-findings addendum:
 
 **BLOCKING: Do NOT specify a `model` parameter** — subagents inherit the current session's model.
 
-### 2.2a TDD Cycle
+### 2.2a TDD Cycle and elegance ordering
 
-Skip TDD only for pure refactoring, config-only, or docs changes. Otherwise the dispatch prompt above is the contract: RED (write a failing test) → GREEN (minimum code to pass) → REFACTOR (re-read, simplify, delete).
+Skip TDD only for pure refactoring, config-only, or docs changes. Otherwise the dispatch prompt above is the contract:
+
+RED (failing test) → GREEN (minimum code to pass) → REFACTOR (re-read, simplify, delete) → final Diff self-check across the chunk → write `simplifications_made[]` entries grounded in the self-check answers → return.
+
+REFACTOR is per-task; the Diff self-check runs once at the end of the chunk after all tasks are GREEN. The simplifications log records what the self-check surfaced.
 
 ### 2.3 Checkpoint (Atomic Write)
 
@@ -229,7 +236,11 @@ Continue to the next non-completed chunk. All complete → Phase 3.
 
 Run the plan's `success_criteria` checks (plan mode) or full test suite + typecheck (fix-findings mode). Read `references/verification-gates.md`: identify the proving command, run it fresh, read full output, verify, then claim done.
 
-### Phase 3.5: Cumulative diff self-check (BLOCKING)
+Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading `git diff <base>...HEAD` + `progress.artifacts.simplifications_made[]`. Cite the diff line or the simplifications entry that proves the criterion holds.
+
+---
+
+## Phase 4: Cumulative Diff Self-Check (BLOCKING)
 
 After `success_criteria` passes, the orchestrator runs the diff self-check at the *whole-session* level — the dispatched subagent only sees its own chunk; this catches cross-phase drift that no chunk-level review can.
 
@@ -247,7 +258,7 @@ This check uses the same evidence discipline as `references/verification-gates.m
 
 ---
 
-## Phase 4: Complete
+## Phase 5: Summary & Next Steps
 
 ```
 All chunks complete and verified.
