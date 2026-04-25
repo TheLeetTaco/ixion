@@ -61,18 +61,37 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 1. The diff / PR content inline (or a reference the reviewer can read)
 2. Code-scope location format: `<repo-relative-path>` or `<repo-relative-path>:<line>`
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
+4. The active session's spec rationale and the implementer's simplification log (inlined from `spec.context` and `progress.json.artifacts.simplifications_made[]`) — reviewers must distinguish *implementer error* from *plan-prescribed shape* and *already-addressed concerns*
+
+Read the active session's `spec.json` and `progress.json` before composing the dispatch. Extract `spec.summary`, `spec.context.patterns`, `spec.context.gotchas`, and `progress.artifacts.simplifications_made` to paste inline below.
 
 **Standard reviewer prompt shape:**
 
 ```
-Before assessing your domain, read the Elegance Discipline and "Lead with the Failure" sections of flywheel-conventions. If your domain finding is a principle violation (architectural ceremony, mechanical pattern application, parallel state introduced for performance, indirection without depth, SRP/DRY violations, etc.), lead the Failure paragraph with the principle name (e.g., "Shallow Wrapper. ..." or "Violates SRP. ..."). Don't defer to reviewer-elegance; the elegance lens applies to every domain.
+Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md` and the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`. The elegance lens applies to every domain — don't defer to reviewer-elegance.
+
+Required output discipline:
+1. Each Failure paragraph MUST begin with a named principle from the elegance reference (e.g., "Shallow Wrapper.", "Parallel State.", "God Class.", "Single Source of Truth.", "Working with the Grain.") OR a SOLID/DRY principle name. The synthesizer routes structural failures by this prefix; missing it forces patching when the right answer is redesign.
+2. Each Fix MUST propose the elegant alternative concretely, not just flag the issue. The implementer treats your Fix as a hypothesis — be specific without over-prescribing.
 
 Review this change.
 
 CHANGE:
 [diff or PR content, or path the reviewer should Read]
 
-Return findings as natural-language prose (see your Output Format). Use code-scope locations: `<repo-relative-path>` or `<repo-relative-path>:<line>` (e.g., "src/auth.ts" or "src/auth.ts:42"). Do NOT emit JSON; the synthesizer structures your output.
+PLAN CONTEXT (from spec.json — the planner's design rationale):
+- summary: <spec.summary>
+- patterns: <spec.context.patterns>
+- gotchas: <spec.context.gotchas>
+
+The planner may have explicitly considered and rejected the alternative you'd suggest. Findings that contradict a documented rejection should explain why the rejection no longer holds — otherwise suppress them.
+
+IMPLEMENTER'S SIMPLIFICATION LOG (from progress.json.artifacts.simplifications_made — what the implementer claims they cleaned up):
+[paste verbatim, or "no simplifications recorded" if the array is empty]
+
+When you flag an issue, check whether the implementer's log already addresses it. Surface findings that contradict the simplifications log or the spec rationale — those are the high-signal ones. Suppress findings the implementer already named in their log.
+
+Use code-scope locations: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Do NOT emit JSON; the synthesizer structures your output.
 
 Do NOT write to any files. The synthesizer owns all file writes.
 ```
@@ -89,7 +108,7 @@ git diff <base>...HEAD --shortstat
 Choose the set:
 
 - **Default — all six** for changes ≥50 lines, refactors, new features, or anything the user flagged as design-impacting.
-- **Slim — four (architecture, code-quality, patterns, data-integrity)** for hotfix-sized changes <50 lines that aren't refactors. Skip `reviewer-elegance` (highest value at design time, lower-leverage on tiny code patches) and `reviewer-performance` (rarely fires for small diffs).
+- **Slim — four (architecture, code-quality, patterns, elegance)** for hotfix-sized changes <50 lines that aren't refactors. Skip `reviewer-performance` (rarely fires for small diffs). `reviewer-elegance` STAYS in the slim set: small diffs are where elegance compounds — every line should justify itself, and elegance findings on small surfaces are precise.
 
 When in doubt, run the default set. The slim set exists only to cut latency on small changes — coverage matters more than speed for design-impacting work.
 
@@ -97,7 +116,7 @@ Dispatch the chosen reviewers in parallel.
 
 ### Conditional reviewers
 
-Always include reviewer-data-integrity. If the change contains migration files (`**/migrations/**`, `alembic/`, `prisma/migrations/`), it will naturally emphasize migration-safety findings.
+`reviewer-data-integrity` is always included in the default set. In the slim set, include it only when the change touches migration files (`**/migrations/**`, `alembic/`, `prisma/migrations/`). Outside those paths it rarely fires on small diffs.
 
 ---
 

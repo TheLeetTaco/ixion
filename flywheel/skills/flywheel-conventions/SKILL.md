@@ -25,9 +25,9 @@ The output — plan or code — must read as if every decision was deliberate. A
 | 7 | Are you fighting the language or framework? | Use the idiomatic primitive. Ceremony signals the tool wants to be used differently. |
 | 8 | Are you adding something speculative ("we might need…")? | Delete it. Add when the need is concrete. |
 
-### Anti-patterns
+### Anti-patterns and dispatch bar
 
-For the canonical anti-pattern catalog (named violations to use in findings — e.g. "Shallow Wrapper", "Forwarding Chain", "Parallel State", "Premature Abstraction", "Dead Code", "God Class"), see `flywheel/agents/reviewer-elegance.md` "Anti-Pattern Catalog". Use these names so plan-consolidation can route by principle.
+For the canonical anti-pattern catalog and the elegance dispatch bar, see `references/elegance.md`. Use catalog names ("Shallow Wrapper", "Forwarding Chain", "Parallel State", "Premature Abstraction", "Dead Code", "God Class", and the Universal Principles) when leading the Failure paragraph in findings — plan-consolidation routes structural failures to redesign by these names.
 
 ### Symptoms vs. structure
 

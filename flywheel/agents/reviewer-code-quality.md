@@ -45,9 +45,9 @@ If you can't understand what a function/class does in 5 seconds from its name, i
 Extract to a separate module when you see: complex business rules, multiple concerns handled together, external API interactions, or logic you'd want to reuse.
 
 ### 9. CORE PHILOSOPHY
-- **Duplication > Complexity**: Simple, duplicated code is BETTER than complex DRY abstractions
-- "Adding more modules is never a bad thing. Making modules very complex is a bad thing"
-- Avoid premature optimization - keep it simple until performance becomes a measured problem
+- **Avoid hasty abstractions, not consolidation.** Two similar implementations is fine while you're learning the abstraction; three or more is duplication that masks a missing abstraction. Flag duplication when (a) the right abstraction is clear from existing call sites, or (b) the duplicates have already drifted apart. This is in service of `Single Source of Truth` from the elegance reference — premature consolidation and stubborn duplication are both inelegant.
+- "Adding more modules is never a bad thing. Making modules very complex is a bad thing."
+- Avoid premature optimization — keep it simple until performance becomes a measured problem.
 
 ---
 

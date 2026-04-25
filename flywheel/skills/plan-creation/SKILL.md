@@ -88,19 +88,21 @@ Incorporate findings into the spec. Flag `CLAIM_INVALID` or `VERSION_ISSUE` as `
 
 ---
 
-## Phase 2.5: Design Synthesis (thought exercise)
+## Phase 2.5: Design Synthesis (BLOCKING — every spec records elegance reasoning)
 
-Before composing phases, ask: **does this feature have more than one plausible shape?**
+Every spec MUST emit at least one `context.gotchas[]` entry recording the design decision. This preserves the reasoning so reviewers and implementers don't re-litigate, and it's the signal that elegance was on the table — not skipped.
 
-**Skip when** the shape is obvious — bug fixes, small additions, pure config changes, or features the codebase already has a single established pattern for. Most plans skip this; that's expected.
+1. Sketch candidate shapes:
+   - **Non-trivial features** (multiple plausible decompositions, new abstractions, multi-layer changes): sketch 2-3 candidates — typically "the natural one" and "a simpler one that consolidates with existing code." Add a third only if a different decomposition is genuinely plausible.
+   - **Trivial features** (bug fixes, small additions, pure config changes, single established pattern): one candidate is fine.
 
-**When the design space is genuinely open** (multiple plausible decompositions, multi-layer features, new abstractions being introduced):
-
-1. Sketch 2 candidate shapes — typically "the natural one" and "a simpler one that consolidates with existing code." Add a third only if a different decomposition is genuinely plausible.
 2. Pick the shape that's simplest, most symmetric, and adds the least new state or abstraction. The Elegance Discipline applies: maximize elegance over minimizing churn — pick the cleaner shape even if it means a larger refactor.
-3. Record the rejected alternative as a one-line `context.gotchas[]` entry (e.g., "considered splitting auth into 3 services; rejected because shared session state would force a coordination layer"). This preserves the reasoning so reviewers and implementers don't re-litigate.
 
-A thinking step, not a deliverable. No file is written; the only durable output is a `context.gotchas[]` entry when you actually rejected an alternative worth noting. If you find yourself manufacturing alternatives to satisfy the step, skip it — that's the signal it doesn't apply here.
+3. Record the decision in `context.gotchas[]` (mandatory, even when trivial):
+   - **When alternatives existed**: `Considered: <alternative>. Rejected because: <one-sentence reason>.`
+   - **When no alternative existed**: `Single obvious shape — no alternative considered because <concrete reason>.` (e.g., "the codebase already has one established route-handler pattern.")
+
+   "I didn't think about it" is not a concrete reason. If you can't write either form, you haven't done the synthesis.
 
 ---
 
@@ -132,6 +134,15 @@ Every task lists concrete test scenarios — sentences an implementer could turn
 ### Step 5: Spec Quality Bar gate
 
 Apply the Spec Quality Bar from `flywheel-conventions`. Verify: clear file paths, enumerated test scenarios, explicit verification commands. Unresolved uncertainty → `open_questions[]`, not vague tasks.
+
+Add at least one elegance criterion to `success_criteria[]`. Examples (pick one that fits the spec, or write your own):
+
+- "No new helper added without first searching for an existing one."
+- "No new file imported by exactly one consumer (single-use abstractions inlined)."
+- "No code path with a guard for a state that cannot occur in this codebase."
+- "No line whose removal would not change behavior."
+
+A single criterion that applies uniformly across the whole spec is sufficient. The criterion makes elegance a verifiable acceptance bar, not a hope.
 
 ### Step 6: Write `spec.json`
 

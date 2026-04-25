@@ -121,39 +121,11 @@ Quick check of the chunk's files. Flag missing files; warn if any single file >5
 
 **BLOCKING: every chunk runs inside a Task subagent.** Main agent does probe → dispatch → checkpoint, never Edit/Write on source files.
 
-#### Shared Elegance Bar (paste verbatim into every dispatch)
+#### Elegance Bar (sourced from flywheel-conventions)
 
-Both dispatch templates below paste this block under `## Elegance bar (NON-NEGOTIABLE)` in the prompt. Maintaining it in one place keeps plan-mode and fix-findings aligned.
+The dispatch templates below tell the orchestrator to read the "Elegance Dispatch Bar" section of `flywheel/skills/flywheel-conventions/references/elegance.md` and paste it verbatim under `## Elegance bar (NON-NEGOTIABLE)` in the prompt. That reference is the canonical source — anti-pattern catalog and reporting requirements live there.
 
-```
-Maximize elegance over minimizing churn. Pick the more elegant design even if it means a larger refactor.
-- Every line you add must do important work. If you can't name what concretely breaks when a line is removed, delete it.
-- Single source of truth — read from existing state, don't duplicate.
-- Use the language/framework's idiomatic primitive before reaching for a wrapper.
-- Wrappers and helpers must add capability, not move code around. No shallow wrappers, no forwarding chains.
-- No speculative code, no defensive checks for impossible cases, no backward-compat shims for nonexistent consumers.
-- Prefer deletion to modification. The best fix is often less code, not more.
-
-### Counter-examples (the shapes we reject)
-
-BAD: `export const getUser = (id) => userService.findById(id);` — shallow wrapper.
-GOOD: callers use `userService.findById(id)` directly.
-
-BAD: `try { return parseDate(x); } catch { return null; }` — swallows the failure.
-GOOD: throw a typed error so the caller routes to retry.
-
-BAD: `if (config?.options?.advanced?.timeout) { ... }` — speculative depth on always-present config.
-GOOD: `timeout` is required; remove the optional chain.
-
-### Reporting requirements (BLOCKING)
-
-- `simplifications_made[]` MUST contain at least one entry. If you genuinely deleted or consolidated nothing, the entry must read "No simplifications warranted because <concrete reason>" — not "phase was small," not "everything was needed."
-- Diff self-check before claiming done. Re-read your diff end-to-end and answer with concrete evidence:
-  1. Is there any line whose removal would NOT change behavior? Name one or confirm none exists.
-  2. Is the same value stored in two places? Name where or confirm one source of truth.
-  3. Is there a check guarding a case that cannot occur in this codebase? Name one or confirm none.
-  If you can't answer with evidence, you didn't actually re-read the diff.
-```
+Plan-mode and fix-findings dispatches share the same bar; the reference keeps them aligned without duplication.
 
 **Plan mode dispatch:**
 
@@ -174,7 +146,7 @@ Execute phase <id>: <phase.goal>
 - Already completed: <progress.completed>
 
 ## Elegance bar (NON-NEGOTIABLE)
-[INSERT THE ENTIRE "#### Shared Elegance Bar" SECTION FROM SKILL.md HERE — verbatim, including the bullet list, the "### Counter-examples" subsection, and the "### Reporting requirements (BLOCKING)" subsection. Copy the literal text into the dispatch; do NOT summarize, paraphrase, or leave this bracketed instruction in place of the content.]
+[Read flywheel/skills/flywheel-conventions/references/elegance.md and paste the 'Elegance Dispatch Bar' section verbatim into this position. The reference is the single source of truth — do not paraphrase or summarize. The dispatched subagent receives the bar inline.]
 
 Plan-mode addendum:
 - Search the codebase for an existing helper before adding new utility code.
@@ -183,7 +155,7 @@ Plan-mode addendum:
 ## Constraints
 - TDD per task (RED → GREEN → REFACTOR). REFACTOR is mandatory. Skip TDD only for pure refactor, docs, or config-only changes.
 - Record commands run with literal command + actual exit_code.
-- Report: outcomes, files_modified[], commands_run[], simplifications_made[] (per shared block).
+- Report: outcomes, files_modified[], commands_run[], simplifications_made[] (formats per the dispatch bar's Reporting requirements).
 "
 ```
 
@@ -194,8 +166,13 @@ Task general-purpose: "
 ## Task
 Resolve theme: <theme-id> — <theme-description>
 
-## Context
-- spec: .flywheel/plugin/sessions/<session_id>/spec.json (Read for system-level goal, success criteria, and design rationale in context.gotchas[])
+## Spec rationale (read before fixing)
+- summary: <spec.summary>
+- success_criteria: <spec.success_criteria>
+- patterns: <spec.context.patterns>
+- gotchas: <spec.context.gotchas>
+
+When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong); flag this rather than patching the symptom.
 
 ## Findings (read all before fixing any)
 <paste each finding verbatim: title, severity, location, failure, fix>
@@ -207,14 +184,15 @@ These findings are clustered because they likely share a structural cause. Diagn
 3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
 
 ## Elegance bar (NON-NEGOTIABLE)
-[INSERT THE ENTIRE "#### Shared Elegance Bar" SECTION FROM SKILL.md HERE — verbatim, including the bullet list, the "### Counter-examples" subsection, and the "### Reporting requirements (BLOCKING)" subsection. Copy the literal text into the dispatch; do NOT summarize, paraphrase, or leave this bracketed instruction in place of the content.]
+[Read flywheel/skills/flywheel-conventions/references/elegance.md and paste the 'Elegance Dispatch Bar' section verbatim into this position. The reference is the single source of truth — do not paraphrase or summarize. The dispatched subagent receives the bar inline.]
 
 Fix-findings addendum:
 - If the cleaner shape requires touching files outside the findings list, take it — note the drift in your report.
+- Record any structural change you made as a `simplifications_made[]` entry using the catalog form (e.g., 'Avoided Forwarding Chain at src/auth.ts:42 by reading state directly'). The structural change IS the most important simplification to report.
 
 ## Constraints
 - Run tests after the change set; capture exit_code.
-- Report: which finding IDs were addressed, files_modified[], commands_run[], simplifications_made[] (per shared block), structural_change (one-sentence summary of what shape change resolved the theme).
+- Report: which finding IDs were addressed, files_modified[], commands_run[], simplifications_made[] (formats per the dispatch bar's Reporting requirements).
 "
 ```
 
@@ -250,6 +228,22 @@ Continue to the next non-completed chunk. All complete → Phase 3.
 ## Phase 3: Quality Check
 
 Run the plan's `success_criteria` checks (plan mode) or full test suite + typecheck (fix-findings mode). Read `references/verification-gates.md`: identify the proving command, run it fresh, read full output, verify, then claim done.
+
+### Phase 3.5: Cumulative diff self-check (BLOCKING)
+
+After `success_criteria` passes, the orchestrator runs the diff self-check at the *whole-session* level — the dispatched subagent only sees its own chunk; this catches cross-phase drift that no chunk-level review can.
+
+1. Run `git diff <base>...HEAD` (or the equivalent for the session's worktree). Read the full output.
+2. Answer each question with concrete evidence. Cite file:line:
+
+   - Is there any line whose removal would NOT change behavior across the whole change? Name one or confirm none exists.
+   - Is the same value stored in two places (parallel state introduced across phases)? Name where or confirm one source of truth.
+   - Is there a check guarding a case that cannot occur in this codebase? Name one or confirm none.
+   - Did phase N add a wrapper, helper, or abstraction that a later phase made unnecessary? Name one or confirm none.
+
+3. If any answer names a finding, dispatch a polish chunk to address it. Only mark the session complete after the polish chunk's verification passes. Do NOT mark complete with unaddressed elegance findings — it's faster to fix them now than after review.
+
+This check uses the same evidence discipline as `references/verification-gates.md`: cite file:line, no "should be fine."
 
 ---
 

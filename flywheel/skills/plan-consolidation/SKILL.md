@@ -103,7 +103,9 @@ The bar: a fresh implementer who reads only `spec.json` (no conversation history
 
 **Surface failures into context.** For every P1/P2 finding integrated into spec.json, append a one-line summary of the `failure` to `spec.context.gotchas[]` so the implementer sees the reasoning during dispatch, not just the patch.
 
-**Structural failures replace, don't patch.** If a finding's `failure` leads with a structural anti-pattern (Shallow Wrapper, Forwarding Chain, Premature Abstraction, Parallel State, Speculative Code, God Class), do NOT fold the `fix` into the affected task's description — that adds the patch on top of the inelegant shape. Instead, re-shape the affected phase or task to the simpler form the finding prescribes. Delete tasks made redundant by the redesign. The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when it means a larger refactor.
+**Structural failures replace, don't patch.** If a finding's `failure` leads with a named anti-pattern from `flywheel/skills/flywheel-conventions/references/elegance.md` (e.g., Shallow Wrapper, Forwarding Chain, Premature Abstraction, Parallel State, Speculative Code, God Class) or a Universal Principle name (Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt), do NOT fold the `fix` into the affected task's description — that adds the patch on top of the inelegant shape. Instead, re-shape the affected phase or task to the simpler form the finding prescribes. Delete tasks made redundant by the redesign. The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when it means a larger refactor.
+
+The elegance reference is the canonical name list — read it before deciding whether a finding triggers structural redesign or task-level patching.
 
 For each remaining finding in `review.findings.json.findings`:
 

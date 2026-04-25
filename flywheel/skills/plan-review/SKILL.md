@@ -55,14 +55,18 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 **Standard reviewer prompt shape:**
 
 ```
-Before assessing your domain, read the Elegance Discipline and "Lead with the Failure" sections of flywheel-conventions. If your domain finding is a principle violation (architectural ceremony, mechanical pattern application, parallel state introduced for performance, indirection without depth, SRP/DRY violations, etc.), lead the Failure paragraph with the principle name (e.g., "Shallow Wrapper. ..." or "Violates SRP. ..."). Don't defer to reviewer-elegance; the elegance lens applies to every domain.
+Before assessing your domain, Read `flywheel/skills/flywheel-conventions/references/elegance.md` and the "Lead with the Failure" section of `flywheel/skills/flywheel-conventions/SKILL.md`. The elegance lens applies to every domain — don't defer to reviewer-elegance.
+
+Required output discipline:
+1. Each Failure paragraph MUST begin with a named principle from the elegance reference (e.g., "Shallow Wrapper.", "Parallel State.", "God Class.", "Single Source of Truth.", "Working with the Grain.") OR a SOLID/DRY principle name. The synthesizer routes structural failures by this prefix; missing it forces patching when the right answer is redesign.
+2. Each Fix MUST propose the elegant alternative concretely, not just flag the issue. The implementer treats your Fix as a hypothesis — be specific without over-prescribing.
 
 Review this plan.
 
 PLAN:
 [full plan content or spec.json content]
 
-Return findings as natural-language prose (see your Output Format). Use plan-scope locations: `<phase_id>` or `<phase_id>/<task_id>` (e.g., "phase-2" or "phase-2/t1"). Do NOT emit JSON; the synthesizer structures your output.
+Use plan-scope locations: `<phase_id>` or `<phase_id>/<task_id>` (e.g., "phase-2" or "phase-2/t1"). Do NOT emit JSON; the synthesizer structures your output.
 
 Do NOT write to any files. The synthesizer owns all file writes.
 ```
@@ -204,5 +208,4 @@ No markdown write to `docs/plans/`. The durable artifact is `review.findings.jso
 
 ## Detailed References
 
-- `references/review-summary-template.md` — output format, deduplication patterns
 - `references/conflict-handling.md` — philosophy, detection patterns, Open Question conversion

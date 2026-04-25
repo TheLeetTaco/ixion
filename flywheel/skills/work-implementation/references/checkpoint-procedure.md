@@ -33,7 +33,13 @@ mv "$SESSION_DIR/session.json.tmp" "$SESSION_DIR/session.json"
 The subagent reports:
 - `files_modified[]` — paths edited or created.
 - `commands_run[]` — every command executed, with literal command and actual exit_code.
-- `simplifications_made[]` (optional) — places the subagent deleted or consolidated instead of adding. One short string per simplification.
+- `simplifications_made[]` — required (per the Elegance Dispatch Bar's Reporting requirements). Each entry must match one of the four catalog forms from `flywheel/skills/flywheel-conventions/references/elegance.md`:
+  - `Avoided <anti-pattern-name> at <path>:<line> by <action>`
+  - `Deleted <N> lines from <path> (<reason>)`
+  - `Consolidated <path-A> + <path-B> → <path-C>`
+  - `No simplifications: <concrete reason why none were warranted>`
+
+  Validate each entry before checkpointing. Free-form prose ("phase was small," "everything was needed," "implemented the feature") fails validation — append a synthetic note to `progress.error_log[]` and re-prompt the subagent for properly-formatted entries before appending the chunk ID to `completed[]`.
 
 Example agent-reported payload:
 
@@ -45,7 +51,10 @@ Example agent-reported payload:
     "commands_run": [
       { "command": "bun run test tests/cli/timeout.test.ts", "exit_code": 0, "stdout_tail": "PASS — 4 tests passed" }
     ],
-    "simplifications_made": ["Inlined the temporary timeout-default helper since it had one consumer"]
+    "simplifications_made": [
+      "Avoided Shallow Wrapper at src/cli.ts:42 by calling commander directly",
+      "Deleted 8 lines from src/cli/timeout-default.ts (single-consumer helper inlined)"
+    ]
   }
 }
 ```

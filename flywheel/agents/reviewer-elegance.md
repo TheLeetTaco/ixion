@@ -124,45 +124,7 @@ Do NOT flag:
 
 ## Anti-Pattern Catalog
 
-Use these named patterns when reporting findings. Naming makes findings actionable and consistent.
-
-### Structural Anti-Patterns
-
-| Anti-Pattern | Signal | Elegant alternative |
-|---|---|---|
-| **God Class** | Class/module with 3+ unrelated responsibilities | Split by responsibility |
-| **Shallow Wrapper** | Wraps an API, adds no new capability | Call the API directly |
-| **Forwarding Chain** | A calls B calls C, B just delegates | A calls C directly, or A writes state C reads |
-| **Parallel State** | Same value stored in two places | Single source of truth, derive the rest |
-| **Speculative Code** | Built for hypothetical future requirements | Delete it. Add when needed. |
-| **Config Soup** | Many optional fields, valid combinations unclear | Discriminated variants or composable primitives |
-
-### Data Flow Anti-Patterns
-
-| Anti-Pattern | Signal | Elegant alternative |
-|---|---|---|
-| **Manual Sync** | Code that copies a value from one representation to another | Derive the dependent value from the source |
-| **Bidirectional Coupling** | A depends on B, B depends on A | Introduce a shared abstraction, or invert one dependency |
-| **Cascade Mutation** | State update triggers chain of side effects updating other state | Compute derived values declaratively |
-| **Leaky Event** | Producer filters/transforms events for specific consumers | Emit raw events; consumers own their filtering |
-
-### Abstraction Anti-Patterns
-
-| Anti-Pattern | Signal | Elegant alternative |
-|---|---|---|
-| **Premature Abstraction** | Generic base/interface with exactly one implementation and no extension plan | Inline it. Extract when the second consumer appears. |
-| **Leaky Interface** | Consumer must understand internals to use correctly | Deep module with simple, self-documenting interface |
-| **Indirection Tax** | Layer exists only to satisfy an architectural rule, adds no value | Remove the layer. If the rule requires it, question the rule. |
-| **Concrete Dependency** | Business logic directly imports infrastructure | Depend on abstraction, inject the concrete impl |
-
-### Plan-Specific Anti-Patterns
-
-| Anti-Pattern | Signal | Elegant alternative |
-|---|---|---|
-| **Test Desert** | Implementation phases with zero test steps | Tests alongside implementation in each phase |
-| **Test Afterthought** | All tests deferred to final phase | Red-green-refactor within each phase |
-| **Reinvented Wheel** | Plan builds something that exists in the codebase | Reuse or extend existing code |
-| **Shotgun Surgery** | Single change requires touching 4+ components | Missing shared abstraction |
+The canonical catalog lives at `flywheel/skills/flywheel-conventions/references/elegance.md`. Use those names when leading the Failure paragraph in findings — naming makes findings actionable and consistent, and plan-consolidation routes structural failures to redesign by these names.
 
 ---
 
@@ -204,6 +166,6 @@ Suggested format per finding:
 
 Multiple findings: separate with a blank line. No findings: say "No findings."
 
-**Lead the Failure paragraph with the principle name.** Your findings are always principle violations — that's your domain. Format the failure as `"<Principle>. <intent + observation + reasoning>"`. Use an Anti-Pattern Catalog entry (e.g., "Shallow Wrapper", "Forwarding Chain", "Parallel State", "Premature Abstraction", "Speculative Code", "Dead Code", "God Class") or a Universal Principle (e.g., "Single Source of Truth", "Working with the Grain", "Depth over Indirection", "Narrow Interfaces"). Plan-consolidation looks for these prefixes when deciding whether to redesign vs. patch.
+**Lead the Failure paragraph with the principle name.** Your findings are always principle violations — that's your domain. Format the failure as `"<Principle>. <intent + observation + reasoning>"`. Use an Anti-Pattern Catalog entry or a Universal Principle name from `flywheel/skills/flywheel-conventions/references/elegance.md`. Plan-consolidation looks for these prefixes when deciding whether to redesign vs. patch.
 
 Do not write to any files — return prose in your response only. The synthesizer owns all file writes.
