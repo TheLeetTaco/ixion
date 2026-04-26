@@ -129,28 +129,6 @@ Quick check of the chunk's files. Flag missing files; warn if any single file >5
 
 The dispatch templates below paste the verbatim Elegance Dispatch Bar text captured in step 2.0. Same bar in plan mode and fix-findings mode — read once, reuse N times.
 
-#### Should I echo the verbatim user prompt into the dispatch?
-
-The dispatch already lists `constraints` as a bullet (which includes `constraints[0]` — the verbatim user prompt with the `User feature description (verbatim, authoritative):` prefix). For prompts that contain explicit *how* details, I also elevate the verbatim text to a prominent **## User intent** block at the top of the dispatch so the implementer reads it before anything else. For generic prompts, I skip the elevation — echoing is just noise.
-
-I elevate when the prompt contains:
-
-- Specific file/path conventions ("config under `~/.config/myapp/`", "lambdas under `services/api/handlers/`", "logs to stderr only")
-- Named tools or libraries ("axios for HTTP", "Drizzle ORM", "fontawesome for icons")
-- Concrete function signatures or endpoint shapes ("`subscribe(topic, cb)` returns an unsubscribe function", "`POST /webhooks/stripe` returns 200 even on duplicate IDs")
-- Scope qualifiers ("read-only API for the MVP", "feature-flagged behind Unleash", "browser only — no SSR")
-
-I skip when the prompt is generic ("build a CRUD app for X", "add a settings page") — the spec already captures everything substantive and the user trusted me to fill in the hows.
-
-When elevating, prepend the dispatch with:
-
-```
-## User intent (verbatim — honor every specific choice)
-<paste constraints[0] verbatim, including the prefix>
-```
-
-The implementer's natural drift on dispatch boundaries is to re-litigate user choices that look like reviewer suggestions. Surfacing the user's exact words as a top-level intent block is the cheapest insurance against that drift on the prompts that earn it.
-
 **Plan mode dispatch:**
 
 ```
