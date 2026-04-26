@@ -1,6 +1,8 @@
 # Flywheel
 
-A plugin for Claude Code and OpenCode that turns development cycles into momentum.
+A plugin for Claude Code and OpenCode that runs autonomous workflows.
+
+Everything is a skill. `/plan` to plan, `/work` to implement, `/work-review` to review, `/ship` to send a PR. `/yolo` does the whole loop unattended. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -18,7 +20,7 @@ A plugin for Claude Code and OpenCode that turns development cycles into momentu
 ```bash
 git clone https://github.com/wsauret/flywheel.git
 cd flywheel
-./plugin/install_claude_code.sh
+./install_claude_code.sh
 ```
 
 ### OpenCode
@@ -26,18 +28,16 @@ cd flywheel
 ```bash
 git clone https://github.com/wsauret/flywheel.git
 cd flywheel
-python3 plugin/install_opencode.py
+python3 install_opencode.py
 ```
 
 This transforms the plugin into OpenCode's config format and writes to `~/.config/opencode/`. Re-run the script to update.
 
-### Optional: Context7 Setup
+### Optional: Context7
 
-Context7 provides up-to-date framework documentation for the planning workflow.
-Both installers will prompt you to configure Context7 automatically.
+Context7 provides up-to-date framework documentation during plan creation. Both installers will prompt you to configure it. Get an API key at https://context7.com/dashboard.
 
-To get an API key, sign up at https://context7.com/dashboard. If you skip during
-install, you can configure it manually later:
+To configure manually later:
 
 **Claude Code:**
 
@@ -62,113 +62,235 @@ claude mcp add --header "CONTEXT7_API_KEY: your-key-here" \
 }
 ```
 
-### Staying Up To Date
+### Staying up to date
 
-**Claude Code:** Run `/plugins` and toggle auto-update on for `flywheel-marketplace`.
+Re-run the install script for your client to pull the latest version. The Claude Code marketplace auto-update toggle is currently unreliable, so re-running is the safe path on both clients.
 
-**OpenCode:** Re-run `python3 plugin/install_opencode.py` to pick up changes.
+**Claude Code:** `bash install_claude_code.sh`
 
-## What Problems Does This Solve?
+**OpenCode:** `python3 install_opencode.py`
+
+## What problems this solves
+
+### Agents write good code only when forced to re-evaluate from different perspectives
+
+A single pass produces plausible code. Plausible code passes type checks and runs the happy path, but it is rarely well-architected, fast, safe, idiomatic, or elegant — those are different concerns that don't all surface from the same vantage point. Flywheel's core loop forces re-evaluation from six perspectives at the two moments where it matters most:
+
+```
+plan → 6-perspective review → fix → work → 6-perspective review → fix
+```
+
+The six perspectives are independent reviewer subagents, each in fresh context, each only looking through their own lens:
+
+- **architecture** — boundaries, system design, integration shape
+- **code-quality** — type safety, idioms, maintainability
+- **data-integrity** — migrations, transactions, referential integrity
+- **elegance** — single source of truth, working with the grain
+- **patterns** — project conventions, duplicated utilities
+- **performance** — bottlenecks, query plans, scalability
+
+Findings are deduplicated and conflicts surfaced as open questions, then fed back into either the plan (`/plan-consolidation`) or the code (`/work` in fix-findings mode). The structural problems that one-pass agents miss get caught before they become hundreds or thousands of lines of bad code.
 
 ### Context windows fill up too fast
 
-AI agents struggle with large codebases because context windows fill with search results, file contents, and tool outputs. Flywheel manages this through deliberate compaction at each phase:
+Agents struggle on large codebases because context fills with search results, file contents, and tool output. Flywheel compacts at every phase:
 
-- **Research** produces compact persistent docs, not sprawling chat
+- **Research** produces persistent docs, not sprawling chat
 - **Plans** distill research into actionable phases (`spec.json`)
-- **Subagents** get fresh context per chunk, return compact results
-- **Session files** enable recovery without re-reading everything
+- **Subagents** get fresh context per chunk and return compact results
+- **Session files** (`progress.json`, `active.json`) enable mid-task recovery
 
-This keeps context utilization low, which is where models perform best.
-
-### Knowledge walks out the door
-
-When an agent solves a problem, the solution lives in chat history and disappears. Flywheel captures lessons so they persist:
-
-- **`/fly:compound`** (Claude Code) or **`/fly/compound`** (OpenCode) documents solutions while context is fresh
-- **`/fly:ship`** automatically compounds learnings when opening a PR, so knowledge capture is built into the shipping flow
-- **`docs/solutions/`** stores them as a searchable knowledge base with YAML frontmatter
-- **Planning skills** surface relevant past solutions automatically
-
-These learnings live in your codebase, so they're shared with your team.
+We try to keep the main thread in the range where models perform best.
 
 ### Human attention is spent on the wrong things
 
 Reviewing code line-by-line catches individual mistakes. Reviewing research and plans catches structural problems before they become code:
 
-| Review Target | Prevents |
-|---------------|----------|
-| Research | Thousands of bad lines |
-| Plans | Hundreds of bad lines |
-| Code | Individual mistakes |
+| Review target | Prevents             |
+|---------------|----------------------|
+| Research      | Thousands of bad lines |
+| Plans         | Hundreds of bad lines  |
+| Code          | Individual mistakes    |
 
-Flywheel requires human approval at research and plan boundaries because that's where your attention has the most impact.
+Flywheel asks for human approval at research and plan boundaries because that's where attention has the most leverage. If you're looking to go fully autonomous, you can opt out of all human in the loop checkpoints via the `/yolo` skill. It skips all these gates and runs the whole sequence of skills unattended.
 
 ## Workflow
 
 ```
-Plan → Work → Ship → Repeat
+Plan → Work → Review → Fix → Ship
 ```
 
-Brainstorm and research are optional entry points. Review can be added before shipping. Ship automatically compounds learnings.
+`brainstorm` and `research` are optional entry points. `work-review` can be added before shipping. `ship` automatically compounds learnings. `yolo` chains the whole thing.
 
-| Command (Claude Code) | Command (OpenCode) | Purpose |
-|-----------------------|-------------------|---------|
-| `/fly:brainstorm` | `/fly/brainstorm` | Explore ideas conversationally before detailed planning |
-| `/fly:research` | `/fly/research` | Codebase research using a locate→analyze pattern |
-| `/fly:plan` | `/fly/plan` | Create, enrich, review, and consolidate implementation plans |
-| `/fly:work` | `/fly/work` | Execute plans with continuous testing and quality checks |
-| `/fly:review` | `/fly/review` | Multi-agent code review with structured todo tracking |
-| `/fly:compound` | `/fly/compound` | Document solved problems for future reference |
-| `/fly:debug` | `/fly/debug` | Iterative debug loop with fix-verify cycles |
-| `/fly:ship` | `/fly/ship` | Create branch, commit, push, open a PR, and compound learnings |
+| Skill                | What it does |
+|----------------------|--------------|
+| `/brainstorm`        | Conversational exploration before detailed planning |
+| `/research`          | Standalone codebase research using locate→analyze |
+| `/plan`              | Orchestrator: runs `plan-creation` → `plan-review` → `plan-consolidation` |
+| `/plan-creation`     | Research, validate claims via Context7, emit a work-ready `spec.json` |
+| `/plan-review`       | All reviewer agents in parallel; deduplicates findings into `findings.json` |
+| `/plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
+| `/work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
+| `/work-review`       | Multi-agent code review on PRs, branches, or current changes |
+| `/debug`             | Iterative fix-verify cycle for a specific reported issue |
+| `/compound`          | Capture a solved problem as searchable documentation |
+| `/ship`              | Branch → commit → PR; compounds learnings on the way out |
+| `/yolo`              | Plan → implement → review → fix-findings, fully autonomous |
 
-Each cycle builds on the last: plans inform future plans, reviews catch more issues, patterns get documented.
-
-## How It Works
+## How it works
 
 ### Planning in phases
 
-`/fly:plan` orchestrates three skills in sequence, each writing to the same plan file:
+`/plan` orchestrates three skills in sequence, each writing to the same session:
 
-1. **Create** — Research the codebase (locate→analyze pattern), validate high-risk claims against external docs (Context7), and draft the plan
-2. **Review** — Run all reviewer agents in parallel (architecture, performance, data integrity, etc.), deduplicate findings, and convert conflicts to open questions
-3. **Consolidate** — Resolve open questions with the user one at a time, then restructure everything into an actionable checklist ready for `/fly:work`
+1. **Create** — Research the codebase (locate→analyze), validate high-risk claims against external docs (Context7), and draft `spec.json`
+2. **Review** — Run all reviewer agents in parallel (architecture, performance, data integrity, elegance, etc.), deduplicate findings, surface conflicts as open questions
+3. **Consolidate** — Resolve open questions with the user one at a time, then restructure everything into an actionable checklist ready for `/work`
 
 ### Research with tiered agents
 
-`/fly:research` uses a two-phase locate→analyze pattern:
+`/research` (and the research step inside `/plan-creation`) uses a two-phase locate→analyze pattern:
 
-- **Locators** (cheap, parallel, haiku) find WHERE things are — paths and file:line refs only
-- **Analyzers** (expensive, targeted, sonnet) understand HOW things work — full file reads on the top findings
+- **Locators** (cheap, parallel, haiku) find WHERE things are — paths and `file:line` refs only, no Read tool
+- **Analyzers** (expensive, targeted, sonnet) understand HOW things work — full file reads on the top findings, documentarian mode (no suggestions)
+
+This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Execution with recovery
 
-`/fly:work` uses a probe-dispatch-checkpoint pattern. State files and session tracking mean you can clear context mid-work and resume with "carry on".
+`/work` uses a probe-dispatch-checkpoint pattern. State files and session tracking mean you can clear context mid-work and resume with `/work` (no args). It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and transitions automatically when `/yolo` is driving.
 
 ### Multi-agent review
 
-`/fly:review` runs all available reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and creates structured todo files.
+`/work-review` runs all reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and writes a structured `review.findings.json` ready for `/work` to consume in fix-findings mode.
+
+### Autonomous mode
+
+`/yolo` chains plan → work → review → fix-findings without stopping. The agent answers its own open questions, drives all phase transitions, and only stops when the loop reports complete or a phase fails irrecoverably. Use it when you trust the plan target and will be away from the keyboard.
 
 ## Components
 
-| Type | Count | Examples |
-|------|-------|---------|
-| Reviewers | 6 | architecture, code-quality, performance, patterns, data-integrity, elegance |
-| Research Locators | 4 | codebase, patterns, docs, web |
-| Research Analyzers | 5 | codebase, patterns, docs, web, git-history |
-| Commands | 8 | brainstorm, research, plan, work, review, compound, debug, ship |
-| Skills | 13 | plan-creation, plan-review, plan-consolidation, work-implementation, work-review, and more |
+| Type                 | Count | Examples |
+|----------------------|------:|----------|
+| Workflow skills      | 11    | `brainstorm`, `research`, `plan`, `plan-creation`, `plan-review`, `plan-consolidation`, `work`, `work-review`, `debug`, `compound`, `ship` |
+| Autonomous skill     | 1     | `yolo` |
+| Domain skills        | 1     | `astronomer-airflow` |
+| Utility skills       | 2     | `flywheel-conventions`, `language-standards` |
+| Reviewer agents      | 6     | `architecture`, `code-quality`, `data-integrity`, `elegance`, `patterns`, `performance` |
+| Research locators    | 4     | `codebase`, `patterns`, `docs`, `web` |
+| Research analyzers   | 5     | `codebase`, `patterns`, `docs`, `web`, `git-history` |
 
-See `plugin/flywheel/README.md` for full agent, command, and skill reference tables.
+### Reviewers (6)
+
+| Agent                     | What it reviews |
+|---------------------------|-----------------|
+| `reviewer-architecture`   | Architectural decisions, component boundaries, system design |
+| `reviewer-code-quality`   | Type safety, idioms, maintainability; loads `language-standards` on demand |
+| `reviewer-data-integrity` | Database migrations, transaction boundaries, referential integrity |
+| `reviewer-elegance`       | Single source of truth, working with the grain, no ceremony |
+| `reviewer-patterns`       | Project conventions, codebase norms, duplicated utilities |
+| `reviewer-performance`    | Bottlenecks, query plans, scalability characteristics |
+
+### Locators (4) — cheap, parallel, haiku
+
+Find WHERE things are without reading files. No Read tool — paths and `file:line` references only.
+
+| Agent              | Tools         | Purpose |
+|--------------------|---------------|---------|
+| `locator-codebase` | Grep, Glob    | Files and components |
+| `locator-patterns` | Grep, Glob    | Specific patterns (`file:line`) |
+| `locator-docs`     | Grep, Glob    | Documentation |
+| `locator-web`      | WebSearch     | Relevant URLs (no fetching) |
+
+### Analyzers (5) — more powerful, targeted, sonnet
+
+Understand HOW things work via full file reads. Documentarian mode — no suggestions.
+
+| Agent                 | Tools                    | Purpose |
+|-----------------------|--------------------------|---------|
+| `analyzer-codebase`   | Read, Grep, Glob         | Implementation details |
+| `analyzer-patterns`   | Read, Grep, Glob         | Code examples in context |
+| `analyzer-docs`       | Read, Grep, Glob         | Synthesize documentation |
+| `analyzer-web`        | WebFetch, Read           | Deep web content extraction |
+| `analyzer-git-history`| Bash, Read, Grep, Glob   | Code evolution and contributors |
+
+## Schemas
+
+Session artifacts live in `.flywheel/plugin/sessions/<id>/` and validate against schemas in `flywheel/schemas/`:
+
+| Artifact                  | Schema                  | Written by |
+|---------------------------|-------------------------|------------|
+| `spec.json`               | `session.schema.json`   | `plan-creation` / `plan-consolidation` |
+| `findings.json`           | `findings.schema.json`  | `plan-review` |
+| `review.findings.json`    | `findings.schema.json`  | `work-review` |
+| `progress.json`           | `progress.schema.json`  | `work` |
+| Task lists                | `task-list.schema.json` | `work` |
+
+## Client differences
+
+Same skills, slightly different plumbing.
+
+| Aspect          | Claude Code                     | OpenCode |
+|-----------------|---------------------------------|----------|
+| Distribution    | Plugin marketplace or local install | `install_opencode.py` |
+| Skill syntax    | `/skill-name`                   | `/skill-name` |
+| Config location | `~/.claude/plugins/cache/...`   | `~/.config/opencode/` |
+| Auto-update     | Marketplace toggle              | Re-run install script |
+| Context7 MCP    | Bundled in plugin manifest or via installer | Configured into `opencode.json` |
+
+## Development
+
+### Layout
+
+```
+flywheel/
+├── flywheel/         # plugin source (skills, agents, schemas)
+│   ├── agents/       # 15 subagent definitions
+│   ├── skills/       # 15 skill definitions, one per directory
+│   └── schemas/      # JSON Schemas for session artifacts
+├── docs/adrs/        # architectural decisions (read 0001 first)
+├── tests/            # tmux integration tests against real API
+├── install_claude_code.sh
+└── install_opencode.py
+```
+
+### Integration tests
+
+Real `tmux` sessions running `claude` against the local plugin (loaded via `--plugin-dir`), driving slash commands and asserting against on-disk artifacts. No mocks — every test that exists hits the real Anthropic API.
+
+```bash
+bash tests/integration/run.sh                 # all cases
+bash tests/integration/run.sh plugin-loads    # filter by name
+```
+
+Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH. Schema validation uses `bunx ajv-cli` (no install needed).
+
+| Case                                | What it exercises | Cost |
+|-------------------------------------|-------------------|------|
+| `00-plugin-loads.test.sh`           | `--plugin-dir` discovery; `/yolo`, `/plan`, `/work` show up in palette | none (no model call) |
+| `01-fly-work-resumes.test.sh`       | `work` against a seeded session: `progress.json` lands and validates, mode is `plan` | ~1–3 min |
+| `02-fly-plan-creates-spec.test.sh`  | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~5–15 min |
+| `03-pipeline-end-to-end.test.sh`    | `/yolo` runs the full pipeline: plan → work → review → fix-findings; asserts every phase's artifacts | ~25–45 min |
+
+When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/flywheel-int-<session>-<timestamp>-<label>.pane.txt` and leaves the sandbox in place so you can inspect session state. `bash tests/cleanup.sh --apply` deletes them when you're done. See `CLAUDE.md` for monitoring and debugging recipes.
+
+### Reinstall after plugin changes
+
+```bash
+bash install_claude_code.sh < /dev/null 2>&1 | tail -3
+```
+
+The integration tests load from `flywheel/` directly via `--plugin-dir`, so they pick up source changes without reinstall. `claude` may cache parts of the plugin between sessions — when in doubt, reinstall.
+
+### Architectural philosophy
+
+Skill design is treated as negotiation, not enforcement. Coaxing the model into the right behavior beats structural validators most of the time, and structural enforcement only earns its keep where coaxing has demonstrably failed across multiple runs. Read `docs/adrs/0001-skill-design-as-negotiation.md` before adding gates or validators.
 
 ## Inspiration
 
-This project is heavily inspired by:
-
-- **[Compound Engineering Plugin](https://github.com/EveryInc/compound-engineering-plugin)** by Every — The original implementation of compound engineering workflows for Claude Code.
-- **[HumanLayer Claude Config](https://github.com/humanlayer/humanlayer/tree/main/.claude)** by HumanLayer — Patterns for human-in-the-loop AI development.
+- **[Compound Engineering Plugin](https://github.com/EveryInc/compound-engineering-plugin)** by Every
+- **[HumanLayer Claude Config](https://github.com/humanlayer/humanlayer/tree/main/.claude)** by HumanLayer
 
 ## License
 
-[MIT](../LICENSE)
+[MIT](LICENSE)

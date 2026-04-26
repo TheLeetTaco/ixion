@@ -1,7 +1,7 @@
 {
   "name": "flywheel-marketplace",
-  "version": "1.0.0",
-  "description": "Flywheel - A Claude Code plugin that turns development cycles into momentum",
+  "version": "1.0.1",
+  "description": "Flywheel - A Claude Code plugin that runs autonomous workflows",
   "owner": {
     "name": "Wesley Sauret"
   },
@@ -9,8 +9,8 @@
     {
       "name": "flywheel",
       "source": "./flywheel",
-      "description": "A Claude Code plugin that turns development cycles into momentum",
-      "version": "1.0.0",
+      "description": "A Claude Code plugin that runs autonomous workflows",
+      "version": "1.0.1",
       "author": {
         "name": "Wesley Sauret"
       },
