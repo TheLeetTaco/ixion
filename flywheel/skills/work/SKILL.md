@@ -269,11 +269,7 @@ On subagent return:
 5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Capture exit_code. Re-run if any doubt.
 6. Manual verification pause if `phase.manual_verification` is non-empty (plan mode).
 
-### 2.4 Ralph Mode Check
-
-Ralph mode activates when any of: spec has >5 phases, `--ralph` flag, or context >50% with >2 chunks remaining. Read `references/ralph-mode.md`.
-
-### 2.5 Loop
+### 2.4 Loop
 
 Continue to the next non-completed chunk. All complete → Phase 3.
 
@@ -350,4 +346,3 @@ Read `references/recovery-and-errors.md`.
 - `references/session-file-template.md` — session.json shape, `active_skill` lifecycle, skill-exit cleanup trap
 - `references/verification-gates.md` — Verification protocol
 - `references/recovery-and-errors.md` — Resume flow, 3-Strike protocol
-- `references/ralph-mode.md` — Stateless agent loop triggers, checkpoint format
