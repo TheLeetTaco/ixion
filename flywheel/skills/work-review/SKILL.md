@@ -209,21 +209,28 @@ Creep signals:
 
 The synthesizer applies this judgment once at merge time.
 
-### 2.3b Filter against the verbatim user prompt and the change's actual surface
+### 2.3b Tag contradictions with the verbatim prompt; scale findings to the change's actual surface
 
-Two judgment calls I make as the synthesizer, in this order, before P3 triage. Both apply to findings of every severity — not just P3.
+Two judgment calls I make as the synthesizer, in this order, before P3 triage. Both apply to findings of every severity.
 
-**Drop contradictions with the verbatim user prompt.**
+**Tag — don't drop — contradictions with the verbatim user prompt.**
 
-`spec.context.constraints[0]` carries the user's exact feature description, prefixed `User feature description (verbatim, authoritative):`. That prompt encodes choices the user made deliberately. A reviewer finding that proposes reverting one of those choices is a contradiction, not a quality finding — I cut it before publishing.
+Reviewers review from a best-practices lens; they don't read the user's exact prompt. So when a reviewer pushes back on a user choice (e.g., suggests `Bun` where the user said `Node.js`, or suggests caching where the user explicitly scoped to "MVP — no caching"), the pushback is real information — users sometimes deviate from best practice out of laziness, not principle, and the reviewer's "you should be using X" deserves to surface so the user can confirm or revisit the decision.
 
-Concretely, when a finding proposes:
+I keep contradicting findings in the published list, but I tag them so downstream stages know they're advisory:
+
+- Prefix the `title` with `[Contradicts user] `
+- Append one sentence to `failure`: `Deferred: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-apply.`
+
+The contradiction shapes I tag:
 
 - a different tool than the user named ("user said `Express`, finding says switch to `Fastify`")
 - a different shape than the user specified ("user said handlers as plain functions, finding says wrap them in a service class")
 - a different scope than the user asked for ("user said `read-only API for the MVP`, finding says add `POST` and `DELETE` endpoints")
 
-I drop it. No partial keep, no defer-to-user. Findings that fill in *underspecified* hows — robustness, security, type hints, error handling the user didn't speak to — stay. That's good scope growth.
+Findings that fill in *underspecified* hows — robustness, security, type hints, error handling the user didn't speak to — pass through untagged. That's good scope growth.
+
+The point of tagging instead of dropping: reviewer pushback is the value, not the noise. The tag preserves the record; downstream skills treat `[Contradicts user]`-tagged findings as advisory, not actionable.
 
 **Scale findings to the change's actual size.**
 
@@ -235,7 +242,7 @@ If reviewers surface 30+ findings on a 300-line program, they're working the uni
 
 The published count should reflect the change's real surface area. A small program rarely earns more than a handful of meaningful findings; if my output is much larger than the change deserves, I trim.
 
-I apply this filter after 2.3 (dedup) and 2.3a (arbitration), before 2.4 (P3 triage).
+I apply both treatments (tag, then trim) after 2.3 (dedup) and 2.3a (arbitration), before 2.4 (P3 triage).
 
 ### 2.4 Triage P3 findings
 

@@ -1,6 +1,6 @@
 # Flywheel — claude.md
 
-This repo develops the Flywheel plugin for Claude Code and OpenCode. Source lives in `flywheel/` (plugin contents); integration tests live in `tests/integration/`. Architectural philosophy: see `docs/adrs/0001-skill-design-as-negotiation.md`.
+This repo develops the Flywheel plugin for Claude Code and OpenCode. Source lives in `flywheel/` (plugin contents); integration tests live in `tests/integration/`. Architectural philosophy: @docs/adrs/0001-skill-design-as-negotiation.md
 
 ## Running integration tests
 
