@@ -115,6 +115,10 @@ Every spec MUST emit at least one `context.constraints[]` entry recording the de
 
    "I didn't think about it" is not a concrete reason. If you can't write either form, you haven't done the synthesis.
 
+   **Strong:** `Considered: a UserAuthService class wrapping the Stripe SDK + a separate UserSessionStore. Rejected because: Forwarding Chain — every method just delegates to Stripe. Inlining the SDK calls in routes/auth.ts is shorter, removes a file, and matches the existing pattern in routes/payments.ts:14.`
+
+   **Weak:** `Considered other approaches. Picked this one.` — Names no alternative, names no anti-pattern, gives no reason. Doesn't survive the bar.
+
 ---
 
 ## Phase 4: Compose and Write Artifacts

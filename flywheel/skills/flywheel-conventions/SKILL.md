@@ -4,7 +4,7 @@ description: Shared conventions for Flywheel subagents. Tool discipline, output 
 user-invocable: false
 ---
 
-## Elegance Discipline (BLOCKING: Apply at every stage)
+## Elegance — applied at every stage
 
 **Maximize elegance.** This is the single governing principle. Every rule below describes what elegance looks like — heuristics in service of the principle, not the goal themselves. When a rule produces awkward or indirect output, break it and document why the result is more elegant.
 

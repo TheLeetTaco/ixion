@@ -150,7 +150,7 @@ For each finding, provide all of:
 - **Severity** — `P1`, `P2`, or `P3`. See `flywheel-conventions` Severity definitions.
 - **Location** — format provided by the invoker. Code review: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Plan review: `<phase_id>` or `<phase_id>/<task_id>`.
 - **Failure** — four slots: `<Principle name>. <Intent>. <Observation>. <Reasoning>.` See `flywheel-conventions` "Lead with the Failure" for the slot definitions.
-- **Fix** — a concrete proposed change. The implementer treats this as a hypothesis, so be specific without over-prescribing.
+- **Fix** — a concrete proposed change. The Failure paragraph is binding; the Fix is your best guess. The implementer may find a more elegant resolution to the Failure than what you proposed — that's fine. Be specific enough that they have a starting point, abstract enough that they can find a better path.
 
 Format per finding:
 

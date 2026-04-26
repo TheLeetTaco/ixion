@@ -103,9 +103,25 @@ The bar: a fresh implementer who reads only `spec.json` (no conversation history
 
 **Surface failures into context.** For every P1/P2 finding integrated into spec.json, append a one-line summary of the `failure` to `spec.context.constraints[]` so the implementer sees the reasoning during dispatch, not just the patch.
 
-**Structural failures replace, don't patch.** If a finding's `failure` leads with a named anti-pattern from `flywheel/skills/flywheel-conventions/references/elegance.md` (e.g., Shallow Wrapper, Forwarding Chain, Premature Abstraction, Parallel State, Speculative Code, God Class) or a Universal Principle name (Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt), do NOT fold the `fix` into the affected task's description — that adds the patch on top of the inelegant shape. Instead, re-shape the affected phase or task to the simpler form the finding prescribes. Delete tasks made redundant by the redesign. The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when it means a larger refactor.
+**Structural failures replace, don't patch.** Match the leading word(s) of each finding's Failure paragraph against the catalog below — string comparison, not judgment. Match → reshape the affected phase. No match → fold the fix into the task description.
 
-The elegance reference is the canonical name list — read it before deciding whether a finding triggers structural redesign or task-level patching.
+Catalog of names that route to redesign (from `flywheel/skills/flywheel-conventions/references/elegance.md`):
+
+- Universal Principles: Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt
+- Structural: God Class, Shallow Wrapper, Forwarding Chain, Parallel State, Speculative Code, Config Soup, Stubborn Duplication
+- Data Flow: Manual Sync, Bidirectional Coupling, Cascade Mutation, Leaky Event
+- Abstraction: Premature Abstraction, Leaky Interface, Comments-as-Apology, Indirection Tax, Concrete Dependency
+- Plan-Specific: Test Desert, Test Afterthought, Reinvented Wheel, Shotgun Surgery
+- Performance/data-integrity canonicals: N+1 Query, Race Condition, Layering Violation, Convention Drift
+
+When a finding matches, the patch is the wrong response. Folding "use a JOIN instead" into a task that says "build the in-memory join with N+1 queries" leaves both shapes in the spec. Delete the inelegant task; replace it with one that prescribes the cleaner shape from the start.
+
+Example — finding leads `Forwarding Chain. ...`:
+
+- Spec before: phase-2 task: "Add `UserManager.authenticate()` that calls `AuthService.verify()` that calls `TokenService.check()`."
+- Spec after: phase-2 task: "Add a route handler that calls `TokenService.check()` directly." Original task deleted. `constraints[]` records the Failure paragraph one-liner.
+
+The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when reshaping deletes tasks the original spec prescribed.
 
 ### Consistency check (run before integrating any finding)
 

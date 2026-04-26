@@ -33,22 +33,22 @@ Mode is detected from session contents — never set explicitly.
 
 ## Phase 0: Session Detection
 
-Read `references/session-detection.md`.
+Active pointer lives at `.flywheel/plugin/active.json` (`{ "schema_version": 1, "session_id": "<id>" }`); sessions live at `.flywheel/plugin/sessions/<session-id>/`.
 
 Decision tree:
 
 1. **No args, active.json missing** → error: `"No active session. Run /plan or /work <slug>."` Exit.
-2. **No args, active.json points to missing session dir** → error: `"Session <id> not found. Clearing active pointer."` Clear active.json. Exit.
-3. **No args, active.json present** → use it.
-4. **Slug arg** → prefix-scan; tiebreak by lexical-desc sort (ISO-date semantics); update active.json to winner.
+2. **No args, active.json points to missing session dir** → error: `"Session <id> not found. Clearing active pointer."` `rm -f .flywheel/plugin/active.json`. Exit.
+3. **No args, active.json present** → `SESSION_ID=$(jq -r .session_id .flywheel/plugin/active.json)`; use it.
+4. **Slug arg** → prefix-scan: `find .flywheel/plugin/sessions -maxdepth 1 -type d -name "${SLUG}-*" | sort -r`. ISO-date suffix sorts lexically = chronologically; first result wins. Update `active.json` atomically (`.tmp` → `mv`) to the winner.
+
+Stale-tmp cleanup: if `progress.json.tmp` or `session.json.tmp` exist from an interrupted prior write, delete them. The authoritative file is the un-suffixed one; partial writes never persist past a crash because `.tmp` → `mv` is atomic on local POSIX.
 
 Validate `session.json.schema_version == 1`. Mismatch → `"Unsupported schema version <N>. Re-run the producing skill to regenerate."`
 
 ---
 
 ## Phase 1: Mode Detection & Load
-
-Read `references/load-resume-procedures.md`.
 
 `progress.json` is the file the rest of the pipeline reads to know what's happening. `work-review` reads it to see what files you touched. `/yolo` reads it to detect the fix-findings transition. Future `/work` invocations read it to resume. **Without `progress.json`, the rest of the pipeline can't see your work** — even if the code is correct, nothing downstream knows you ran. Treat writing it as the *first* thing you do, not the last.
 
@@ -93,7 +93,17 @@ Procedure:
    trap cleanup_active_skill EXIT
    ```
 
-5. **Worktree assessment**: advisory prompt per `references/load-resume-procedures.md` if scope is large.
+5. **Worktree assessment** (advisory): if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt:
+
+   ```
+   Ready to execute.
+   Scope: N files, M phases.
+
+   1. Current branch (Recommended for small changes)
+   2. Create worktree (Recommended for >10 files or high-risk paths)
+   ```
+
+   If worktree: `git worktree add`, then remind about dependency install + `/init`.
 
 No baseline. No hash. No BC coverage check. No TaskList synthesis.
 
@@ -147,7 +157,7 @@ Execute phase <id>: <phase.goal>
 - constraints: <spec.context.constraints>
 - Already completed: <progress.completed>
 
-## Elegance bar (NON-NEGOTIABLE)
+## The bar the user set for me
 <paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
 
 Plan-mode addendum:
@@ -179,7 +189,7 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
 
 `commands_run[]` is a forensic log — entries can be structured objects (as shown) or plain summary strings like `'bun run test — 4 passed'`. Whatever you'll find useful to read later. Nothing downstream parses this programmatically.
 
-`simplifications_made[]` is advisory: log what you actually simplified during the chunk; leave empty if nothing warranted recording.
+`simplifications_made[]` is the receipts list work-review compares your diff against. Always emit at least one entry — catalog form for what you caught, or the all-four-no negative form when the diff self-check found nothing.
 \"
 ```
 
@@ -210,7 +220,7 @@ These findings are clustered because they likely share a structural cause. Diagn
 2. Fix the structure once. If the structural change resolves N of M findings as a side effect, re-evaluate the rest before applying their fixes — they may dissolve too.
 3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
 
-## Elegance bar (NON-NEGOTIABLE)
+## The bar the user set for me
 <paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
 
 Fix-findings addendum:
@@ -242,7 +252,7 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
 
 `commands_run[]` is a forensic log — structured objects or summary strings, your call. Nothing downstream parses it programmatically.
 
-`simplifications_made[]` is advisory: if the structural change you made to address the cluster is worth naming, log it. Otherwise leave empty.
+`simplifications_made[]` is the receipts list work-review compares your diff against. Always emit at least one entry — the structural change you made (catalog form like `Avoided Forwarding Chain at src/auth.ts:42 by reading state directly`) is the most important simplification to name. If somehow nothing warranted a positive entry, use the negative form.
 \"
 ```
 
@@ -252,22 +262,32 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
 
 Skip TDD only for pure refactoring, config-only, or docs changes. Otherwise the dispatch prompt above is the contract:
 
-RED (failing test) → GREEN (minimum code to pass) → REFACTOR (re-read, simplify, delete) → final Diff self-check across the chunk → write `simplifications_made[]` entries grounded in the self-check answers → return.
+RED (failing test) → GREEN (the smallest *complete* expression of the change — not the shortest path through the test, the cleanest path) → REFACTOR (re-read, delete what doesn't earn its line) → final Diff self-check across the chunk → write `simplifications_made[]` entries grounded in the self-check answers → return.
 
 REFACTOR is per-task; the Diff self-check runs once at the end of the chunk after all tasks are GREEN. The simplifications log records what the self-check surfaced.
 
 ### 2.3 Checkpoint (Atomic Write)
 
-Read `references/checkpoint-procedure.md`.
-
 On subagent return:
 
-1. Append chunk ID to `progress.completed[]`.
-2. Append `files_modified[]`, `commands_run[]`, and `simplifications_made[]` to `progress.artifacts`.
-3. Atomic write `progress.json` (`.tmp` → `mv`).
-4. Update `session.json.last_checkpoint_at`.
-5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Capture exit_code. Re-run if any doubt.
-6. Manual verification pause if `phase.manual_verification` is non-empty (plan mode).
+1. Append chunk ID to `progress.completed[]`. Set `in_progress: null`. If this is the last chunk set `status: "completed"`, otherwise `status: "in_progress"`.
+2. Append `files_modified[]` (de-duped), `commands_run[]`, and `simplifications_made[]` to `progress.artifacts`.
+3. Atomic write `progress.json` via `.tmp` → `mv`. Same pattern for `session.json` updates.
+4. Update `session.json.last_checkpoint_at` to current UTC ISO-8601.
+5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Run the command fresh, capture the actual exit_code — never guess. Re-run if any doubt. Do NOT append the chunk ID to `completed[]` if verification failed.
+6. **Manual verification pause** — if `phase.manual_verification` is non-empty (plan mode), surface to the user before continuing:
+
+   ```
+   Phase <id> complete — ready for manual verification.
+   Automated verification passed: <list from artifacts.commands_run>
+   Please verify manually: <from phase.manual_verification>
+
+   1. Continue to next chunk (Recommended) — I've verified manually
+   2. Continue all remaining — Skip future manual pauses this run
+   3. Stop here — I have feedback
+   ```
+
+   "Continue all" sets a session-scoped flag to suppress further manual pauses this run. "Stop here" exits the loop; the next `/work` resumes from the same chunk.
 
 ### 2.4 Loop
 
@@ -321,9 +341,16 @@ After the user's choice:
 
 ## Recovery & Errors
 
-Read `references/recovery-and-errors.md`.
+**Recovery**: "carry on" / "continue" / `/work` with no args all route through Phase 0 → Phase 1 resume. The first chunk whose ID is not in `progress.completed[]` is the resume entry point. No work is lost — `progress.json` is atomically written, partial states never persist.
 
-**Errors**: 3-Strike protocol per chunk (record each attempt in `progress.error_log`). Subagent failures: retry/skip/abort prompt. Test failures: fix before checkpointing.
+**3-Strike protocol per chunk** (record each attempt in `progress.error_log[]`):
+
+1. **Attempt 1**: diagnose & fix.
+2. **Attempt 2**: alternative approach — never repeat the same failing action.
+3. **Attempt 3**: broader rethink — question assumptions.
+4. **After 3 failures**: append to `progress.error_log[]` and escalate via AskUserQuestion (retry / skip / abort). If skip, the gap stays in the log so work-review can surface it.
+
+Test failures fix before checkpointing — never append a chunk ID to `completed[]` with failing tests. The chunk being attempted stays in `progress.in_progress` (not yet appended to `completed[]`) until verification passes. Schema-version mismatch on any input artifact: halt with the literal `"Unsupported schema version <N>. Re-run the producing skill to regenerate."`
 
 ---
 
@@ -339,10 +366,5 @@ Read `references/recovery-and-errors.md`.
 
 ## Detailed References
 
-- `references/session-detection.md` — Phase 0 active-pointer model, slug-arg tiebreak
-- `references/load-resume-procedures.md` — Phase 1 mode detection, fresh-start init, resume invariants
-- `references/checkpoint-procedure.md` — Atomic write recipe, `commands_run` accuracy
-- `references/progress-file-template.md` — progress.json shape, atomic write invariant, status enum
-- `references/session-file-template.md` — session.json shape, `active_skill` lifecycle, skill-exit cleanup trap
-- `references/verification-gates.md` — Verification protocol
-- `references/recovery-and-errors.md` — Resume flow, 3-Strike protocol
+- `references/verification-gates.md` — Evidence-before-claim protocol and banned phrases.
+- `flywheel/schemas/progress.schema.json`, `session.schema.json` — authoritative shapes for the artifacts this skill writes.

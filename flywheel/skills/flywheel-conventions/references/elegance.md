@@ -30,6 +30,7 @@ Both encode the same principle: every line must do important work. The catalog n
 | **Parallel State** | Same value stored in two places | Single source of truth, derive the rest |
 | **Speculative Code** | Built for hypothetical future requirements | Delete it. Add when needed. |
 | **Config Soup** | Many optional fields, valid combinations unclear | Discriminated variants or composable primitives |
+| **Stubborn Duplication** | Same logic in 3+ places, drift already starting | Extract; the abstraction is now clear from the call sites. (Counterpart to Premature Abstraction.) |
 
 ### Data Flow Anti-Patterns
 
@@ -46,6 +47,7 @@ Both encode the same principle: every line must do important work. The catalog n
 |---|---|---|
 | **Premature Abstraction** | Generic base/interface with one implementation, no extension plan | Inline it. Extract when the second consumer appears. |
 | **Leaky Interface** | Consumer must understand internals to use correctly | Deep module with self-documenting interface |
+| **Comments-as-Apology** | Code needs prose to explain itself; remove the comment and the code becomes opaque | Rename and restructure until the code reads itself. Comments only for non-obvious WHY (hidden constraints, workarounds for specific bugs). |
 | **Indirection Tax** | Layer exists only to satisfy a rule, no value added | Remove the layer. Question the rule. |
 | **Concrete Dependency** | Business logic imports infrastructure directly | Depend on abstraction, inject the impl |
 
@@ -64,6 +66,10 @@ Both encode the same principle: every line must do important work. The catalog n
 
 The orchestrator pastes the section below verbatim into every work dispatch. The dispatched subagent treats this as the binding contract.
 
+### Why this matters
+
+The user wants to read this code six months from now and think every line is doing important work. They've told me they don't want to ever read a line and ask "why is this here?" That is the bar. The rules below are the heuristics; the bar is the only test that matters.
+
 ### Maximize elegance, not minimal churn
 
 Pick the more elegant design even if it means a larger refactor.
@@ -74,6 +80,7 @@ Pick the more elegant design even if it means a larger refactor.
 - Wrappers and helpers must add capability, not move code around. No Shallow Wrappers, no Forwarding Chains.
 - No Speculative Code, no defensive checks for impossible cases, no backward-compat shims for nonexistent consumers.
 - Prefer deletion to modification. The best fix is often less code, not more.
+- Code that needs comments to explain itself isn't elegant — rename and restructure until the code reads itself. Comments only for non-obvious WHY.
 
 ### Counter-examples (the shapes we reject)
 
@@ -86,25 +93,35 @@ GOOD: throw a typed error so the caller routes to retry.
 BAD: `if (config?.options?.advanced?.timeout) { ... }` — Speculative depth on always-present config.
 GOOD: `timeout` is required; remove the optional chain.
 
-### Reporting (advisory)
+### What the chunk should look like when you're done
 
-If you simplified anything during the chunk, log it in `simplifications_made[]`. If you didn't, leave the array empty — there's no requirement to fabricate an entry. Nothing downstream reads this programmatically; it's a self-discipline tool that helps you re-read your own diff with elegance in mind.
-
-When you DO log a simplification, these forms travel best (a future you, or a reviewer reading the progress log, can scan them quickly):
-
-- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — when the obvious approach would have introduced the named anti-pattern and you didn't.
-- `Deleted <N> lines from <path> (<reason>)` — when net change is negative.
-- `Consolidated <path-A> + <path-B> → <path-C>` — when two things became one.
-- `No simplifications: <concrete reason why none were warranted>` — when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance (in fix-findings mode, this signals re-planning required).
-
-Free-form prose is acceptable too if a catalog form doesn't fit — the goal is honest reflection, not catalog conformance.
+Each function reads as one idea. Each name explains itself. The reader follows the diff top-to-bottom and reaches the end without ever stopping to ask "why is this here?" If you can describe what your chunk does in one sentence and that sentence matches the spec's task description verbatim, the chunk is shaped right.
 
 ### Diff self-check before claiming done
 
-Re-read your full diff and answer with concrete evidence:
+Re-read your full diff and answer each question with concrete evidence. The answers go into `simplifications_made[]` (next section) — every "I caught X" becomes a catalog entry; if every answer is "no instances," the all-four negative form below covers it.
 
 1. Is there any line whose removal would NOT change behavior? Name one or confirm none exists.
 2. Is the same value stored in two places? Name where or confirm one source of truth.
 3. Is there a check guarding a case that cannot occur in this codebase? Name one or confirm none.
+4. Did this chunk add a wrapper, helper, or abstraction with only one consumer? Name one or confirm none.
 
 If you can't answer with evidence, you didn't actually re-read the diff.
+
+### Reporting — what work-review compares against
+
+`simplifications_made[]` is the receipts list for the reviewer who looks at your diff next. Empty arrays say "I claim nothing was worth noting" — the reviewer takes you at your word, then flags everything they find. A populated list shapes the review and keeps it focused. Show your work.
+
+Always emit at least one entry. Match one of these forms:
+
+- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — when the obvious approach would have introduced the named anti-pattern and you didn't.
+- `Deleted <N> lines from <path> (<reason>)` — when net change is negative.
+- `Consolidated <path-A> + <path-B> → <path-C>` — when two things became one.
+- `Used existing <utility> at <path>:<line> instead of building <new-thing>` — when the chunk reused an existing helper instead of creating new code.
+- `No simplifications: <concrete reason why none were warranted>` — when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance (in fix-findings mode, this signals re-planning required).
+
+When the diff self-check answers are all "no instances," collapse the four into one negative entry:
+
+`No simplifications: ran diff self-check (removable lines / parallel state / impossible guards / single-consumer wrappers) — no instances found.`
+
+Free-form prose like "phase was small" or "everything was needed" doesn't pass — name the catalog form.

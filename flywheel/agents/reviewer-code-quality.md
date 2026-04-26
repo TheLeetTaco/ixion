@@ -50,7 +50,7 @@ Extract to a separate module when you see: complex business rules, multiple conc
 
 ### 9. CORE PHILOSOPHY
 - **Avoid hasty abstractions, not consolidation.** Two similar implementations is fine while you're learning the abstraction; three or more is duplication that masks a missing abstraction. Flag duplication when (a) the right abstraction is clear from existing call sites, or (b) the duplicates have already drifted apart. This is in service of `Single Source of Truth` from the elegance reference — premature consolidation and stubborn duplication are both inelegant.
-- "Adding more modules is never a bad thing. Making modules very complex is a bad thing."
+- **Module count isn't the cost; module complexity is.** A small module with a clear purpose carries less debt than a fat module with mixed responsibilities. But a single-consumer module is debt — inline it until a second consumer exists. (`Premature Abstraction` from the elegance reference.)
 - Avoid premature optimization — keep it simple until performance becomes a measured problem.
 
 ---
