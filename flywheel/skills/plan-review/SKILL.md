@@ -140,6 +140,41 @@ For each group:
 
 **Cross-finding pattern detection:** count findings by leading principle name. If the same name appears in 3+ distinct findings (e.g., three independent "Shallow Wrapper" findings across phases), tag the cluster as a spec-pattern issue. Plan-consolidation handles a tagged cluster as a single redesign of the relevant `context.patterns[]` entry, not N phase patches — the pattern was the source.
 
+### 2.3a Tag contradictions with the verbatim prompt; scale findings to the spec's actual size
+
+Two judgment calls I make as the synthesizer, in this order, before structuring the output. Both apply to findings of every severity. Both also reduce the surface plan-consolidation has to evaluate downstream — fewer findings ⇒ less consolidation reasoning ⇒ less drift risk and faster pipeline.
+
+**Tag — don't drop — contradictions with the verbatim user prompt.**
+
+`spec.context.constraints[0]` carries the user's exact feature description, prefixed `User feature description (verbatim, authoritative):`. Reviewers review the spec from a best-practices lens; they don't read the user's exact prompt. So when a reviewer pushes back on a user choice (e.g., suggests `uvicorn` where the user said `gunicorn`, or proposes splitting a monolithic deploy into microservices), the pushback is real information — users sometimes deviate from best practice out of laziness, not principle, and the reviewer's "you should be using X" deserves to surface so the user can confirm or revisit the decision.
+
+I keep contradicting findings in the published list, but I tag them so plan-consolidation knows they're advisory:
+
+- Prefix the `title` with `[Contradicts user] `
+- Append one sentence to `failure`: `Deferred: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.`
+
+The contradiction shapes I tag:
+
+- a different tool than the user named ("user said `gunicorn`, finding says switch to `uvicorn`")
+- a different shape than the user specified ("user said `monolithic deploy`, finding says split into microservices")
+- a different scope than the user asked for ("user said `no observability for v0`, finding says add tracing and metrics")
+
+Findings that fill in *underspecified* hows — robustness, security, type hints, error handling, validation the user didn't speak to — pass through untagged. That's good scope growth and the reviewer's primary value.
+
+The point of tagging instead of dropping: reviewer pushback is the value, not the noise. The tag preserves the record; plan-consolidation treats `[Contradicts user]`-tagged findings as advisory and won't rewrite the spec to accommodate them.
+
+**Scale findings to the spec's actual size.**
+
+If reviewers surface 20+ findings on a 3-phase 60-line spec, they're working the universal anti-pattern catalog rather than this specific plan. I trust my judgment to drop the over-eager ones:
+
+- Generic critiques the spec doesn't earn ("phase-1 lacks rollback procedure" on a stateless transformation)
+- Style preferences the schema already permits ("`test_scenarios` should be objects, not strings" — the schema accepts strings)
+- Theoretical scaling concerns far below the spec's actual scope ("consider DDD bounded contexts" on a 60-line CRUD MVP; "warn about lock contention" on a single-user spec)
+
+The published count should reflect the spec's real surface area. A small spec rarely earns more than a handful of meaningful findings; if my output is much larger than the spec's complexity warrants, I trim.
+
+I apply both treatments (tag, then trim) after 2.3 (dedup), before 2.4 (structure into schema).
+
 ### 2.4 Structure into schema
 
 Compose the final JSON, conforming to `flywheel/schemas/findings.schema.json`:

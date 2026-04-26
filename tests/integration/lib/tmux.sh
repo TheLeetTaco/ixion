@@ -17,7 +17,7 @@ tmux_start() {
   local cwd="$2"
   tmux kill-session -t "$session" 2>/dev/null || true
   # Fresh shell; explicitly cd into sandbox so claude reads sandbox cwd.
-  tmux new-session -d -s "$session" -x 200 -y 50 "cd '$cwd' && exec claude --plugin-dir '$PLUGIN_ROOT' --permission-mode bypassPermissions --model claude-haiku-4-5"
+  tmux new-session -d -s "$session" -x 200 -y 50 "cd '$cwd' && exec claude --plugin-dir '$PLUGIN_ROOT' --permission-mode bypassPermissions --model claude-opus-4-7"
 }
 
 # tmux_send <session> <text>
