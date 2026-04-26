@@ -12,12 +12,17 @@ PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/flywheel"
 # tmux_start <session> <cwd>
 # Spawn a detached tmux session running claude inside <cwd> with the plugin.
 # Uses bypassPermissions so the session does not block on tool prompts.
+#
+# Model is configurable via FLYWHEEL_TEST_MODEL env var; default matches
+# the model real users typically run /yolo against. Override per-run with
+# e.g. FLYWHEEL_TEST_MODEL=claude-sonnet-4-6 bash tests/integration/...
 tmux_start() {
   local session="$1"
   local cwd="$2"
+  local model="${FLYWHEEL_TEST_MODEL:-claude-opus-4-7}"
   tmux kill-session -t "$session" 2>/dev/null || true
   # Fresh shell; explicitly cd into sandbox so claude reads sandbox cwd.
-  tmux new-session -d -s "$session" -x 200 -y 50 "cd '$cwd' && exec claude --plugin-dir '$PLUGIN_ROOT' --permission-mode bypassPermissions --model claude-opus-4-7"
+  tmux new-session -d -s "$session" -x 200 -y 50 "cd '$cwd' && exec claude --plugin-dir '$PLUGIN_ROOT' --permission-mode bypassPermissions --model $model"
 }
 
 # tmux_send <session> <text>
