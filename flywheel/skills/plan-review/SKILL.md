@@ -70,7 +70,7 @@ PLAN:
 PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
 [list of paths from Phase 0, or "none" if no docs exist]
 
-The plan's `context.constraints[0]` is the user's verbatim feature description, marked `(authoritative)`. The user's exact words are immutable constraints. **If the user explicitly chose a tool, library, framework, or approach** (e.g., `unittest`, `Postgres`, `stdlib only`, `no pip install`), do not propose alternatives — propose only where the user was silent. Read the user's words literally, not charitably: if they said "no pip install," that includes dev tools, test runners, linters — anything that requires pip install. Don't reinterpret scope.
+The plan's `context.constraints[0]` is the user's verbatim feature description, marked `(authoritative)`. The user's exact words are immutable constraints. **If the user explicitly chose a tool, library, framework, or approach** (e.g., `Auth0`, `terraform`, `Helm`, `htmx — no React`), do not propose alternatives — propose only where the user was silent. Read the user's words literally, not charitably: if they said "no Docker," that excludes Docker from dev, test, CI, and production — even if a reviewer thinks containerization is the obvious choice. Don't reinterpret scope.
 
 The rest of `context.constraints[]` documents the planner's design rationale, including alternatives explicitly considered and rejected. Findings that contradict a documented rejection should explain why the rejection no longer holds — otherwise suppress them.
 

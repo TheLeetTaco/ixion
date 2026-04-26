@@ -179,10 +179,10 @@ Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the
 
 ```json
 {
-  "key_files": ["app.py — Flask app + route handler", "tests/test_hello.py — pytest case"],
-  "patterns": ["Flask route decorator for minimal HTTP handlers", "Flask test client in pytest for route coverage"],
+  "key_files": ["src/server.ts — Express app + route handler", "tests/server.test.ts — vitest case"],
+  "patterns": ["Express route handlers as plain functions", "supertest with vitest for route coverage"],
   "constraints": [
-    "User feature description (verbatim, authoritative): Add a /hello endpoint that returns 'hello world' to my Flask app. Use pytest for tests.",
+    "User feature description (verbatim, authoritative): Add a /healthz endpoint that returns the build SHA to my Express service. Use vitest for tests.",
     "Considered 3-phase split; rejected because phase-1 was just mkdir"
   ]
 }
@@ -195,20 +195,20 @@ Research rationale (stack choice, why-this-pattern, rejected alternatives) goes 
 ```json
 {
   "id": "phase-1",
-  "goal": "Land the hello route and a smoke test.",
-  "files": ["app.py", "tests/test_hello.py"],
+  "goal": "Land the healthz route and a smoke test.",
+  "files": ["src/server.ts", "tests/server.test.ts"],
   "tasks": [
     {
       "id": "t1",
-      "description": "Create Flask app with GET /hello returning 'hello world'.",
-      "files": ["app.py"],
+      "description": "Add Express GET /healthz returning JSON `{sha: process.env.BUILD_SHA}`.",
+      "files": ["src/server.ts"],
       "test_scenarios": [
-        "GET /hello returns 200 with body 'hello world'",
-        "POST /hello returns 405 method not allowed"
+        "GET /healthz returns 200 with a body containing `sha`",
+        "POST /healthz returns 405 method not allowed"
       ]
     }
   ],
-  "verification": "python -m unittest tests/test_hello.py -v",
+  "verification": "bun run test tests/server.test.ts",
   "manual_verification": null
 }
 ```
@@ -220,15 +220,15 @@ For phases that are genuinely hard to automate (HTTP servers, GUI changes, proce
 ```json
 {
   "id": "phase-2",
-  "goal": "Run an HTTP server on port 8000.",
-  "files": ["app.py"],
+  "goal": "Run the HTTP server on port 3000.",
+  "files": ["src/server.ts"],
   "tasks": [...],
-  "verification": "timeout 3 python app.py 2>&1 | grep -q 'Serving on' || true",
-  "manual_verification": "Optional: curl http://localhost:8000/ to verify endpoints respond."
+  "verification": "timeout 3 bun run src/server.ts 2>&1 | grep -q 'listening on' || true",
+  "manual_verification": "Optional: curl http://localhost:3000/healthz to verify the route responds."
 }
 ```
 
-The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `python -c 'import app'` (verifies module imports), `python -m py_compile app.py` (verifies syntax). `manual_verification` is for additional human steps that supplement (not replace) the runnable check — it is allowed to be `null` but `verification` is not.
+The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `bun run --check src/server.ts` (verifies typing), `node --check src/server.js` (verifies syntax). `manual_verification` is for additional human steps that supplement (not replace) the runnable check — it is allowed to be `null` but `verification` is not.
 
 **BLOCKING: DO NOT** add `name`, `verification_commands`, or any other field to a task — the schema rejects them. Use `description` for the narrative; put verification at the phase level, not the task level. `test_scenarios[]` are plain strings (one scenario per entry; include expected behavior in the string). `files[]` entries are plain repo-relative paths (no " (new)" suffixes, no annotations).
 

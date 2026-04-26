@@ -34,7 +34,7 @@ You will encounter `AskUserQuestion` prompts during this run. **I'm not here to 
 
 When any of these prompts appears in front of you, recognize it as one I already pre-answered above and continue. Do not actually call `AskUserQuestion` for them. Document any planning decisions you made on my behalf in `context.constraints[]` so I can see what you chose when I get back.
 
-For open questions during consolidation specifically: read `context.constraints[0]` (my verbatim description). If I wrote `unittest`, pick unittest. If I said `stdlib only`, that includes test frameworks too. Read my words literally, not charitably — don't relax the scope.
+For open questions during consolidation specifically: read `context.constraints[0]` (my verbatim description). If I named a specific tool (e.g., `Convex`, `Cloudflare Workers`, `Sentry`), pick that one. If I scoped something out (e.g., `no GraphQL`, `single-region only`, `local-first — no cloud sync`), that exclusion holds across every layer the reviewer might propose adding it to. Read my words literally, not charitably — don't relax the scope.
 
 I trust you to ship a working result. Run the sequence end to end. Stop after one fix-cycle. Let me see what you produced when I get back.
 

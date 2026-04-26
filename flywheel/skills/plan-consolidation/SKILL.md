@@ -90,10 +90,10 @@ For each answered question:
 
 1. **Identify affected tasks/phases** — the question's topic points to one or more `phases[].tasks[]`. Read the task descriptions and find the ones that would behave differently under each option.
 2. **Rewrite task descriptions** to bake the decision in as a constraint. Examples:
-   - "stdlib for tests too?" → "yes" → rewrite test task descriptions to mandate `unittest.TestCase` (not pytest); remove any pytest-favoring language; update `test_scenarios` if they implied pytest fixtures.
-   - "Notes plain strings or structured?" → "plain strings" → rewrite storage task to specify `str` content type explicitly; remove any dataclass references.
-3. **Update `verification` commands** if the decision changes them. Example: `pytest` → `python -m unittest tests.test_module`.
-4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: stdlib only for tests → use unittest.TestCase, not pytest. Verification command runs python -m unittest."`.
+   - "Vitest or Jest for tests?" → "Vitest" → rewrite test task descriptions to mandate `vitest`; remove any `jest.fn` / `jest.mock` references; convert `describe.each` calls to vitest's API.
+   - "Single- or multi-tenant for the MVP?" → "single-tenant" → strip `tenant_id` columns from the schema task; remove tenant-scoping middleware; document deferred multi-tenancy in `context.constraints[]`.
+3. **Update `verification` commands** if the decision changes them. Example: `webpack build` → `vite build` after a switch from webpack to vite.
+4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: Tailwind v4 over styled-components → matches the design-system standard the team adopted in Q1. Verification command runs 'bun run check:css'."`.
 
 The bar: a fresh implementer who reads only `spec.json` (no conversation history) must reach the same outcome the user's answer prescribed. If they could plausibly do something different, the decision wasn't propagated thoroughly enough.
 
@@ -113,13 +113,13 @@ The user's verbatim feature description lives in `context.constraints[0]`, marke
 
 For each finding, before applying its `fix`:
 
-1. **Does the finding propose changing or replacing something the user named explicitly?** If the user wrote "with unittest" and a finding suggests pytest, defer it. Rationale: `Deferred: <finding-title> contradicts user's verbatim description ('<user words>')`.
+1. **Does the finding propose changing or replacing something the user named explicitly?** If the user wrote "use Stripe for payments" and a finding suggests Braintree, defer it. Rationale: `Deferred: <finding-title> contradicts user's verbatim description ('<user words>')`.
 
 2. **Does the finding's fix add capabilities the user did not request?** Concurrency, caching, body-size limits, pagination, an extra endpoint — if the user's verbatim description doesn't mention them, defer with rationale: `Deferred: <finding-title> adds <feature> not requested by user`.
 
 3. **Does the finding contradict an existing `success_criteria` entry derived from the user's words?** Defer.
 
-**Do not reinterpret the user's words to accommodate the finding.** "Stdlib only — no pip install" means *no pip install of any kind* — runtime, dev, test framework. The user said what they said. Honor it literally; do not charitably re-scope it. Do NOT rewrite the existing `success_criteria` or `summary` to make room for the finding — that's how drift sneaks into the spec. If the existing content conflicts with the finding, the existing content wins.
+**Do not reinterpret the user's words to accommodate the finding.** "No Docker" means *no Docker for any environment* — dev, test, CI, production — even if a reviewer thinks containerization is the obvious choice. The user said what they said. Honor it literally; do not charitably re-scope it. Do NOT rewrite the existing `success_criteria` or `summary` to make room for the finding — that's how drift sneaks into the spec. If the existing content conflicts with the finding, the existing content wins.
 
 Only integrate findings whose fix is consistent with the user's verbatim description AND the existing spec content. The result is an internally-coherent spec that honors the user's exact words, not one that says "X" in success_criteria and "not-X" in verification commands.
 
@@ -139,15 +139,15 @@ Defer only when a finding adds a new *what* — a capability, endpoint, or featu
 
 | Finding shape | Verdict |
 |---|---|
-| Adds atomic writes (temp file + `os.replace`) to existing `save_note` | Integrate — how |
-| Adds `threading.RLock` to serialize concurrent writes | Integrate — how |
-| Adds name-validation rejecting `/`, `\`, `..`, null bytes | Integrate — how |
-| Adds `Content-Type: application/json` header to JSON responses | Integrate — how |
-| Adds type hints to existing functions | Integrate — how |
-| Adds pagination on `GET /notes` (user described simple list) | Defer — new what |
-| Adds an admin auth layer (user described open API) | Defer — new what |
-| Adds a new endpoint or function not in the user's spec | Defer — new what |
-| Adds caching/LRU infrastructure (user didn't mention performance) | Defer — new what |
+| Adds prepared statements to a Postgres `INSERT` to prevent injection | Integrate — how |
+| Adds a 30-second timeout to the outbound HTTP client | Integrate — how |
+| Adds CSRF token verification to a form POST handler | Integrate — how |
+| Adds `Content-Encoding: gzip` to a download endpoint already streaming bytes | Integrate — how |
+| Adds TypeScript types to existing untyped JS functions | Integrate — how |
+| Adds rate limiting to a webhook receiver (user described a single-source webhook) | Defer — new what |
+| Adds a metrics dashboard (user described a CLI tool) | Defer — new what |
+| Adds a new CLI subcommand the user did not list | Defer — new what |
+| Adds Redis caching (user described an in-memory MVP) | Defer — new what |
 
 If you defer, record `Deferred: <finding-title> — adds new <feature> not described by user` as a one-line task note.
 

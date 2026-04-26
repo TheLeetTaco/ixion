@@ -209,6 +209,34 @@ Creep signals:
 
 The synthesizer applies this judgment once at merge time.
 
+### 2.3b Filter against the verbatim user prompt and the change's actual surface
+
+Two judgment calls I make as the synthesizer, in this order, before P3 triage. Both apply to findings of every severity — not just P3.
+
+**Drop contradictions with the verbatim user prompt.**
+
+`spec.context.constraints[0]` carries the user's exact feature description, prefixed `User feature description (verbatim, authoritative):`. That prompt encodes choices the user made deliberately. A reviewer finding that proposes reverting one of those choices is a contradiction, not a quality finding — I cut it before publishing.
+
+Concretely, when a finding proposes:
+
+- a different tool than the user named ("user said `Express`, finding says switch to `Fastify`")
+- a different shape than the user specified ("user said handlers as plain functions, finding says wrap them in a service class")
+- a different scope than the user asked for ("user said `read-only API for the MVP`, finding says add `POST` and `DELETE` endpoints")
+
+I drop it. No partial keep, no defer-to-user. Findings that fill in *underspecified* hows — robustness, security, type hints, error handling the user didn't speak to — stay. That's good scope growth.
+
+**Scale findings to the change's actual size.**
+
+If reviewers surface 30+ findings on a 300-line program, they're working the universal anti-pattern catalog rather than the specific code. I trust my judgment to drop the over-eager ones:
+
+- Generic critiques the code doesn't earn ("method exceeds 50 lines" on a clearly readable handler)
+- Style preferences with no behavioral consequence (`Path.replace` vs `os.replace`, `int` status codes vs `HTTPStatus`)
+- Theoretical scaling concerns far below the code's actual demands ("fsync blocks single-threaded server" on a tiny app the user described as small)
+
+The published count should reflect the change's real surface area. A small program rarely earns more than a handful of meaningful findings; if my output is much larger than the change deserves, I trim.
+
+I apply this filter after 2.3 (dedup) and 2.3a (arbitration), before 2.4 (P3 triage).
+
 ### 2.4 Triage P3 findings
 
 After dedup, present P3 findings to the user:

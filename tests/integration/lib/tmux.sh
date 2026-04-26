@@ -171,12 +171,16 @@ wait_for_prompt() {
 # Returns 0 if the pane scrollback shows the agent invoking the named
 # skill via the Skill tool. The TUI emits "Skill(<name>)" when a skill
 # is loaded; absence means the skill wasn't invoked even if the agent
-# claimed otherwise. Captures the FULL scrollback (-S -), not just the
+# claimed otherwise. Plugin-installed skills appear with a "flywheel:"
+# namespace prefix (Skill(flywheel:plan-creation)); skills loaded directly
+# via --plugin-dir without an installed marketplace may appear bare. We
+# accept either form. Captures the FULL scrollback (-S -), not just the
 # visible window, so milestones that scrolled out are still found.
 pane_has_skill_invocation() {
   local session="$1"
   local skill="$2"
-  tmux capture-pane -t "$session" -p -S - 2>/dev/null | grep -qF "Skill($skill)"
+  tmux capture-pane -t "$session" -p -S - 2>/dev/null \
+    | grep -qE "Skill\((flywheel:)?${skill}\)"
 }
 
 # pane_save_history <session> [label]
