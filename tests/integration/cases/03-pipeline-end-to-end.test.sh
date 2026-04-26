@@ -308,4 +308,34 @@ else
   echo "----- end -----"
 fi
 
+# ---- Milestone 6: fix-findings actually ran (not just transitioned) -------
+# The transition above is just Phase 1 of the work skill (declaration). A
+# silent stop between Phase 1 and Phase 2.x dispatch leaves status=pending,
+# completed=[], files_modified=[] — the agent looks like it's working but
+# never edits anything. Without this check, a fix-pass no-op passes the test.
+i=0
+fix_completed=false
+fix_status=""
+fix_files=0
+fix_chunks=0
+while [ "$i" -lt 1500 ]; do
+  fix_status=$(jq -r '.status // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
+  fix_files=$(jq '.artifacts.files_modified | length' "$SDIR/progress.json" 2>/dev/null || echo 0)
+  fix_chunks=$(jq '.completed | length' "$SDIR/progress.json" 2>/dev/null || echo 0)
+  if [ "$fix_status" = "completed" ] && [ "$fix_files" -gt 0 ] && [ "$fix_chunks" -gt 0 ]; then
+    fix_completed=true
+    break
+  fi
+  sleep 10
+  i=$((i + 10))
+done
+
+if [ "$fix_completed" = "true" ]; then
+  note_pass "fix-findings dispatched and completed (status=completed, $fix_chunks chunks, $fix_files files modified)"
+else
+  note_fail "fix-findings did not actually run within 25min — silent stop after transition? status=$fix_status, chunks=$fix_chunks, files_modified=$fix_files"
+  echo "----- progress.json -----"; cat "$SDIR/progress.json" 2>/dev/null; echo "----- end -----"
+  dump_pane; finalize
+fi
+
 finalize
