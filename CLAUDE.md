@@ -78,6 +78,23 @@ This catches three failure shapes:
 
 Why the dual signal: in earlier runs an AskUserQuestion-pattern monitor missed silent stops (run 3) because the agent was idle at an empty prompt with no question visible. Combine both signals.
 
+## Auditing artifacts as the test progresses
+
+The monitor catches *failure shapes* (PASS/FAIL/INFO, deadlock, silent stop). It does not tell you whether the artifacts are any good. **That's your job.** Each `PASS:` milestone is a ping to read the artifact that just landed and audit it against the bar — surface concerns immediately, don't wait for the test to finish. A spec missing an elegance criterion, or a findings.json missing the 4-slot Failure format, is a real signal about the prompt tuning, and the earliest place to catch it is the milestone where it lands.
+
+Find the active session: `find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'flywheel-int-yolo*'`, then `<sbox>/.flywheel/plugin/sessions/<session_id>/`.
+
+| Milestone | Artifact to read | What to audit |
+|---|---|---|
+| `plan-creation: session_id=<id>` | `spec.json` | Verbatim user prompt at `context.constraints[0]` with the authoritative-prefix. Phase-3 alternatives recorded with anti-pattern reasoning ("Considered: X. Rejected because: Y."). `success_criteria[]` includes at least one elegance criterion. Schema discipline (no extra top-level fields). Test scenarios are concrete and behavioral, not implementation-detail. |
+| `plan-review` | `review.findings.json` | Each finding has a 4-slot Failure leading with a recognizable principle name (elegance catalog / SOLID / DRY / domain-canonical). Contradictions with `constraints[0]` are tagged `[Contradicts user]`. Synthetic P1s exist for any incomplete reviewer output or wrong-tier locations. Findings count is proportional to spec size. |
+| `plan-consolidation` | `spec.json` (refined) + `spec.json.pre-consolidation` (sidecar) | Structural findings (Shallow Wrapper, Forwarding Chain, Premature Abstraction, etc.) reshaped phases — deleted tasks, replaced shapes — rather than folding fixes on top of inelegant scaffolding. Deferred findings have a one-line rationale. Sidecar exists; `review.findings.json` is gone (consumed). |
+| `work` plan-mode complete | `progress.json` + source files | Diff is small and reads with intent. `simplifications_made[]` is non-empty with catalog-form entries (or the all-four-no negative form). The cumulative diff self-check fired (Phase 4). No single-consumer helpers, no defensive guards on impossible cases, no Shallow Wrappers. |
+| `work-review` | `review.findings.json` | Findings reflect what's actually in the diff (read the diff and corroborate). Failure paragraphs lead with principle names. The implementer's `simplifications_made[]` log was honored — issues the implementer already named are not re-flagged. |
+| `work` fix-findings complete | `progress.json` (mode=fix-findings) + `progress.json.plan-mode` (archive) + diff | Fixes addressed structural causes via theme grouping, not patch-pile-on. The plan-mode archive exists. Tests still pass. |
+
+The audit is *evidence-based*: cite file paths, line numbers, or specific JSON paths in your assessment. Don't trust the milestone string — read the file. The milestone says the skill ran; the file tells you whether it ran well.
+
 ## Debugging a failed run
 
 **Test runs preserve their sandboxes and pane history automatically.** Each test's cleanup trap captures the full pane scrollback to `/tmp/flywheel-int-<session>-<timestamp>-<label>.pane.txt` before killing tmux, then prints the sandbox path so you can inspect session state. Nothing is auto-deleted — run `bash tests/cleanup.sh --apply` when you're done debugging.
