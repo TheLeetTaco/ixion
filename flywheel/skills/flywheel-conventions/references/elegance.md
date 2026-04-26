@@ -86,16 +86,18 @@ GOOD: throw a typed error so the caller routes to retry.
 BAD: `if (config?.options?.advanced?.timeout) { ... }` — Speculative depth on always-present config.
 GOOD: `timeout` is required; remove the optional chain.
 
-### Reporting requirements (BLOCKING)
+### Reporting (advisory)
 
-`simplifications_made[]` MUST contain at least one entry. Each entry uses one of these forms — pick the form by what you actually did:
+If you simplified anything during the chunk, log it in `simplifications_made[]`. If you didn't, leave the array empty — there's no requirement to fabricate an entry. Nothing downstream reads this programmatically; it's a self-discipline tool that helps you re-read your own diff with elegance in mind.
 
-- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — use when the obvious approach would have introduced the named anti-pattern and you didn't. Reference a name from the Anti-Pattern Catalog above.
-- `Deleted <N> lines from <path> (<reason>)` — use when net change is negative.
-- `Consolidated <path-A> + <path-B> → <path-C>` — use when two things became one.
-- `No simplifications: <concrete reason why none were warranted>` — use when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance and patching is wrong (in fix-findings mode, this signals re-planning required).
+When you DO log a simplification, these forms travel best (a future you, or a reviewer reading the progress log, can scan them quickly):
 
-Free-form prose ("phase was small," "everything was needed") fails validation. The orchestrator rejects malformed entries and re-prompts.
+- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — when the obvious approach would have introduced the named anti-pattern and you didn't.
+- `Deleted <N> lines from <path> (<reason>)` — when net change is negative.
+- `Consolidated <path-A> + <path-B> → <path-C>` — when two things became one.
+- `No simplifications: <concrete reason why none were warranted>` — when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance (in fix-findings mode, this signals re-planning required).
+
+Free-form prose is acceptable too if a catalog form doesn't fit — the goal is honest reflection, not catalog conformance.
 
 ### Diff self-check before claiming done
 

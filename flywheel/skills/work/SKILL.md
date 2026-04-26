@@ -50,17 +50,19 @@ Validate `session.json.schema_version == 1`. Mismatch → `"Unsupported schema v
 
 Read `references/load-resume-procedures.md`.
 
+`progress.json` is the file the rest of the pipeline reads to know what's happening. `work-review` reads it to see what files you touched. `/yolo` reads it to detect the fix-findings transition. Future `/work` invocations read it to resume. **Without `progress.json`, the rest of the pipeline can't see your work** — even if the code is correct, nothing downstream knows you ran. Treat writing it as the *first* thing you do, not the last.
+
 Procedure:
 
 1. **Detect mode** from session contents:
    - `progress.json` exists with `mode: "fix-findings"` → resume fix-findings.
-   - `progress.json` exists with `mode: "plan"` AND `status: "completed"` AND `review.findings.json` exists → start fresh fix-findings (archive old `progress.json` to `progress.json.plan-mode`).
+   - `progress.json` exists with `mode: "plan"` AND `status: "completed"` AND `review.findings.json` exists → **fix-findings transition**: rename `progress.json` → `progress.json.plan-mode` to preserve the audit trail, then continue to step 2.
    - `progress.json` exists with `mode: "plan"` → resume plan mode.
    - `progress.json` missing AND `review.findings.json` exists AND `spec.json` exists → error: `"Run /plan-consolidation to merge review findings before starting work."`
    - `progress.json` missing AND `spec.json` exists → start fresh plan mode.
    - else → error: `"No spec.json or review.findings.json in session."`
 
-2. **Init progress.json (fresh start only)**:
+2. **Declare you've started — write `progress.json` immediately.** Before reading the spec, before dispatching any subagent, before opening any source file, write the initial `progress.json`. This is your declaration to the rest of the pipeline that work has begun.
 
    ```json
    {
@@ -74,7 +76,7 @@ Procedure:
    }
    ```
 
-   Atomic write (`.tmp` → `mv`).
+   Atomic write (`.tmp` → `mv`). Same shape for both modes — only `mode` differs. Resume path skips this step (file already exists).
 
 3. **Session update**: `active_skill = "work"`, `last_checkpoint_at = <now>`. Atomic write.
 
@@ -142,7 +144,7 @@ Execute phase <id>: <phase.goal>
 - success_criteria: <spec.success_criteria>
 - key_files: <spec.context.key_files>
 - patterns: <spec.context.patterns>
-- gotchas: <spec.context.gotchas>
+- constraints: <spec.context.constraints>
 - Already completed: <progress.completed>
 
 ## Elegance bar (NON-NEGOTIABLE)
@@ -154,9 +156,31 @@ Plan-mode addendum:
 
 ## Constraints
 - TDD per task (RED → GREEN → REFACTOR). REFACTOR is mandatory. Skip TDD only for pure refactor, docs, or config-only changes.
-- Record commands run with literal command + actual exit_code.
-- Report: outcomes, files_modified[], commands_run[], simplifications_made[] (formats per the dispatch bar's Reporting requirements).
-"
+- Record every command as you run it (don't summarize at the end).
+
+## Return shape
+
+Return JSON in exactly this shape — fill in your values, keep the field names and structure:
+
+```json
+{
+  "outcomes": ["Added timeout flag to commander config"],
+  "files_modified": ["src/cli.ts", "tests/cli/timeout.test.ts"],
+  "commands_run": [
+    { "command": "bun run test tests/cli/timeout.test.ts", "exit_code": 0, "stdout_tail": "PASS — 4 tests passed" },
+    { "command": "bun run typecheck", "exit_code": 0, "stdout_tail": "" }
+  ],
+  "simplifications_made": [
+    "Avoided Shallow Wrapper at src/cli.ts:42 by calling commander directly",
+    "Deleted 8 lines from src/cli/timeout-default.ts (single-consumer helper inlined)"
+  ]
+}
+```
+
+`commands_run[]` is a forensic log — entries can be structured objects (as shown) or plain summary strings like `'bun run test — 4 passed'`. Whatever you'll find useful to read later. Nothing downstream parses this programmatically.
+
+`simplifications_made[]` is advisory: log what you actually simplified during the chunk; leave empty if nothing warranted recording.
+\"
 ```
 
 **Fix-findings mode dispatch:**
@@ -170,7 +194,7 @@ Resolve theme: <theme-id> — <theme-description>
 - summary: <spec.summary>
 - success_criteria: <spec.success_criteria>
 - patterns: <spec.context.patterns>
-- gotchas: <spec.context.gotchas>
+- constraints: <spec.context.constraints>
 
 When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong). In that case, do NOT patch the codebase. Return:
 - `files_modified: []`
@@ -195,8 +219,31 @@ Fix-findings addendum:
 
 ## Constraints
 - Run tests after the change set; capture exit_code.
-- Report: which finding IDs were addressed, files_modified[], commands_run[], simplifications_made[] (formats per the dispatch bar's Reporting requirements).
-"
+- Record every command as you run it (don't summarize at the end).
+
+## Return shape
+
+Return JSON in exactly this shape — fill in your values, keep the field names and structure:
+
+```json
+{
+  "findings_addressed": ["app.py:134 leaky cache", "app.py:38+174 magic number"],
+  "files_modified": ["src/app.py", "src/notes.py"],
+  "commands_run": [
+    { "command": "python3 -m pytest tests/ -v", "exit_code": 0, "stdout_tail": "26 passed in 12.34s" },
+    { "command": "python3 -m mypy src/", "exit_code": 0, "stdout_tail": "" }
+  ],
+  "simplifications_made": [
+    "Consolidated app.py + notes.py shared validators → notes.py:validate_name",
+    "Avoided Magic Number at app.py:38 by extracting MAX_BODY_BYTES constant"
+  ]
+}
+```
+
+`commands_run[]` is a forensic log — structured objects or summary strings, your call. Nothing downstream parses it programmatically.
+
+`simplifications_made[]` is advisory: if the structural change you made to address the cluster is worth naming, log it. Otherwise leave empty.
+\"
 ```
 
 **BLOCKING: Do NOT specify a `model` parameter** — subagents inherit the current session's model.
@@ -216,7 +263,7 @@ Read `references/checkpoint-procedure.md`.
 On subagent return:
 
 1. Append chunk ID to `progress.completed[]`.
-2. Append `files_modified[]`, `commands_run[]`, and `simplifications_made[]` (if reported) to `progress.artifacts`.
+2. Append `files_modified[]`, `commands_run[]`, and `simplifications_made[]` to `progress.artifacts`.
 3. Atomic write `progress.json` (`.tmp` → `mv`).
 4. Update `session.json.last_checkpoint_at`.
 5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Capture exit_code. Re-run if any doubt.

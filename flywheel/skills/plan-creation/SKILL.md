@@ -40,7 +40,7 @@ Before codebase research, check existing knowledge (skip missing dirs):
    find docs/research -name "*<topic-keywords>*" -mtime -30 2>/dev/null | head -3
    ```
 
-If relevant knowledge found, use it as starting point for Phase 1. Fold key references into `context.gotchas[]` or `context.patterns[]` so they survive into the dispatch.
+If relevant knowledge found, use it as starting point for Phase 1. Fold key references into `context.constraints[]` or `context.patterns[]` so they survive into the dispatch.
 
 ---
 
@@ -54,17 +54,17 @@ After the canonical workflow completes, also check `CLAUDE.md` for team conventi
 
 ### Map analyzer outputs to spec.context
 
-- **analyzer-codebase findings** → `key_files[]` (paths + one-line reasons). Flags fold into `gotchas[]`.
+- **analyzer-codebase findings** → `key_files[]` (paths + one-line reasons). Flags fold into `constraints[]`.
 - **analyzer-patterns findings** → `patterns[]` (named patterns with `file.ext:line` references the implementer can match).
-- **analyzer-docs findings** → `gotchas[]` (decisions, constraints, prerequisites, warnings from CLAUDE.md / ADRs / inline docs).
-- **analyzer-web findings** → `gotchas[]` (best practices, version constraints, deprecations from external sources).
+- **analyzer-docs findings** → `constraints[]` (decisions, constraints, prerequisites, warnings from CLAUDE.md / ADRs / inline docs).
+- **analyzer-web findings** → `constraints[]` (best practices, version constraints, deprecations from external sources).
 
 ### Flag handling
 
-- `EXISTING_SOLUTION` → record in `gotchas[]` and adjust phases to reuse rather than reinvent.
+- `EXISTING_SOLUTION` → record in `constraints[]` and adjust phases to reuse rather than reinvent.
 - `DRY_VIOLATION` → add a consolidation task to the affected phase.
-- `PATTERN_CONFLICT` → record in `gotchas[]` with rationale for keeping or correcting.
-- `INTEGRATION_RISK` → record in `gotchas[]` and add covering tests to the relevant phase.
+- `PATTERN_CONFLICT` → record in `constraints[]` with rationale for keeping or correcting.
+- `INTEGRATION_RISK` → record in `constraints[]` and add covering tests to the relevant phase.
 - `OPEN_QUESTION` → record in spec `open_questions[]`.
 - `CLAIM_INVALID` / `VERSION_ISSUE` → record in `open_questions[]`; may trigger Phase 2 Context7 deep-validation.
 
@@ -101,7 +101,7 @@ Incorporate findings into the spec. Flag `CLAIM_INVALID` or `VERSION_ISSUE` as `
 
 ## Phase 3: Design Synthesis (BLOCKING — every spec records elegance reasoning)
 
-Every spec MUST emit at least one `context.gotchas[]` entry recording the design decision. This preserves the reasoning so reviewers and implementers don't re-litigate, and it's the signal that elegance was on the table — not skipped.
+Every spec MUST emit at least one `context.constraints[]` entry recording the design decision. This preserves the reasoning so reviewers and implementers don't re-litigate, and it's the signal that elegance was on the table — not skipped.
 
 1. Sketch candidate shapes:
    - **Non-trivial features** (multiple plausible decompositions, new abstractions, multi-layer changes): sketch 2-3 candidates — typically "the natural one" and "a simpler one that consolidates with existing code." Add a third only if a different decomposition is genuinely plausible.
@@ -109,7 +109,7 @@ Every spec MUST emit at least one `context.gotchas[]` entry recording the design
 
 2. Pick the shape that's simplest, most symmetric, and adds the least new state or abstraction. The Elegance Discipline applies: maximize elegance over minimizing churn — pick the cleaner shape even if it means a larger refactor.
 
-3. Record the decision in `context.gotchas[]` (mandatory, even when trivial):
+3. Record the decision in `context.constraints[]` (mandatory, even when trivial):
    - **When alternatives existed**: `Considered: <alternative>. Rejected because: <one-sentence reason>.`
    - **When no alternative existed**: `Single obvious shape — no alternative considered because <concrete reason>.` (e.g., "the codebase already has one established route-handler pattern.")
 
@@ -167,23 +167,28 @@ Path: `.flywheel/plugin/sessions/<session-id>/spec.json`
 
 Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `flywheel/schemas/task-list.schema.json` for the authoritative shape.
 
-**BLOCKING: top-level fields are exactly the set above.** `additionalProperties: false` rejects anything else — do NOT emit `risks`, `notes`, `assumptions`, or any field not listed in the schema. Risk discussion belongs in `context.gotchas[]`; uncertainty belongs in `open_questions[]`.
+**BLOCKING: top-level fields are exactly the set above.** `additionalProperties: false` rejects anything else — do NOT emit `risks`, `notes`, `assumptions`, or any field not listed in the schema. Risk discussion belongs in `context.constraints[]`; uncertainty belongs in `open_questions[]`.
 
 **BLOCKING: `context` must use the schema shape** — not a free-form object. Exactly three arrays:
 
 - `key_files[]` — repo-relative paths the implementer should know about, with one-line reasons.
 - `patterns[]` — existing patterns to follow, named so the implementer can match the codebase style.
-- `gotchas[]` — pitfalls AND design rationale. Surprises the implementer needs to know: prerequisites, rejected alternatives, why-this-shape decisions, principle violations surfaced from review, edge cases.
+- `constraints[]` — pitfalls AND design rationale. Surprises the implementer needs to know: prerequisites, rejected alternatives, why-this-shape decisions, principle violations surfaced from review, edge cases.
+
+**`context.constraints[0]` is the user's verbatim feature description.** Copy `$ARGUMENTS` literally, prefixed with `User feature description (verbatim, authoritative): `. This is the canonical record of what the user actually said — every downstream skill (plan-review, plan-consolidation, work) reads it via the dispatched `context.constraints[]` and treats the user's exact words as the authoritative constraint. Do not paraphrase, summarize, or reinterpret. The user's words go in unmodified.
 
 ```json
 {
-  "key_files": ["scratch-app/app.py — Flask app + route handler", "scratch-app/tests/test_hello.py — pytest case"],
+  "key_files": ["app.py — Flask app + route handler", "tests/test_hello.py — pytest case"],
   "patterns": ["Flask route decorator for minimal HTTP handlers", "Flask test client in pytest for route coverage"],
-  "gotchas": ["Green-field repo: pip must be installed before running tests", "Considered 3-phase split; rejected because phase-1 was just mkdir"]
+  "constraints": [
+    "User feature description (verbatim, authoritative): Add a /hello endpoint that returns 'hello world' to my Flask app. Use pytest for tests.",
+    "Considered 3-phase split; rejected because phase-1 was just mkdir"
+  ]
 }
 ```
 
-Research rationale (stack choice, why-this-pattern, rejected alternatives) goes in `context.patterns[]` and `context.gotchas[]` as richer entries — those array items have no length cap. The spec is the single artifact; there is no narrative sidecar.
+Research rationale (stack choice, why-this-pattern, rejected alternatives) goes in `context.patterns[]` and `context.constraints[]` as richer entries — those array items have no length cap. The spec is the single artifact; there is no narrative sidecar.
 
 **BLOCKING: `phases[].tasks[]` must use the schema shape**. No extra fields — `additionalProperties: false` rejects anything unknown. Each phase shape:
 
@@ -191,22 +196,39 @@ Research rationale (stack choice, why-this-pattern, rejected alternatives) goes 
 {
   "id": "phase-1",
   "goal": "Land the hello route and a smoke test.",
-  "files": ["scratch-app/app.py", "scratch-app/tests/test_hello.py"],
+  "files": ["app.py", "tests/test_hello.py"],
   "tasks": [
     {
       "id": "t1",
       "description": "Create Flask app with GET /hello returning 'hello world'.",
-      "files": ["scratch-app/app.py"],
+      "files": ["app.py"],
       "test_scenarios": [
         "GET /hello returns 200 with body 'hello world'",
         "POST /hello returns 405 method not allowed"
       ]
     }
   ],
-  "verification": "cd scratch-app && pytest tests/test_hello.py -q",
+  "verification": "python -m unittest tests/test_hello.py -v",
   "manual_verification": null
 }
 ```
+
+**`verification` is always a runnable command** — the implementer executes it after the phase to confirm the work landed. It must be a non-empty string.
+
+For phases that are genuinely hard to automate (HTTP servers, GUI changes, processes you'd normally exercise by hand), use a minimal **smoke command** instead of leaving verification null:
+
+```json
+{
+  "id": "phase-2",
+  "goal": "Run an HTTP server on port 8000.",
+  "files": ["app.py"],
+  "tasks": [...],
+  "verification": "timeout 3 python app.py 2>&1 | grep -q 'Serving on' || true",
+  "manual_verification": "Optional: curl http://localhost:8000/ to verify endpoints respond."
+}
+```
+
+The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `python -c 'import app'` (verifies module imports), `python -m py_compile app.py` (verifies syntax). `manual_verification` is for additional human steps that supplement (not replace) the runnable check — it is allowed to be `null` but `verification` is not.
 
 **BLOCKING: DO NOT** add `name`, `verification_commands`, or any other field to a task — the schema rejects them. Use `description` for the narrative; put verification at the phase level, not the task level. `test_scenarios[]` are plain strings (one scenario per entry; include expected behavior in the string). `files[]` entries are plain repo-relative paths (no " (new)" suffixes, no annotations).
 

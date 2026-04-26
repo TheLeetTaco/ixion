@@ -93,7 +93,7 @@ For each answered question:
    - "stdlib for tests too?" → "yes" → rewrite test task descriptions to mandate `unittest.TestCase` (not pytest); remove any pytest-favoring language; update `test_scenarios` if they implied pytest fixtures.
    - "Notes plain strings or structured?" → "plain strings" → rewrite storage task to specify `str` content type explicitly; remove any dataclass references.
 3. **Update `verification` commands** if the decision changes them. Example: `pytest` → `python -m unittest tests.test_module`.
-4. **Append the decision to `context.gotchas[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: stdlib only for tests → use unittest.TestCase, not pytest. Verification command runs python -m unittest."`.
+4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: stdlib only for tests → use unittest.TestCase, not pytest. Verification command runs python -m unittest."`.
 
 The bar: a fresh implementer who reads only `spec.json` (no conversation history) must reach the same outcome the user's answer prescribed. If they could plausibly do something different, the decision wasn't propagated thoroughly enough.
 
@@ -101,31 +101,65 @@ The bar: a fresh implementer who reads only `spec.json` (no conversation history
 
 ## Phase 5: Integrate Findings by Severity
 
-**Surface failures into context.** For every P1/P2 finding integrated into spec.json, append a one-line summary of the `failure` to `spec.context.gotchas[]` so the implementer sees the reasoning during dispatch, not just the patch.
+**Surface failures into context.** For every P1/P2 finding integrated into spec.json, append a one-line summary of the `failure` to `spec.context.constraints[]` so the implementer sees the reasoning during dispatch, not just the patch.
 
 **Structural failures replace, don't patch.** If a finding's `failure` leads with a named anti-pattern from `flywheel/skills/flywheel-conventions/references/elegance.md` (e.g., Shallow Wrapper, Forwarding Chain, Premature Abstraction, Parallel State, Speculative Code, God Class) or a Universal Principle name (Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt), do NOT fold the `fix` into the affected task's description — that adds the patch on top of the inelegant shape. Instead, re-shape the affected phase or task to the simpler form the finding prescribes. Delete tasks made redundant by the redesign. The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when it means a larger refactor.
 
 The elegance reference is the canonical name list — read it before deciding whether a finding triggers structural redesign or task-level patching.
 
+### Consistency check (run before integrating any finding)
+
+The user's verbatim feature description lives in `context.constraints[0]`, marked `(authoritative)`. **The user's exact words are immutable.** Reviewers don't see the original prompt and may suggest alternatives in good faith — but the user's authority overrides reviewer suggestions every time.
+
+For each finding, before applying its `fix`:
+
+1. **Does the finding propose changing or replacing something the user named explicitly?** If the user wrote "with unittest" and a finding suggests pytest, defer it. Rationale: `Deferred: <finding-title> contradicts user's verbatim description ('<user words>')`.
+
+2. **Does the finding's fix add capabilities the user did not request?** Concurrency, caching, body-size limits, pagination, an extra endpoint — if the user's verbatim description doesn't mention them, defer with rationale: `Deferred: <finding-title> adds <feature> not requested by user`.
+
+3. **Does the finding contradict an existing `success_criteria` entry derived from the user's words?** Defer.
+
+**Do not reinterpret the user's words to accommodate the finding.** "Stdlib only — no pip install" means *no pip install of any kind* — runtime, dev, test framework. The user said what they said. Honor it literally; do not charitably re-scope it. Do NOT rewrite the existing `success_criteria` or `summary` to make room for the finding — that's how drift sneaks into the spec. If the existing content conflicts with the finding, the existing content wins.
+
+Only integrate findings whose fix is consistent with the user's verbatim description AND the existing spec content. The result is an internally-coherent spec that honors the user's exact words, not one that says "X" in success_criteria and "not-X" in verification commands.
+
 For each remaining finding in `review.findings.json.findings`:
 
-### P1 — Must Integrate
+### P1 — Integrate (after consistency check)
 
 - Fold `fix` language into the affected task's `description`
 - Add test scenarios that cover the failure described in `failure`
 - If the finding does not map to an existing task: add a new task to the relevant phase
 
-### P2 — Default Integrate; Allow Defer
+### P2 — Integrate by default; defer only when the finding adds a new *what*
 
-Same as P1 by default, but the user may defer with a rationale. Deferred P2s are recorded as a task note (keep the rationale terse; one sentence).
+Users describe *what* to build and the *hows* they care about (specific tools, libraries, frameworks, ports, file layouts). They generally underspecify the rest. Reviewers fill in the underspecified *hows* — robustness, correctness, polish — and that's their job. **Adding "how" to underspecified areas is good scope growth.** Integrate these like a P1.
 
-### P3 — User Triage
+Defer only when a finding adds a new *what* — a capability, endpoint, or feature the user didn't describe at all:
 
-Present each P3 via AskUserQuestion with three options:
+| Finding shape | Verdict |
+|---|---|
+| Adds atomic writes (temp file + `os.replace`) to existing `save_note` | Integrate — how |
+| Adds `threading.RLock` to serialize concurrent writes | Integrate — how |
+| Adds name-validation rejecting `/`, `\`, `..`, null bytes | Integrate — how |
+| Adds `Content-Type: application/json` header to JSON responses | Integrate — how |
+| Adds type hints to existing functions | Integrate — how |
+| Adds pagination on `GET /notes` (user described simple list) | Defer — new what |
+| Adds an admin auth layer (user described open API) | Defer — new what |
+| Adds a new endpoint or function not in the user's spec | Defer — new what |
+| Adds caching/LRU infrastructure (user didn't mention performance) | Defer — new what |
 
-- **Include** — integrate like a P2
-- **Drop** — no change to spec
-- **Follow-up** — note as a future improvement in the spec's `success_criteria` or `open_questions` (user's choice)
+If you defer, record `Deferred: <finding-title> — adds new <feature> not described by user` as a one-line task note.
+
+The consistency check above is the strict gate (catches contradictions with explicit user wording). This P2 check is the secondary gate (catches new-what additions). Default is integrate — most P2 findings are reviewers filling in *how*, which is what they're for.
+
+### P3 — Default Include
+
+P3 findings are nice-to-have, low-impact suggestions. Integrate them by default — fold the `fix` into the affected task's description and append the `failure` summary to `constraints[]`, just like P2.
+
+Apply the same consistency check as above: if a P3 contradicts an existing `summary`, `success_criteria`, or `constraints` entry, defer it with a one-line rationale. Otherwise, integrate.
+
+This is the path of least resistance for the common case — most users approve most P3s, and removing the triage prompt also unblocks autonomous orchestrators (`/yolo`). If the user wants to drop a P3 after seeing it integrated, they can edit the spec or remove it before `/work`.
 
 ---
 
@@ -163,5 +197,5 @@ Present each P3 via AskUserQuestion with three options:
 - **Skip open-question resolution** — Don't refine with unresolved questions
 - **Multiple questions at once** — One at a time
 - **BLOCKING: Auto-drop a P1** — P1s integrate; only the user may downgrade to follow-up
-- **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.gotchas[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4).
-- **Fold structural failures into existing tasks** — Replace the affected phase or task with the simpler shape, don't patch the original. Surface the `failure` into `context.gotchas[]`.
+- **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.constraints[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4).
+- **Fold structural failures into existing tasks** — Replace the affected phase or task with the simpler shape, don't patch the original. Surface the `failure` into `context.constraints[]`.

@@ -20,8 +20,22 @@ make_sandbox() {
   echo "$dir"
 }
 
-# cleanup_sandbox <dir>
-cleanup_sandbox() {
+# preserve_sandbox <dir>
+# Print the sandbox path so the operator can find it for post-run debugging.
+# Sandboxes are NOT auto-deleted — run `tests/cleanup.sh` when ready to
+# remove them. Keeping the sandbox lets you inspect spec.json,
+# progress.json, review.findings.json, and the implementation files
+# after the test exits, regardless of how it exited (including SIGKILL,
+# silent stops, or partial failures).
+preserve_sandbox() {
   local dir="$1"
-  [ -n "$dir" ] && [ -d "$dir" ] && rm -rf "$dir"
+  [ -n "$dir" ] && [ -d "$dir" ] && echo "Sandbox preserved: $dir (run tests/cleanup.sh to remove)"
+}
+
+# cleanup_sandbox <dir>
+# DEPRECATED — kept only so existing tests don't break. Behaves like
+# preserve_sandbox: prints the path instead of deleting. Update callers
+# to use preserve_sandbox directly.
+cleanup_sandbox() {
+  preserve_sandbox "$1"
 }

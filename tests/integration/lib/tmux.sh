@@ -166,3 +166,35 @@ wait_for_prompt() {
   # The TUI prints a help-hint line once the input box is mounted.
   wait_for_pane "$session" "(\\? for shortcuts|\\> for shortcuts|Welcome to Claude Code)" "$timeout"
 }
+
+# pane_has_skill_invocation <session> <skill-name>
+# Returns 0 if the pane scrollback shows the agent invoking the named
+# skill via the Skill tool. The TUI emits "Skill(<name>)" when a skill
+# is loaded; absence means the skill wasn't invoked even if the agent
+# claimed otherwise. Captures the FULL scrollback (-S -), not just the
+# visible window, so milestones that scrolled out are still found.
+pane_has_skill_invocation() {
+  local session="$1"
+  local skill="$2"
+  tmux capture-pane -t "$session" -p -S - 2>/dev/null | grep -qF "Skill($skill)"
+}
+
+# pane_save_history <session> [label]
+# Captures the FULL pane scrollback (-S -) to a labeled file in /tmp.
+# Call BEFORE tmux_kill in cleanup traps — once tmux is gone, the
+# scrollback is gone with it. The pane history is the most informative
+# diagnostic for failures where the test bash exited without printing
+# Summary or FAIL (silent stops, SIGKILL, etc.). The file path is
+# printed to stdout so the operator can find it.
+#
+# Files are NOT auto-deleted — run `tests/cleanup.sh` when ready.
+pane_save_history() {
+  local session="$1"
+  local label="${2:-final}"
+  local timestamp
+  timestamp=$(date +%Y%m%d-%H%M%S)
+  local dest="/tmp/flywheel-int-${session}-${timestamp}-${label}.pane.txt"
+  if tmux capture-pane -t "$session" -p -S - > "$dest" 2>/dev/null; then
+    echo "Pane history saved: $dest"
+  fi
+}

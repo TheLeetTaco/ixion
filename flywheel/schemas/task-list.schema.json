@@ -12,11 +12,11 @@
     "context": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["key_files", "patterns", "gotchas"],
+      "required": ["key_files", "patterns", "constraints"],
       "properties": {
         "key_files": { "type": "array", "items": { "type": "string" } },
         "patterns": { "type": "array", "items": { "type": "string" } },
-        "gotchas": { "type": "array", "items": { "type": "string" } }
+        "constraints": { "type": "array", "items": { "type": "string" } }
       }
     },
     "phases": { "type": "array", "items": { "$ref": "#/$defs/phase" } },

@@ -27,8 +27,9 @@ SESSION="flywheel-int-work"
 SBOX=""
 
 cleanup() {
+  pane_save_history "$SESSION"
   tmux_kill "$SESSION"
-  cleanup_sandbox "$SBOX"
+  preserve_sandbox "$SBOX"
 }
 trap cleanup EXIT
 
@@ -45,7 +46,7 @@ cat > "$SDIR/spec.json" <<'EOF'
 {
   "schema_version": 1,
   "summary": "Pre-seeded fixture used by the /work integration test. The plan describes a single trivial phase that prints 'hello' to stdout. The point of the fixture is to give the work skill enough valid input to bootstrap its progress.json — the spec content itself is never executed end-to-end during the test.",
-  "context": { "key_files": ["hello.sh"], "patterns": [], "gotchas": [] },
+  "context": { "key_files": ["hello.sh"], "patterns": [], "constraints": [] },
   "phases": [
     {
       "id": "phase-1",

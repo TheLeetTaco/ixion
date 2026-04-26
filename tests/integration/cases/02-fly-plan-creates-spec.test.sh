@@ -28,8 +28,9 @@ SESSION="flywheel-int-plan"
 SBOX=""
 
 cleanup() {
+  pane_save_history "$SESSION"
   tmux_kill "$SESSION"
-  cleanup_sandbox "$SBOX"
+  preserve_sandbox "$SBOX"
 }
 trap cleanup EXIT
 

@@ -24,15 +24,21 @@
         "files_modified": { "type": "array", "items": { "type": "string" } },
         "commands_run": {
           "type": "array",
+          "description": "Forensic log of commands run during the chunk. Each entry may be a free-form summary string OR a structured object with command/exit_code/stdout_tail. Nothing downstream reads this programmatically; the structure is advisory.",
           "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["command", "exit_code"],
-            "properties": {
-              "command": { "type": "string", "minLength": 1 },
-              "exit_code": { "type": "integer" },
-              "stdout_tail": { "type": "string" }
-            }
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["command", "exit_code"],
+                "properties": {
+                  "command": { "type": "string", "minLength": 1 },
+                  "exit_code": { "type": "integer" },
+                  "stdout_tail": { "type": "string" }
+                }
+              }
+            ]
           }
         },
         "simplifications_made": { "type": "array", "items": { "type": "string" } }

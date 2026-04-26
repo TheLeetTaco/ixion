@@ -46,8 +46,9 @@ dump_pane() {
 }
 
 cleanup() {
+  pane_save_history "$SESSION"
   tmux_kill "$SESSION"
-  cleanup_sandbox "$SBOX"
+  preserve_sandbox "$SBOX"
 }
 trap cleanup EXIT
 
@@ -135,6 +136,19 @@ else
   echo "----- end -----"
 fi
 
+# Skill-invocation assertions: each step's skill should appear in the pane
+# as "Skill(<name>)". Catches the failure mode where the agent does the
+# skill's work inline instead of invoking the skill (run 4) or invokes
+# the skill but doesn't act on its instructions (run 5). Pane shows the
+# truth; artifacts on disk only confirm the skill ran AND completed.
+for skill in plan-creation plan-review plan-consolidation; do
+  if pane_has_skill_invocation "$SESSION" "$skill"; then
+    note_pass "pane shows Skill($skill) was invoked"
+  else
+    note_fail "Skill($skill) marker not found in pane — agent may have compressed the skill"
+  fi
+done
+
 # Decision-propagation assertion: plan-review surfaces an open question
 # about whether 'stdlib only' applies to tests (pytest vs unittest). /yolo's
 # auto-resolve rule picks the recommended answer ("stdlib only — tests too").
@@ -184,6 +198,12 @@ else
   dump_pane; finalize
 fi
 
+if pane_has_skill_invocation "$SESSION" "work"; then
+  note_pass "pane shows Skill(work) was invoked"
+else
+  note_fail "Skill(work) marker not found in pane — agent may have compressed work plan-mode"
+fi
+
 # Implementation should have created the notes API. The plan enumerates
 # notes.py, app.py, and tests/test_notes.py — the executor should produce
 # all three.
@@ -223,6 +243,12 @@ if [ "$review_done" = "true" ]; then
 else
   note_fail "/yolo did not produce work-review findings within 25min"
   dump_pane; finalize
+fi
+
+if pane_has_skill_invocation "$SESSION" "work-review"; then
+  note_pass "pane shows Skill(work-review) was invoked"
+else
+  note_fail "Skill(work-review) marker not found in pane — agent may have compressed work-review"
 fi
 
 if "${AJV[@]}" validate -s "$SCHEMAS/findings.schema.json" -d "$SDIR/review.findings.json" >/dev/null 2>&1; then

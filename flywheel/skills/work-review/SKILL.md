@@ -75,7 +75,7 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
 4. The active session's spec rationale and the implementer's simplification log (inlined from `spec.context` and `progress.json.artifacts.simplifications_made[]`) — reviewers must distinguish *implementer error* from *plan-prescribed shape* and *already-addressed concerns*
 
-Read the active session's `spec.json` and `progress.json` before composing the dispatch. Extract `spec.summary`, `spec.context.patterns`, `spec.context.gotchas`, and `progress.artifacts.simplifications_made` to paste inline below.
+Read the active session's `spec.json` and `progress.json` before composing the dispatch. Extract `spec.summary`, `spec.context.patterns`, `spec.context.constraints`, and `progress.artifacts.simplifications_made` to paste inline below.
 
 **Standard reviewer prompt shape:**
 
@@ -97,7 +97,7 @@ PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover
 PLAN CONTEXT (from spec.json — the planner's design rationale):
 - summary: <spec.summary>
 - patterns: <spec.context.patterns>
-- gotchas: <spec.context.gotchas>
+- constraints: <spec.context.constraints>
 
 The planner may have explicitly considered and rejected the alternative you'd suggest. Findings that contradict a documented rejection should explain why the rejection no longer holds — otherwise suppress them.
 
