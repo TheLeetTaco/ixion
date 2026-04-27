@@ -99,29 +99,11 @@ Each function reads as one idea. Each name explains itself. The reader follows t
 
 ### Diff self-check before claiming done
 
-Re-read your full diff and answer each question with concrete evidence. The answers go into `simplifications_made[]` (next section) — every "I caught X" becomes a catalog entry; if every answer is "no instances," the all-four negative form below covers it.
+Re-read your full diff and answer each question with concrete evidence. The diff itself is the record — these answers don't get persisted anywhere; they're a forcing function for you, the implementer, to look at your own work before claiming done.
 
 1. Is there any line whose removal would NOT change behavior? Name one or confirm none exists.
 2. Is the same value stored in two places? Name where or confirm one source of truth.
 3. Is there a check guarding a case that cannot occur in this codebase? Name one or confirm none.
 4. Did this chunk add a wrapper, helper, or abstraction with only one consumer? Name one or confirm none.
 
-If you can't answer with evidence, you didn't actually re-read the diff.
-
-### Reporting — what work-review compares against
-
-`simplifications_made[]` is the receipts list for the reviewer who looks at your diff next. Empty arrays say "I claim nothing was worth noting" — the reviewer takes you at your word, then flags everything they find. A populated list shapes the review and keeps it focused. Show your work.
-
-Always emit at least one entry. Match one of these forms:
-
-- `Avoided <anti-pattern-name> at <path>:<line> by <action>` — when the obvious approach would have introduced the named anti-pattern and you didn't.
-- `Deleted <N> lines from <path> (<reason>)` — when net change is negative.
-- `Consolidated <path-A> + <path-B> → <path-C>` — when two things became one.
-- `Used existing <utility> at <path>:<line> instead of building <new-thing>` — when the chunk reused an existing helper instead of creating new code.
-- `No simplifications: <concrete reason why none were warranted>` — when the chunk genuinely needed everything it has, OR when the spec itself is the source of inelegance (in fix-findings mode, this signals re-planning required).
-
-When the diff self-check answers are all "no instances," collapse the four into one negative entry:
-
-`No simplifications: ran diff self-check (removable lines / parallel state / impossible guards / single-consumer wrappers) — no instances found.`
-
-Free-form prose like "phase was small" or "everything was needed" doesn't pass — name the catalog form.
+If you can't answer with evidence, you didn't actually re-read the diff. Apply what the answers tell you — delete the line, collapse the duplicate, remove the guard, inline the wrapper — before returning.

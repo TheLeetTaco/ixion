@@ -40,8 +40,7 @@
               }
             ]
           }
-        },
-        "simplifications_made": { "type": "array", "items": { "type": "string" } }
+        }
       }
     },
     "error_log": { "type": "array", "items": { "type": "string" } }

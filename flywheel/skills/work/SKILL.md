@@ -179,17 +179,11 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
   "commands_run": [
     { "command": "bun run test tests/cli/timeout.test.ts", "exit_code": 0, "stdout_tail": "PASS — 4 tests passed" },
     { "command": "bun run typecheck", "exit_code": 0, "stdout_tail": "" }
-  ],
-  "simplifications_made": [
-    "Avoided Shallow Wrapper at src/cli.ts:42 by calling commander directly",
-    "Deleted 8 lines from src/cli/timeout-default.ts (single-consumer helper inlined)"
   ]
 }
 ```
 
 `commands_run[]` is a forensic log — entries can be structured objects (as shown) or plain summary strings like `'bun run test — 4 passed'`. Whatever you'll find useful to read later. Nothing downstream parses this programmatically.
-
-`simplifications_made[]` is the receipts list work-review compares your diff against. Always emit at least one entry — catalog form for what you caught, or the all-four-no negative form when the diff self-check found nothing.
 \"
 ```
 
@@ -208,7 +202,7 @@ Resolve theme: <theme-id> — <theme-description>
 
 When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong). In that case, do NOT patch the codebase. Return:
 - `files_modified: []`
-- `simplifications_made: ["No simplifications: spec inelegant — <one-paragraph reason>. Re-planning required."]`
+- `outcomes: ["spec inelegant — <one-paragraph reason>. Re-planning required."]`
 The orchestrator surfaces this for re-planning instead of dispatching the next chunk.
 
 ## Findings (read all before fixing any)
@@ -224,8 +218,7 @@ These findings are clustered because they likely share a structural cause. Diagn
 <paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
 
 Fix-findings addendum:
-- If the cleaner shape requires touching files outside the findings list, take it — note the drift in your report.
-- Record any structural change you made as a `simplifications_made[]` entry using the catalog form (e.g., 'Avoided Forwarding Chain at src/auth.ts:42 by reading state directly'). The structural change IS the most important simplification to report.
+- If the cleaner shape requires touching files outside the findings list, take it — note the drift in your `outcomes` summary.
 
 ## Constraints
 - Run tests after the change set; capture exit_code.
@@ -242,17 +235,11 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
   "commands_run": [
     { "command": "go test ./internal/orders/...", "exit_code": 0, "stdout_tail": "ok  internal/orders 0.412s" },
     { "command": "go vet ./...", "exit_code": 0, "stdout_tail": "" }
-  ],
-  "simplifications_made": [
-    "Avoided N+1 Query at orders/handler.go:81 by adding a JOIN in store.ListOrders",
-    "Avoided Magic Number at orders/handler.go:142 by extracting orderTimeout"
   ]
 }
 ```
 
 `commands_run[]` is a forensic log — structured objects or summary strings, your call. Nothing downstream parses it programmatically.
-
-`simplifications_made[]` is the receipts list work-review compares your diff against. Always emit at least one entry — the structural change you made (catalog form like `Avoided Forwarding Chain at src/auth.ts:42 by reading state directly`) is the most important simplification to name. If somehow nothing warranted a positive entry, use the negative form.
 \"
 ```
 
@@ -262,16 +249,16 @@ Return JSON in exactly this shape — fill in your values, keep the field names 
 
 Skip TDD only for pure refactoring, config-only, or docs changes. Otherwise the dispatch prompt above is the contract:
 
-RED (failing test) → GREEN (the smallest *complete* expression of the change — not the shortest path through the test, the cleanest path) → REFACTOR (re-read, delete what doesn't earn its line) → final Diff self-check across the chunk → write `simplifications_made[]` entries grounded in the self-check answers → return.
+RED (failing test) → GREEN (the smallest *complete* expression of the change — not the shortest path through the test, the cleanest path) → REFACTOR (re-read, delete what doesn't earn its line) → final Diff self-check across the chunk → apply what the answers tell you → return.
 
-REFACTOR is per-task; the Diff self-check runs once at the end of the chunk after all tasks are GREEN. The simplifications log records what the self-check surfaced.
+REFACTOR is per-task; the Diff self-check runs once at the end of the chunk after all tasks are GREEN. The diff itself is the record — answer the self-check questions honestly and let the answers shape the final diff before you return.
 
 ### 2.3 Checkpoint (Atomic Write)
 
 On subagent return:
 
 1. Append chunk ID to `progress.completed[]`. Set `in_progress: null`. If this is the last chunk set `status: "completed"`, otherwise `status: "in_progress"`.
-2. Append `files_modified[]` (de-duped), `commands_run[]`, and `simplifications_made[]` to `progress.artifacts`.
+2. Append `files_modified[]` (de-duped) and `commands_run[]` to `progress.artifacts`.
 3. Atomic write `progress.json` via `.tmp` → `mv`. Same pattern for `session.json` updates.
 4. Update `session.json.last_checkpoint_at` to current UTC ISO-8601.
 5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Run the command fresh, capture the actual exit_code — never guess. Re-run if any doubt. Do NOT append the chunk ID to `completed[]` if verification failed.
@@ -299,7 +286,7 @@ Continue to the next non-completed chunk. All complete → Phase 3.
 
 Run the plan's `success_criteria` checks (plan mode) or full test suite + typecheck (fix-findings mode). Read `references/verification-gates.md`: identify the proving command, run it fresh, read full output, verify, then claim done.
 
-Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading `git diff <base>...HEAD` + `progress.artifacts.simplifications_made[]`. Cite the diff line or the simplifications entry that proves the criterion holds.
+Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading `git diff <base>...HEAD`. Cite the diff line that proves the criterion holds.
 
 ---
 

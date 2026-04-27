@@ -73,9 +73,9 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 1. The diff / PR content inline (or a reference the reviewer can read)
 2. Code-scope location format: `<repo-relative-path>` or `<repo-relative-path>:<line>`
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
-4. The active session's spec rationale and the implementer's simplification log (inlined from `spec.context` and `progress.json.artifacts.simplifications_made[]`) — reviewers must distinguish *implementer error* from *plan-prescribed shape* and *already-addressed concerns*
+4. The active session's spec rationale (inlined from `spec.context`) — reviewers must distinguish *implementer error* from *plan-prescribed shape*
 
-Read the active session's `spec.json` and `progress.json` before composing the dispatch. Extract `spec.summary`, `spec.context.patterns`, `spec.context.constraints`, and `progress.artifacts.simplifications_made` to paste inline below.
+Read the active session's `spec.json` before composing the dispatch. Extract `spec.summary`, `spec.context.patterns`, and `spec.context.constraints` to paste inline below.
 
 **Standard reviewer prompt shape:**
 
@@ -101,10 +101,7 @@ PLAN CONTEXT (from spec.json — the planner's design rationale):
 
 The planner may have explicitly considered and rejected the alternative you'd suggest. Findings that contradict a documented rejection should explain why the rejection no longer holds — otherwise suppress them.
 
-IMPLEMENTER'S SIMPLIFICATION LOG (from progress.json.artifacts.simplifications_made — what the implementer claims they cleaned up):
-[paste verbatim, or "no simplifications recorded" if the array is empty]
-
-When you flag an issue, check whether the implementer's log already addresses it. Surface findings that contradict the simplifications log or the spec rationale — those are the high-signal ones. Suppress findings the implementer already named in their log.
+Entries in `constraints[]` starting with `Deferred:` record reviewer recommendations from plan-review that consolidation chose not to auto-integrate. The implementer may have taken some of these up by judgment — if a file or capability you see traces back to a `Deferred:` entry, that's principled extension, not implementer error. Note it once; don't re-flag the underlying recommendation as if it were new.
 
 Use code-scope locations: `<repo-relative-path>` or `<repo-relative-path>:<line>`. Do NOT emit JSON; the synthesizer structures your output.
 
@@ -191,9 +188,10 @@ When a reviewer finding targets a file that is NOT in `spec.phases[].files[]`, t
 Procedure for each such finding:
 
 1. Read the file. The reviewer flagged something specific; evaluate the finding against the actual file content.
-2. Separately, evaluate intent: does the file's existence look like a principled extension (DRY crossed a threshold, SRP split, shared helper, test fixture), or scope creep (unrelated refactor, speculative abstraction, drive-by changes)?
-3. **If principled extension**: keep or drop the reviewer's finding based on its merit, independent of the drift. Do NOT additionally flag "file outside baseline" — the file being outside baseline is not, by itself, a finding.
-4. **If scope creep**: keep the reviewer's finding. Additionally emit a P2 synthetic finding with location `<path>` and title "Out-of-scope file: <path>" noting the unrelated work.
+2. **First check `spec.context.constraints[]` for `Deferred:` entries.** Consolidation surfaces deferred reviewer recommendations from plan-review (entries prefixed `Deferred:` or tagged `[Contradicts user]` and integrated as deferred). If the out-of-spec file is the implementer taking up one of those — e.g., `tests/test_app.py` matching a `Deferred: Untested HTTP Layer finding` constraint — this is **implementer-took-up-deferral**: principled extension by design. Note it once in the synthesis output (`"<path> — implementer took up deferred constraint '<title>'. Surface for user awareness; no finding."`) and otherwise treat the reviewer's content findings on the file on their merits, independent of the drift.
+3. If not a deferred-uptake, evaluate intent: does the file's existence look like a **principled extension** (DRY crossed a threshold, SRP split, shared helper, test fixture), or **scope creep** (unrelated refactor, speculative abstraction, drive-by changes)?
+4. **If principled extension**: keep or drop the reviewer's finding based on its merit, independent of the drift. Do NOT additionally flag "file outside baseline" — the file being outside baseline is not, by itself, a finding.
+5. **If scope creep**: keep the reviewer's finding. Additionally emit a P2 synthetic finding with location `<path>` and title "Out-of-scope file: <path>" noting the unrelated work.
 
 Principled-extension signals:
 - File is in a `tests/fixtures/`, `shared/`, or similar reuse-pattern location
