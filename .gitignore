@@ -72,10 +72,5 @@ temp/
 
 # Project-specific
 .claude/
-.opencode/
-.subtask/
 .flywheel/
-.worktrees/
-.claude/worktrees/
-docs/
 inspiration/

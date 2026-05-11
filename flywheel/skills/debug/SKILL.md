@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Debug issues with iterative fix loop. Gathers problem description, investigates, then enters fix-verify cycle. Triggers on "debug", "fix this", "troubleshoot".
+description: Debug issues with iterative fix loop. Gathers problem description, investigates, then enters fix-verify cycle. Triggers on "debug", "fix this", "troubleshoot". Use when the goal is to fix a specific reported issue. For exploration or new features, use brainstorm or plan-creation.
 allowed-tools:
   - Read
   - Write
@@ -133,7 +133,7 @@ For each iteration (1 to 10):
 
 ---
 
-## Phase 3: Completion
+## Phase 3: Summary & Next Steps
 
 ### Summarize the Fix
 
@@ -152,12 +152,12 @@ git diff
 
 Use AskUserQuestion with exactly 2 options:
 
-1. **"Commit and compound (Recommended)"** — Commit changes via `/fly:ship`, then offer `/fly:compound` to document the debugging solution for future reference.
+1. **"Commit and compound (Recommended)"** — Commit changes via `/ship`, then offer `/compound` to document the debugging solution for future reference.
 2. **"Done for now"** — Exit without committing. Changes remain in the working tree.
 
 **If user picks option 1:**
-- Invoke `/fly:ship` to commit and create PR
-- Then offer: "Want to run `/fly:compound` to document this fix for future reference?"
+- Invoke `/ship` to commit and create PR
+- Then offer: "Want to run `/compound` to document this fix for future reference?"
 
 **If user picks option 2:**
 - Inform user that changes are uncommitted in the working tree

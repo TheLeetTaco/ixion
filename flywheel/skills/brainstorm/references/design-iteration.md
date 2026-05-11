@@ -1,6 +1,6 @@
 # Design Iteration Procedure
 
-Detailed 5-step procedure for Phase 5b when user has feedback on the design.
+Detailed 5-step procedure for Phase 8 (Design Iteration) when user has feedback on the design.
 
 ---
 
@@ -44,4 +44,4 @@ Does this align with your intent?
 
 ## Guardrails
 
-**Max 3 iteration cycles.** If still not converged, suggest stepping back to re-examine the core problem (Phase 2).
+**Max 3 iteration cycles.** If still not converged, suggest stepping back to re-examine the core problem (Phase 3).

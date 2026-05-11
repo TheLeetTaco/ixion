@@ -1,6 +1,6 @@
 ---
 name: plan-consolidation
-description: Restructure reviewed plans into actionable checklists for /work. Triggers on "consolidate plan", "finalize plan".
+description: Refine the active session's spec.json by merging reviewer findings.json into it. Backs up the pre-refinement spec to a .pre-consolidation sidecar. Triggers on "consolidate plan", "finalize plan".
 allowed-tools:
   - Read
   - Write
@@ -13,46 +13,60 @@ allowed-tools:
 
 # Plan Consolidation Skill
 
-Transform plans with a Review Summary into a single, coherent, work-ready document with integrated checklists.
-
-**Philosophy:** Reviewing adds valuable content but scatters it. Consolidation restructures everything into actionable format.
+Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin uses `.flywheel/plugin/sessions/`.
 
 ## Input
 
-Plan path via `$ARGUMENTS`. Should already have Plan Review Summary (from plan-review).
+No arguments. Reads the active session from `.flywheel/plugin/active.json`.
 
 ---
 
-## Phase 1: Analyze Plan Structure
+## Phase 0: Load Active Session
 
-Check for original content and Plan Review Summary. See `references/extraction-patterns.md` for detection details.
+1. Read `.flywheel/plugin/active.json` to resolve `session_id`
+2. Compute session directory: `.flywheel/plugin/sessions/<session_id>/`
+3. Read two inputs:
+   - `spec.json` (the pre-refinement spec)
+   - `review.findings.json` (written by plan-review)
 
-- **No Review Summary:** Warn and ask to continue
-- **No original content:** Error - plan hasn't been created
+**Errors:**
 
----
-
-## Phase 2: Extract Content
-
-Using patterns from `references/extraction-patterns.md`:
-
-1. **Extract review findings** into P1/P2/P3 categories
-2. **Extract implementation steps** into phases
-3. **Map findings to steps** for integrated checklists
+- `active.json` missing → ask the user to run plan-creation first
+- `review.findings.json` missing → ask the user to run plan-review first, or abort
+- `spec.json` missing → the session is broken; ask the user to delete and restart
 
 ---
 
-## Phase 3: Resolve Open Questions
+## Phase 1: Back Up to Sidecar (D7)
 
-**The user must weigh in before we can create a work-ready plan.**
+```bash
+cp .flywheel/plugin/sessions/<id>/spec.json \
+   .flywheel/plugin/sessions/<id>/spec.json.pre-consolidation
+```
 
-Scan for all unresolved items:
-- `### Open Questions` sections/tables, `OPEN QUESTION:` markers
-- TODO, TBD, "to be decided", "Decision needed"
-- "Option A vs Option B", "Either... or...", "Alternatively,"
-- Reviewer conflicts from "Conflicts Between Reviewers" section
+Cleaned on `ship`.
 
-Present each question **one at a time**:
+---
+
+## Phase 2: No-Op Check
+
+If `review.findings.json` has zero findings and zero open questions:
+
+- Print: "No refinements needed — spec is already work-ready."
+- Skip to Phase 6 (next-steps prompt).
+
+---
+
+## Phase 3: Surface Open Questions
+
+Questions to surface:
+
+1. `review.findings.json.open_questions` (entries the synthesizer could not resolve)
+2. Inter-reviewer conflicts — findings where two or more reviewers described the same issue but assigned different severities. Surface the divergence; the user decides which severity is right rather than defaulting to the more severe.
+
+**BLOCKING: Each AskUserQuestion call MUST contain exactly ONE question.** Never pass multiple questions to a single AskUserQuestion call (no `questions: [...]` arrays of length > 1). Make a separate call per question, await the response, then make the next call. Bundled multi-question prompts produce a confusing wizard-style "Review your answers / Submit" review flow that breaks both UX and test automation.
+
+For each question:
 
 ```
 Question: "[Topic]: [The question]"
@@ -64,89 +78,140 @@ Options:
 3. "You pick what's best" - Let me decide
 ```
 
-Handle responses: user picks option → record decision; user picks "You decide" → apply recommendation, note delegated; custom answer → record exactly. Never proceed with unresolved questions.
+Record: user picks option → decision logged; "You decide" → apply recommendation, note delegated; custom answer → record exactly. **BLOCKING: Never proceed with unresolved questions.**
 
 ---
 
-## Phase 4: Synthesize
+## Phase 4: Propagate Decisions Into the Spec
 
-### Principles
+**BLOCKING: Each resolved decision MUST be reflected in the spec's content, not just remembered in the conversation.** The implementer dispatches against the refined `spec.json`; if a decision isn't IN the spec, it won't be honored — that's a consolidation failure, not an implementer failure.
 
-1. **Deduplicate** - Same insight from multiple sources → one entry
-2. **Prioritize** - P1 before P2, high-impact first
-3. **Preserve test-first ordering** — Maintain test-before-implementation order within phases
-4. **Integrate** - Insights IN checklist items, not floating
-5. **Make executable** - Every item is a concrete action
+For each answered question:
 
-P1 findings are CRITICAL: resolve with a specific checklist action, or flag as BLOCKING.
+1. **Identify affected tasks/phases** — the question's topic points to one or more `phases[].tasks[]`. Read the task descriptions and find the ones that would behave differently under each option.
+2. **Rewrite task descriptions** to bake the decision in as a constraint. Examples:
+   - "Vitest or Jest for tests?" → "Vitest" → rewrite test task descriptions to mandate `vitest`; remove any `jest.fn` / `jest.mock` references; convert `describe.each` calls to vitest's API.
+   - "Single- or multi-tenant for the MVP?" → "single-tenant" → strip `tenant_id` columns from the schema task; remove tenant-scoping middleware; document deferred multi-tenancy in `context.constraints[]`.
+3. **Update `verification` commands** if the decision changes them. Example: `webpack build` → `vite build` after a switch from webpack to vite.
+4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: Tailwind v4 over styled-components → matches the design-system standard the team adopted in Q1. Verification command runs 'bun run check:css'."`.
 
----
-
-## Phase 5: Generate Consolidated Plan
-
-Write using template from `references/consolidated-plan-template.md`.
-
-Structure: Status → Executive Summary → Decisions Made → Critical Items → Implementation Checklist → Technical Reference → Review Findings Summary → Appendix (raw review data).
+The bar: a fresh implementer who reads only `spec.json` (no conversation history) must reach the same outcome the user's answer prescribed. If they could plausibly do something different, the decision wasn't propagated thoroughly enough.
 
 ---
 
-## Phase 6: Write Files
+## Phase 5: Integrate Findings by Severity
 
-```bash
-cp [plan_path] [plan_path].pre-consolidation.backup
-```
+**Surface failures into context.** For every P1/P2 finding integrated into spec.json, append a one-line summary of the `failure` to `spec.context.constraints[]` so the implementer sees the reasoning during dispatch, not just the patch.
 
-Overwrite plan file with consolidated version. Original content preserved in Appendix.
+**Structural failures replace, don't patch.** Match the leading word(s) of each finding's Failure paragraph against the catalog below — string comparison, not judgment. Match → reshape the affected phase. No match → fold the fix into the task description.
+
+Catalog of names that route to redesign (from `flywheel/skills/flywheel-conventions/references/elegance.md`):
+
+- Universal Principles: Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt
+- Structural: God Class, Shallow Wrapper, Forwarding Chain, Parallel State, Speculative Code, Config Soup, Stubborn Duplication
+- Data Flow: Manual Sync, Bidirectional Coupling, Cascade Mutation, Leaky Event
+- Abstraction: Premature Abstraction, Leaky Interface, Comments-as-Apology, Indirection Tax, Concrete Dependency
+- Plan-Specific: Test Desert, Test Afterthought, Reinvented Wheel, Shotgun Surgery
+- Performance/data-integrity canonicals: N+1 Query, Race Condition, Layering Violation, Convention Drift
+
+When a finding matches, the patch is the wrong response. Folding "use a JOIN instead" into a task that says "build the in-memory join with N+1 queries" leaves both shapes in the spec. Delete the inelegant task; replace it with one that prescribes the cleaner shape from the start.
+
+Example — finding leads `Forwarding Chain. ...`:
+
+- Spec before: phase-2 task: "Add `UserManager.authenticate()` that calls `AuthService.verify()` that calls `TokenService.check()`."
+- Spec after: phase-2 task: "Add a route handler that calls `TokenService.check()` directly." Original task deleted. `constraints[]` records the Failure paragraph one-liner.
+
+The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when reshaping deletes tasks the original spec prescribed.
+
+### Consistency check (run before integrating any finding)
+
+The user's verbatim feature description lives in `context.constraints[0]`, marked `(authoritative)`. **The user's exact words are immutable.** Reviewers don't see the original prompt and may suggest alternatives in good faith — but the user's authority overrides reviewer suggestions every time.
+
+For each finding, before applying its `fix`:
+
+1. **Does the finding propose changing or replacing something the user named explicitly?** If the user wrote "use Stripe for payments" and a finding suggests Braintree, defer it. Rationale: `Deferred: <finding-title> contradicts user's verbatim description ('<user words>')`.
+
+2. **Does the finding's fix add capabilities the user did not request?** Concurrency, caching, body-size limits, pagination, an extra endpoint — if the user's verbatim description doesn't mention them, defer with rationale: `Deferred: <finding-title> adds <feature> not requested by user`.
+
+3. **Does the finding contradict an existing `success_criteria` entry derived from the user's words?** Defer.
+
+**Do not reinterpret the user's words to accommodate the finding.** "No Docker" means *no Docker for any environment* — dev, test, CI, production — even if a reviewer thinks containerization is the obvious choice. The user said what they said. Honor it literally; do not charitably re-scope it. Do NOT rewrite the existing `success_criteria` or `summary` to make room for the finding — that's how drift sneaks into the spec. If the existing content conflicts with the finding, the existing content wins.
+
+Only integrate findings whose fix is consistent with the user's verbatim description AND the existing spec content. The result is an internally-coherent spec that honors the user's exact words, not one that says "X" in success_criteria and "not-X" in verification commands.
+
+For each remaining finding in `review.findings.json.findings`:
+
+### P1 — Integrate (after consistency check)
+
+- Fold `fix` language into the affected task's `description`
+- Add test scenarios that cover the failure described in `failure`
+- If the finding does not map to an existing task: add a new task to the relevant phase
+
+### P2 — Integrate by default; defer only when the finding adds a new *what*
+
+Users describe *what* to build and the *hows* they care about (specific tools, libraries, frameworks, ports, file layouts). They generally underspecify the rest. Reviewers fill in the underspecified *hows* — robustness, correctness, polish — and that's their job. **Adding "how" to underspecified areas is good scope growth.** Integrate these like a P1.
+
+Defer only when a finding adds a new *what* — a capability, endpoint, or feature the user didn't describe at all:
+
+| Finding shape | Verdict |
+|---|---|
+| Adds prepared statements to a Postgres `INSERT` to prevent injection | Integrate — how |
+| Adds a 30-second timeout to the outbound HTTP client | Integrate — how |
+| Adds CSRF token verification to a form POST handler | Integrate — how |
+| Adds `Content-Encoding: gzip` to a download endpoint already streaming bytes | Integrate — how |
+| Adds TypeScript types to existing untyped JS functions | Integrate — how |
+| Adds rate limiting to a webhook receiver (user described a single-source webhook) | Defer — new what |
+| Adds a metrics dashboard (user described a CLI tool) | Defer — new what |
+| Adds a new CLI subcommand the user did not list | Defer — new what |
+| Adds Redis caching (user described an in-memory MVP) | Defer — new what |
+
+If you defer, record `Deferred: <finding-title> — adds new <feature> not described by user` as a one-line task note.
+
+The consistency check above is the strict gate (catches contradictions with explicit user wording). This P2 check is the secondary gate (catches new-what additions). Default is integrate — most P2 findings are reviewers filling in *how*, which is what they're for.
+
+### P3 — Default Include
+
+P3 findings are nice-to-have, low-impact suggestions. Integrate them by default — fold the `fix` into the affected task's description and append the `failure` summary to `constraints[]`, just like P2.
+
+Apply the same consistency check as above: if a P3 contradicts an existing `summary`, `success_criteria`, or `constraints` entry, defer it with a one-line rationale. Otherwise, integrate.
+
+This is the path of least resistance for the common case — most users approve most P3s, and removing the triage prompt also unblocks autonomous orchestrators (`/yolo`). If the user wants to drop a P3 after seeing it integrated, they can edit the spec or remove it before `/work`.
 
 ---
 
-## Phase 7: Present Results
+## Phase 6: Write Refined Spec & Hand Off
 
-Display summary and offer next steps:
-
-```
-Plan Consolidated — [plan_path]
-
-Summary: [N] phases, [N] checklist items, [N] findings addressed
-Status: [Ready for /fly:work OR "Blocked - see Critical Items"]
-```
-
-**AskUserQuestion:** "Plan consolidated and ready. What next?"
-- Start /fly:work (Recommended)
-- Done for now
+1. Validate the refined spec against `flywheel/schemas/task-list.schema.json`.
+2. Atomic write `.flywheel/plugin/sessions/<id>/spec.json` (`.tmp` → `mv`).
+3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/work` that no unhandled review remains.
+   ```bash
+   rm .flywheel/plugin/sessions/<id>/review.findings.json
+   ```
+4. Print summary:
+   ```
+   Spec refined — <id>
+   Integrated: N P1, N P2, N P3
+   Deferred: N
+   ```
+5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
+   - Start `/work` (Recommended)
+   - Done for now
 
 ---
 
 ## Error Handling
 
-- **Missing content:** Warn and continue, or error if critical
-- **Write failure:** Display content, suggest alternative path
-- **Malformed input:** Best-effort consolidation, note unparsed sections
+- **Active session missing:** Prompt user to run plan-creation first
+- **Findings missing:** Prompt user to run plan-review first, or abort
+- **Schema validation failure on write:** Restore from `spec.json.pre-consolidation`; report which field failed; do not leave a half-merged spec on disk
+- **User rejects every option on an open question:** Abort consolidation; spec stays in pre-refinement state (sidecar was created but the main spec.json was not overwritten)
 
 ---
 
 ## Anti-Patterns
 
-- **Skip question resolution** - Don't consolidate with TBD items
-- **Multiple questions at once** - One at a time
-- **Just append** - Restructure, don't slap summary on top
-- **Floating insights** - Integrate into checklist items
-- **Ignore P1s** - Must resolve or block
-- **Vague checklists** - "Implement auth" → "Step 2.1: Create JWT in `src/auth/tokens.ts`"
-
----
-
-## Quality Checks
-
-- [ ] All open questions resolved with user input
-- [ ] All P1 findings addressed or flagged as blocking
-- [ ] Every implementation step has concrete action
-- [ ] Each phase has test verification
-- [ ] Plan genuinely ready for `/fly:work`
-
----
-
-## Detailed References
-
-- `references/consolidated-plan-template.md` - Output structure
-- `references/extraction-patterns.md` - How to extract and categorize content
+- **Skip open-question resolution** — Don't refine with unresolved questions
+- **Multiple questions at once** — One at a time
+- **BLOCKING: Auto-drop a P1** — P1s integrate; only the user may downgrade to follow-up
+- **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.constraints[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4).
+- **Fold structural failures into existing tasks** — Replace the affected phase or task with the simpler shape, don't patch the original. Surface the `failure` into `context.constraints[]`.

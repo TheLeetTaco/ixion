@@ -1,6 +1,6 @@
 ---
 name: plan-creation
-description: Research codebase, validate external claims, and draft implementation plans. Single-pass creation with integrated validation via Context7 and locator/analyzer agents. Triggers on "create plan", "plan for", "write a plan".
+description: Research codebase, validate external claims, and emit a work-ready spec.json for a new planning session. Single-pass creation with integrated validation via Context7 and locator/analyzer agents. Triggers on "create plan", "plan for", "write a plan". For exploratory requests where the user is unsure what to build, prefer brainstorm first. Once spec.json exists, use plan-review for evaluation or go straight to work. For a reviewed spec, use plan-consolidation to merge findings.
 allowed-tools:
   - Read
   - Write
@@ -14,11 +14,14 @@ allowed-tools:
 
 # Plan Creation Skill
 
-Research the codebase, validate technical claims, and draft implementation plans — all in a single pass.
+Research the codebase, validate technical claims, and emit a work-ready `spec.json` in a single pass. Output validates against `flywheel/schemas/task-list.schema.json`.
 
-**Philosophy:** Create plans grounded in codebase reality AND validated against external docs. Don't defer validation — bad assumptions caught early are cheap; caught late they become bad code.
+## Core Principles
 
-**Context Compaction:** This skill creates `.context.md` files to persist research findings. This enables recovery if context is lost and provides downstream phases with key file paths and patterns without re-reading.
+1. **Codebase reality first** — dispatch locators before hypothesizing patterns.
+2. **Decisions, not code** — capture approach, boundaries, risks, test scenarios. Do not pre-write implementation code.
+3. **Executable-from-day-one** — if you can't commit to concrete file paths or test scenarios, surface an `open_question` instead of a vague task.
+4. **BLOCKING: Validate high-risk claims** — security, payments, crypto, migrations, privacy trigger external validation via Context7.
 
 ## Input
 
@@ -28,166 +31,237 @@ Feature description via `$ARGUMENTS`. If empty, ask user.
 
 ## Phase 0: Check for Existing Knowledge
 
-Before starting codebase research, check for relevant existing knowledge:
+Before codebase research, check existing knowledge (skip missing dirs):
 
-1. **Standards** (`docs/standards/`) — Search by tags for reusable patterns. Load matching standards as context for plan drafting.
-2. **Solutions** (`docs/solutions/`) — Verified fixes from past work. Search solution files for relevant matches (up to 5).
-3. **Research** (`docs/research/`) — Check for recent research (within 30 days):
+1. **Standards** (`docs/standards/`) — Search by tags for reusable patterns.
+2. **Solutions** (`docs/solutions/`) — Verified fixes from past work (up to 5 matches).
+3. **Research** (`docs/research/`) — Recent research within 30 days:
    ```bash
    find docs/research -name "*<topic-keywords>*" -mtime -30 2>/dev/null | head -3
    ```
 
-If relevant knowledge found, use it as a starting point for Phase 1 (avoids re-researching). Note findings in the context file.
-
-Skip any directory that doesn't exist. If no matches, proceed normally to Phase 1.
+If relevant knowledge found, use it as starting point for Phase 1. Fold key references into `context.constraints[]` or `context.patterns[]` so they survive into the dispatch.
 
 ---
 
 ## Phase 1: Understand Codebase Context
 
-Research the codebase using a **locate then analyze** pattern:
+**BLOCKING:** Do NOT use Read/Grep/Glob for TARGET CODEBASE research — dispatch locator Tasks first, then feed results to analyzer Tasks. Skill references, plan artifacts, and template files are exempt.
 
-**BLOCKING:** Do NOT use Read/Grep/Glob for TARGET CODEBASE research — dispatch locator Tasks first, then feed results to analyzer Tasks. Skill references, plan artifacts, and template files are exempt from this requirement.
+Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel. Read `flywheel/skills/flywheel-conventions/references/research-workflow.md` for locator templates, the consolidation rule, and analyzer templates.
 
-1. **Locate (parallel, cheap):** Run locator-codebase, locator-patterns, and locator-docs Tasks simultaneously to find WHERE relevant code lives. Return paths only.
-2. **Analyze (targeted):** Feed top 10-15 paths into an analyzer-codebase Task. Document existing implementations, conventions, and architectural patterns. Flag OPEN QUESTIONS.
-3. **Also check:** `CLAUDE.md` for team conventions; recent similar features for precedent.
-4. **Consolidate:** File paths with line numbers, existing patterns, team conventions, open questions.
+After the canonical workflow completes, also check `CLAUDE.md` for team conventions (if analyzer-docs didn't already surface it) and recent similar features for precedent.
 
-Read `references/research-dispatch.md` before proceeding — it contains the full Task dispatch templates for locators, analyzer, and the DRY/integration checks added in Phase 1.
+### Map analyzer outputs to spec.context
 
----
+- **analyzer-codebase findings** → `key_files[]` (paths + one-line reasons). Flags fold into `constraints[]`.
+- **analyzer-patterns findings** → `patterns[]` (named patterns with `file.ext:line` references the implementer can match).
+- **analyzer-docs findings** → `constraints[]` (decisions, constraints, prerequisites, warnings from CLAUDE.md / ADRs / inline docs).
+- **analyzer-web findings** → `constraints[]` (best practices, version constraints, deprecations from external sources).
 
-## Phase 1.5: Research Validation Gate
+### Flag handling
 
-**BLOCKING:** Verify codebase research quality before drafting.
+- `EXISTING_SOLUTION` → record in `constraints[]` and adjust phases to reuse rather than reinvent.
+- `DRY_VIOLATION` → add a consolidation task to the affected phase.
+- `PATTERN_CONFLICT` → record in `constraints[]` with rationale for keeping or correcting.
+- `INTEGRATION_RISK` → record in `constraints[]` and add covering tests to the relevant phase.
+- `OPEN_QUESTION` → record in spec `open_questions[]`.
+- `CLAIM_INVALID` / `VERSION_ISSUE` → record in `open_questions[]`; may trigger Phase 2 Context7 deep-validation.
 
-### Checklist
+### Validation gate (BLOCKING)
 
-1. **File paths exist**: Spot-check 3-5 referenced paths
+Before proceeding to Phase 2, verify codebase research quality:
+
+1. **File paths exist**: Spot-check 3-5 referenced paths.
 2. **Patterns identified**: Found relevant existing implementations?
 3. **Conventions clear**: Know how this codebase handles similar features?
 4. **DRY checked**: No proposed work duplicates existing code?
 
-### If validation fails
-
-For minor gaps: note in Open Questions and proceed. For significant gaps (no similar patterns found): ask user for guidance. Maximum 2 re-research attempts.
+Minor gaps → note in `open_questions`. Significant gaps (no similar patterns) → ask user. Max 2 re-research attempts.
 
 ---
 
 ## Phase 2: Validate External Claims
 
-**Goal:** Verify technical claims before they become plan assumptions. Only run when high-risk topics are detected.
+Verify technical claims before they become plan assumptions. Only runs when high-risk topics detected.
 
-Read `references/validation-research.md` before proceeding — it contains the high-risk keyword heuristic, Context7 workflow, and dispatch templates.
+Read `references/validation-research.md` before proceeding (high-risk keyword heuristic, Context7 workflow, dispatch templates).
 
-### Decision Heuristic
+Scan draft plan for high-risk keywords (security, payments, crypto, migrations, privacy). If any found → run external validation. Else skip.
 
-Scan the draft plan content for high-risk keywords (security, payments, crypto, migrations, privacy). If any found → run external validation. If none → skip this phase.
-
-### When triggered:
+When triggered:
 
 1. **Framework Docs Validation** — Verify claimed library features via Context7
 2. **Version Compatibility** — Check for breaking changes and deprecations
-3. **Best Practices** — Look up recommended patterns for high-risk areas
+3. **Best Practices** — Look up recommended patterns
 
-Incorporate validated findings directly into the plan as you draft it. Flag `CLAIM_INVALID` or `VERSION_ISSUE` as Open Questions if they change the approach.
-
----
-
-## Phase 3: Structure
-
-### Title & Filename
-
-Draft clear title: `feat: Add user authentication`
-
-Convert to kebab-case filename per `references/formatting-guide.md`:
-- `feat: Add User Auth` -> `feat-add-user-auth.md`
-
-### Choose Detail Level
-
-Select template from `references/plan-templates.md`:
-
-| Level | Use For |
-|-------|---------|
-| MINIMAL | Simple bugs, small improvements |
-| MORE | Most features, complex bugs |
-| A LOT | Major features, architectural changes |
+Incorporate findings into the spec. Flag `CLAIM_INVALID` or `VERSION_ISSUE` as `open_questions` if they change the approach.
 
 ---
 
-## Phase 4: Write Plan
+## Phase 3: Design Synthesis (BLOCKING — every spec records elegance reasoning)
 
-Using chosen template:
-1. Fill all sections based on codebase research
-2. Include specific file paths with line numbers
-3. Follow existing patterns identified in Phase 1
-4. Ensure acceptance criteria are testable
-5. Include Open Questions from research (internal and external)
-6. Structure each implementation phase with test steps before implementation steps (test-first ordering). Reference `flywheel-conventions/references/tdd-cycle.md` for skip conditions.
-7. Decompose phases along Single Responsibility lines — each phase should have one clear purpose
-8. Check for duplication across phases — shared setup, utilities, or patterns should be extracted into an early foundation phase
-9. Integrate validated external findings (best practices, security notes) into relevant plan sections — don't quarantine them in a separate section
+Every spec MUST emit at least one `context.constraints[]` entry recording the design decision. This preserves the reasoning so reviewers and implementers don't re-litigate, and it's the signal that elegance was on the table — not skipped.
 
-**Example (phase decomposition):**
-Bad:
-- Phase 2: Implement feature end-to-end (DB/API/UI)
-- Phase 3: Write all tests at the end
-- Phase 4: Refactor/cleanup
+1. Sketch candidate shapes:
+   - **Non-trivial features** (multiple plausible decompositions, new abstractions, multi-layer changes): sketch 2-3 candidates — typically "the natural one" and "a simpler one that consolidates with existing code." Add a third only if a different decomposition is genuinely plausible.
+   - **Trivial features** (bug fixes, small additions, pure config changes, single established pattern): one candidate is fine.
 
-Good:
-- Phase 2: Foundation (shared fixtures/helpers) + tests first
-- Phase 3: API layer changes + tests first
-- Phase 4: UI integration + tests first
+2. Pick the shape that's simplest, most symmetric, and adds the least new state or abstraction. The Elegance Discipline applies: maximize elegance over minimizing churn — pick the cleaner shape even if it means a larger refactor.
 
-Write to: `docs/plans/<filename>.md`
+3. Record the decision in `context.constraints[]` (mandatory, even when trivial):
+   - **When alternatives existed**: `Considered: <alternative>. Rejected because: <one-sentence reason>.`
+   - **When no alternative existed**: `Single obvious shape — no alternative considered because <concrete reason>.` (e.g., "the codebase already has one established route-handler pattern.")
+
+   "I didn't think about it" is not a concrete reason. If you can't write either form, you haven't done the synthesis.
+
+   **Strong:** `Considered: a UserAuthService class wrapping the Stripe SDK + a separate UserSessionStore. Rejected because: Forwarding Chain — every method just delegates to Stripe. Inlining the SDK calls in routes/auth.ts is shorter, removes a file, and matches the existing pattern in routes/payments.ts:14.`
+
+   **Weak:** `Considered other approaches. Picked this one.` — Names no alternative, names no anti-pattern, gives no reason. Doesn't survive the bar.
 
 ---
 
-## Phase 5: Create Context File
+## Phase 4: Compose and Write Artifacts
 
-Persist research for downstream phases.
+Spec is a structured JSON document validated against `flywheel/schemas/task-list.schema.json`. Namespace: plugin uses `.flywheel/plugin/sessions/`.
 
-Write to: `docs/plans/<filename>.context.md`
+### Step 1: Derive session id
 
-Use template from `references/plan-templates.md` (Context File Template section).
+Format: `<slug>-<YYYY-MM-DD>` (kebab-case slug). If collision, append `-2`, `-3`, … See `references/formatting-guide.md` for the full pattern.
 
----
+### Step 2: Create session directory
 
-## Phase 6: Plan Review (HIGH LEVERAGE)
-
-**Bad plan lines lead to hundreds of incorrect code lines.**
-
-Present summary:
-
-```
-Plan Summary for: [Title]
-
-Scope: [3-5 bullet points]
-Key Decisions: [Decision]: [rationale]
-Phases: [N] phases
-Files: [N] files to modify
-Open Questions: [N] requiring resolution
-Validation: [external research run / skipped (no high-risk topics)]
+```bash
+mkdir -p .flywheel/plugin/sessions/<session-id>
 ```
 
-**AskUserQuestion:**
-- Approve plan - Looks good
-- Adjust scope - Add or remove items
-- Change approach - Different strategy
-- Add constraints - Missing requirements
+### Step 3: Synthesize phases and tasks
 
-Maximum 2 revision cycles.
+- Each phase has one clear purpose (Single Responsibility)
+- Extract shared setup into an early foundation phase
+- Order test steps before implementation steps within each task
+- Assign concrete repo-relative file paths from locator/analyzer findings
+
+### Step 4: Enumerate test scenarios per task
+
+Every task lists concrete test scenarios — sentences an implementer could turn directly into test cases. If you can't write one, surface an `open_question`.
+
+### Step 5: Spec Quality Bar gate
+
+Apply the Spec Quality Bar from `flywheel-conventions`. Verify: clear file paths, enumerated test scenarios, explicit verification commands. Unresolved uncertainty → `open_questions[]`, not vague tasks.
+
+Add at least one elegance criterion to `success_criteria[]`. Anchor it to your Phase 3 rejection using this template:
+
+`No instance of <rejected-shape> in <scope>.`
+
+Example: Phase 3 rejected "wrap commander.option with a getOption() helper." Criterion: `No getOption-style wrapper around commander.option in src/cli/.`
+
+If Phase 3 recorded "Single obvious shape — no alternative considered," use one of these universals instead:
+
+- "No new helper added without first searching for an existing one."
+- "No new file imported by exactly one consumer (single-use abstractions inlined)."
+- "No code path with a guard for a state that cannot occur in this codebase."
+- "No line whose removal would not change behavior."
+
+A single criterion that applies uniformly across the whole spec is sufficient. The criterion makes elegance a verifiable acceptance bar, not a hope.
+
+### Step 6: Write `spec.json`
+
+Path: `.flywheel/plugin/sessions/<session-id>/spec.json`
+
+Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `flywheel/schemas/task-list.schema.json` for the authoritative shape.
+
+**BLOCKING: top-level fields are exactly the set above.** `additionalProperties: false` rejects anything else — do NOT emit `risks`, `notes`, `assumptions`, or any field not listed in the schema. Risk discussion belongs in `context.constraints[]`; uncertainty belongs in `open_questions[]`.
+
+**BLOCKING: `context` must use the schema shape** — not a free-form object. Exactly three arrays:
+
+- `key_files[]` — repo-relative paths the implementer should know about, with one-line reasons.
+- `patterns[]` — existing patterns to follow, named so the implementer can match the codebase style.
+- `constraints[]` — pitfalls AND design rationale. Surprises the implementer needs to know: prerequisites, rejected alternatives, why-this-shape decisions, principle violations surfaced from review, edge cases.
+
+**`context.constraints[0]` is the user's verbatim feature description.** Copy `$ARGUMENTS` literally, prefixed with `User feature description (verbatim, authoritative): `. This is the canonical record of what the user actually said — every downstream skill (plan-review, plan-consolidation, work) reads it via the dispatched `context.constraints[]` and treats the user's exact words as the authoritative constraint. Do not paraphrase, summarize, or reinterpret. The user's words go in unmodified.
+
+```json
+{
+  "key_files": ["src/server.ts — Express app + route handler", "tests/server.test.ts — vitest case"],
+  "patterns": ["Express route handlers as plain functions", "supertest with vitest for route coverage"],
+  "constraints": [
+    "User feature description (verbatim, authoritative): Add a /healthz endpoint that returns the build SHA to my Express service. Use vitest for tests.",
+    "Considered 3-phase split; rejected because phase-1 was just mkdir"
+  ]
+}
+```
+
+Research rationale (stack choice, why-this-pattern, rejected alternatives) goes in `context.patterns[]` and `context.constraints[]` as richer entries — those array items have no length cap. The spec is the single artifact; there is no narrative sidecar.
+
+**BLOCKING: `phases[].tasks[]` must use the schema shape**. No extra fields — `additionalProperties: false` rejects anything unknown. Each phase shape:
+
+```json
+{
+  "id": "phase-1",
+  "goal": "Land the healthz route and a smoke test.",
+  "files": ["src/server.ts", "tests/server.test.ts"],
+  "tasks": [
+    {
+      "id": "t1",
+      "description": "Add Express GET /healthz returning JSON `{sha: process.env.BUILD_SHA}`.",
+      "files": ["src/server.ts"],
+      "test_scenarios": [
+        "GET /healthz returns 200 with a body containing `sha`",
+        "POST /healthz returns 405 method not allowed"
+      ]
+    }
+  ],
+  "verification": "bun run test tests/server.test.ts",
+  "manual_verification": null
+}
+```
+
+**`verification` is always a runnable command** — the implementer executes it after the phase to confirm the work landed. It must be a non-empty string.
+
+For phases that are genuinely hard to automate (HTTP servers, GUI changes, processes you'd normally exercise by hand), use a minimal **smoke command** instead of leaving verification null:
+
+```json
+{
+  "id": "phase-2",
+  "goal": "Run the HTTP server on port 3000.",
+  "files": ["src/server.ts"],
+  "tasks": [...],
+  "verification": "timeout 3 bun run src/server.ts 2>&1 | grep -q 'listening on' || true",
+  "manual_verification": "Optional: curl http://localhost:3000/healthz to verify the route responds."
+}
+```
+
+The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `bun run --check src/server.ts` (verifies typing), `node --check src/server.js` (verifies syntax). `manual_verification` is for additional human steps that supplement (not replace) the runnable check — it is allowed to be `null` but `verification` is not.
+
+**BLOCKING: DO NOT** add `name`, `verification_commands`, or any other field to a task — the schema rejects them. Use `description` for the narrative; put verification at the phase level, not the task level. `test_scenarios[]` are plain strings (one scenario per entry; include expected behavior in the string). `files[]` entries are plain repo-relative paths (no " (new)" suffixes, no annotations).
+
+### Step 7: Write `session.json`
+
+Path: `.flywheel/plugin/sessions/<session-id>/session.json`
+
+Fields: `schema_version: 1`, `session_id`, `slug`, `status: "active"`, `started_at` (ISO 8601), `last_checkpoint_at: null`, `active_skill: "plan-creation"`. On exit, set `active_skill: null`.
+
+### Step 8: Update `.flywheel/plugin/active.json`
+
+```json
+{ "schema_version": 1, "session_id": "<session-id>" }
+```
+
+### Step 9: Print summary
+
+Print the spec's `summary` field + next-steps hint.
 
 ---
 
-## Phase 7: Post-Creation Options
+## Phase 5: Summary & Next Steps
 
-**AskUserQuestion:** "Plan draft ready at `docs/plans/<name>.md`. What next?"
+**AskUserQuestion:** "Spec ready at `.flywheel/plugin/sessions/<id>/spec.json`. What next?"
 
 | Option | Action |
 |--------|--------|
 | Run review (Recommended) | Invoke `skill: plan-review` |
+| Proceed to work | Invoke `skill: work` |
 | Done for now | Display path and exit |
 
 ---
@@ -198,29 +272,26 @@ Maximum 2 revision cycles.
 - **Missing CLAUDE.md:** Note conventions may be incomplete
 - **No similar patterns found:** Ask user for guidance on approach
 - **Context7 failure:** Fall back to WebSearch for external validation
-- **Write failure:** Create `docs/plans/` with `mkdir -p`, report errors
+- **Write failure:** Create `.flywheel/plugin/sessions/<id>/` with `mkdir -p`, report errors
+- **Session id collision past `-9`:** Error out — user probably has a stuck session
 
 ---
 
 ## Anti-Patterns
 
-- **Write code** — This skill is research and planning ONLY. If tempted to code, add it to the plan instead
-- **Skip codebase research** — Even "simple" features benefit from understanding patterns
-- **Read target codebase files directly instead of dispatching analyzers** — Use the locate->analyze pattern (locators first, then targeted analyzer Tasks)
-- **Skip locators and go straight to analyzers with assumed paths** — Locators discover; analyzers analyze. Both steps required
-- **Over-engineer simple issues** — Use MINIMAL template
-- **Defer all testing to a final phase** — Tests should be per-phase, not an afterthought. Each implementation phase includes test steps before implementation steps
-- **Vague acceptance criteria** — Must be testable
-- **Omit file references** — Include paths with line numbers
-- **Skip AskUserQuestion** — User must choose next step
-- **Skip external validation for high-risk topics** — Security, payments, migrations MUST be validated against docs
-- **Run external validation for everything** — Only high-risk topics warrant the token cost
+- **BLOCKING: Write code** — research and planning ONLY. If tempted to code, add it to the spec instead
+- **Skip codebase research** — even "simple" features benefit from understanding patterns
+- **Read target codebase files directly instead of dispatching analyzers** — use the locate→analyze pattern
+- **Skip locators and go straight to analyzers with assumed paths** — locators discover; analyzers analyze
+- **Emit a vague task instead of an open_question** — surface uncertainty
+- **Omit file references** — include paths (never absolute)
+- **Skip AskUserQuestion** — user must choose next step
+- **BLOCKING: Skip external validation for high-risk topics** — security, payments, migrations MUST be validated against docs
+- **Run external validation for everything** — only high-risk topics warrant the token cost
 
 ---
 
 ## Detailed References
 
-- `references/research-dispatch.md` - Full Task dispatch templates for Phase 1 locate/analyze/DRY/integration pattern
-- `references/validation-research.md` - High-risk heuristic, Context7 workflow, external validation dispatch templates
-- `references/plan-templates.md` - MINIMAL/MORE/A LOT templates, context file template
-- `references/formatting-guide.md` - Filename conventions, content formatting
+- `references/validation-research.md` — High-risk heuristic, Context7 workflow, external validation dispatch templates
+- `references/formatting-guide.md` — Session id format, directory layout, artifact filenames, collision behavior

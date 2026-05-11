@@ -1,39 +1,25 @@
 # Research Dispatch Templates
 
-Detailed dispatch templates for Phase 1 (Silent Research) and Phase 1.5 (Research Review).
+Detailed dispatch templates for Phase 1 (Silent Research) and Phase 2 (Research Review).
 
 ---
 
-## Phase 1.1: Locate (Parallel, Cheap)
+## Phase 1: Canonical Research Workflow
 
-Run all locators in parallel to gather broad context quickly:
+Brainstorm runs the canonical research workflow (see `flywheel/skills/flywheel-conventions/references/research-workflow.md`) — all four locators, consolidate, all four analyzers. Substitute `<topic>` with `<feature_idea>`. Apply a 15s soft timeout to locator-web for fast exploration.
 
-```
-Task locator-codebase: "Find files related to: <feature_idea>. Return paths only."
-Task locator-patterns: "Find patterns related to: <feature_idea>. Return file:line refs."
-Task locator-docs: "Find docs about: <feature_idea>. Return paths only."
-Task locator-web: "Find best practices for: <feature_idea>. Return URLs only." [15s timeout]
-```
+**Extract for internal use** (map the canonical analyzer outputs to brainstorm's approach-selection inputs):
 
-## Phase 1.2: Analyze Top Findings (Targeted)
+- analyzer-codebase findings → "Similar implementations" + "Naming conventions"
+- analyzer-patterns findings → "Relevant existing patterns" (named, with file:line)
+- analyzer-docs findings → "Technical constraints" (decisions, ADR limits)
+- analyzer-web findings → "Best practices" (external references)
 
-```
-Task analyzer-codebase: "
-Analyze top 10 files from locators for: <feature_idea>
-Document existing patterns, constraints, naming conventions.
-"
-```
-
-**Extract for internal use:**
-- Relevant existing patterns
-- Technical constraints
-- Similar implementations
-- Naming conventions
-- Best practices
+The canonical analyzers emit observation flags (`EXISTING_SOLUTION`, `DRY_VIOLATION`, `PATTERN_CONFLICT`, `INTEGRATION_RISK`, `OPEN_QUESTION`, `CLAIM_INVALID`, `VERSION_ISSUE`). Brainstorm uses these to inform the approach options it presents to the user; if `EXISTING_SOLUTION` fires, surface it explicitly so the user can choose to reuse rather than build.
 
 ---
 
-## Phase 1.5: Research Review Presentation Format
+## Phase 2: Research Review Presentation Format
 
 Present a summary (NOT raw findings) to the user:
 
@@ -55,7 +41,7 @@ Maximum 2 re-research cycles.
 
 ---
 
-## Phase 2: Understanding Confirmation Template
+## Phase 3: Understanding Confirmation Template
 
 Before exploring approaches, confirm understanding:
 
@@ -72,7 +58,7 @@ Is this accurate?
 
 ---
 
-## Phase 2.5: Past Solutions Lookup
+## Phase 4: Past Solutions Lookup
 
 Check `docs/solutions/` for relevant past solutions:
 

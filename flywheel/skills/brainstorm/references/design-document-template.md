@@ -5,7 +5,7 @@ Output format for validated designs.
 ## File Location
 
 ```
-docs/plans/<topic>-design.md
+.flywheel/plugin/designs/<topic>-design.md
 ```
 
 Use kebab-case for topic.
@@ -118,7 +118,7 @@ After EACH section: "Does this look right so far?"
 ## Completion Summary
 
 ```
-✅ Design document saved: docs/plans/<topic>-design.md
+✅ Design document saved: .flywheel/plugin/designs/<topic>-design.md
 
 Summary:
 - Selected approach: [Approach name]
@@ -133,7 +133,7 @@ Summary:
 Present explicit next steps:
 
 ```markdown
-Design complete: `docs/plans/[topic]-design.md`
+Design complete: `.flywheel/plugin/designs/[topic]-design.md`
 
 The design documents:
 - **Problem:** [1 sentence summary]
@@ -142,10 +142,10 @@ The design documents:
 
 **Next steps:**
 
-1. **Create implementation plan:** `/fly:plan docs/plans/[topic]-design.md`
+1. **Create implementation plan:** `/plan .flywheel/plugin/designs/[topic]-design.md`
    - Creates a phase-by-phase implementation plan from this design
 
-2. **Start implementing directly:** `/fly:work`
+2. **Start implementing directly:** `/work`
    - Only if design is simple enough (S effort)
 
 3. **Explore more:** Continue brainstorming
@@ -160,8 +160,8 @@ Which would you like to do?
 ```
 Question: "Design validated and saved. What next?"
 Options:
-1. Create implementation plan (Recommended) - /fly:plan
-2. Start implementing directly - /fly:work (S effort only)
+1. Create implementation plan (Recommended) - /plan
+2. Start implementing directly - /work (S effort only)
 3. Continue refining - Revisit specific sections
 4. Done for now - Save and come back later
 ```

@@ -1,199 +1,164 @@
 ---
 name: flywheel-conventions
-description: Shared conventions for Flywheel subagents. Provides token limits, output format, severity definitions, and research patterns.
+description: Shared conventions for Flywheel subagents. Tool discipline, output format, research patterns.
 user-invocable: false
 ---
 
-## Output Token Limits
+## Elegance — applied at every stage
 
-- Locator agents: Max 500 words
-- Analyzer agents: Max 750 words
-- Research agents: Max 500 words
-- Reviewer agents: Max 1,000 words
+**Maximize elegance.** This is the single governing principle. Every rule below describes what elegance looks like — heuristics in service of the principle, not the goal themselves. When a rule produces awkward or indirect output, break it and document why the result is more elegant.
 
-## Required Output Format
+Maximize elegance over minimizing churn. Pick the more elegant design no matter how big the refactor. Better now than months from now with more features and dependencies in place.
 
-Return findings using compaction format:
-- Paths only (never full file contents)
-- Structured sections (End Goal, Approach, Key Findings, Files Identified)
-- Flag ambiguities with "OPEN QUESTION:"
+The output — plan or code — must read as if every decision was deliberate. A reader should never ask "why is this here?" about any line, phase, or task.
 
-## Severity Definitions
+### Decision checklist (heuristics, not laws — interrogate any check that feels wrong)
 
-- **P1 (Critical)**: Blocks deployment, security vulnerability, data loss risk
-- **P2 (Important)**: Should fix before merge, affects functionality
-- **P3 (Nice to have)**: Improvement suggestions, style nits
+| # | Check | If violated |
+|---|-------|-------------|
+| 1 | Is there exactly one source of truth for this data? | You're creating a copy. Read from the existing source. |
+| 2 | Would deleting this code change behavior? | If not, delete it now. |
+| 3 | Is this abstraction used in 2+ places? | If not, inline it — unless inlining would force the caller to do two unrelated jobs. |
+| 4 | Does this wrapper add a new capability? | If not, call the underlying API directly. |
+| 5 | Could a reader understand this in 30 seconds without context? | If not, the names or shape are wrong. |
+| 6 | Does data flow in one direction? | If A updates B and B updates A, you have a cycle. Pick one owner. |
+| 7 | Are you fighting the language or framework? | Use the idiomatic primitive. Ceremony signals the tool wants to be used differently. |
+| 8 | Are you adding something speculative ("we might need…")? | Delete it. Add when the need is concrete. |
 
----
+### Anti-patterns and dispatch bar
 
-## Documentarian Mode (Research Agents)
+For the canonical anti-pattern catalog and the elegance dispatch bar, see `references/elegance.md`. Use catalog names ("Shallow Wrapper", "Forwarding Chain", "Parallel State", "Premature Abstraction", "Dead Code", "God Class", and the Universal Principles) when leading the Failure paragraph in findings — plan-consolidation routes structural failures to redesign by these names.
 
-All research agents (locators AND analyzers) operate in Documentarian Mode:
+### Symptoms vs. structure
 
-- Document what IS, not what SHOULD BE
-- No suggestions, critiques, or recommendations
-- No root cause analysis unless explicitly asked
-- Pure technical mapping of the existing system
-
-This keeps research output clean and compact, free of opinion pollution.
+When you see multiple small issues clustered in one area, they usually point at one structural defect. Fix the structure; the symptoms dissolve. If you find yourself patching N findings in the same file, stop and redesign instead.
 
 ---
 
-## File:Line Reference Discipline
+## Tool Discipline
 
-All research output MUST include specific file:line references:
+**BLOCKING: Never use Bash for operations that have a dedicated tool.**
 
-**Good**: `src/services/auth.ts:42-67` - Authentication middleware
-**Bad**: "in the auth module" or "somewhere in handlers/"
+- **Content search**: Use **Grep**, not `grep`/`rg` via Bash
+- **File search**: Use **Glob**, not `find`/`ls` via Bash
+- **File reading**: Use **Read**, not `cat`/`head`/`tail` via Bash
 
-Precise references enable navigation and reduce follow-up research.
-
----
-
-## Read Files Fully
-
-When analyzer agents read files:
-
-- Use Read WITHOUT limit/offset parameters
-- Read entire files, not partial excerpts
-- Never guess about content you haven't read
-
-Partial reads cause hallucination. Read fully once, not partially multiple times.
+Bash is only for: git commands, `bun` commands, and system operations with no dedicated tool.
 
 ---
 
-## Locator vs Analyzer Pattern
+## Output Rules
 
-When spawning research agents:
+**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings (Title / Severity / Location / Failure / Fix per finding). The orchestrating skill (plan-review or work-review) parses your prose into `flywheel/schemas/findings.schema.json`. Do NOT emit JSON.
 
-1. **First pass: Locators** (parallel, cheap)
-   - Use locator-codebase, locator-patterns, locator-docs
-   - No Read tool - paths only
-   - Model: haiku (fast, cheap)
-   - Run in parallel
+**Format**: Structured sections (End Goal, Key Findings, Files Identified). Paths only, never file contents. Flag ambiguities with "OPEN QUESTION:".
 
-2. **Second pass: Analyzers** (targeted, expensive)
-   - Only on top 15 findings from locators
-   - Use analyzer-codebase, analyzer-patterns, analyzer-docs
-   - Model: sonnet (thorough)
-   - Documentarian mode
+**Severity**: `P1` blocks merge (security, data loss, breaking change, normal-path defect). `P2` should fix (real downside — edge case, perf regression, maintainability trap). `P3` user's discretion (low-impact, narrow scope).
 
-This two-pass approach reduces context usage by 40-60%.
+**References**: Always `path/to/file.ts:42-67`, never "in the auth module."
 
 ---
 
-## Model Inheritance for Subagents
+## False-Positive Suppression
 
-**Implementation and execution subagents** (`general-purpose`, `Explore`, `Plan`, `Bash`) must **NOT** specify a `model` parameter when dispatched. Omitting the parameter causes them to inherit the parent session's model automatically.
+Core rule: don't emit a finding without a concrete, named consequence. A suppressed finding beats a noisy one — when in doubt, suppress.
 
-This ensures that if the user selected Opus, all phases run on Opus — not a random mix of models.
-
-**Only research agents** (locators, analyzers) specify explicit models, because their model choices are deliberate cost/speed tradeoffs independent of the user's session:
-- Locators → haiku (fast, cheap, paths-only)
-- Analyzers → sonnet (thorough, documentarian)
-
-**Rule:** If you're dispatching a subagent to *do work* (implement, explore, plan), never set `model`. If you're dispatching a subagent to *research* (locate, analyze), use the model from the Research Agent Matrix below.
-
----
-
-## Research Agent Matrix
-
-| Agent | Model | Tools | Purpose |
-|-------|-------|-------|---------|
-| locator-codebase | haiku | Grep, Glob, LS | Find WHERE files live |
-| locator-patterns | haiku | Grep, Glob, LS | Find WHERE patterns exist |
-| locator-docs | haiku | Grep, Glob, LS | Find WHERE docs live |
-| locator-web | haiku | WebSearch | Find URLs (no fetch) |
-| analyzer-codebase | sonnet | Read, Grep, Glob | Understand HOW code works |
-| analyzer-patterns | sonnet | Read, Grep, Glob | Extract code examples |
-| analyzer-docs | sonnet | Read, Grep, Glob | Extract doc insights |
-| analyzer-web | sonnet | WebFetch, Read | Deep web content analysis |
-| analyzer-git-history | sonnet | Bash, Read, Grep, Glob | Trace code evolution via git |
+Suppress if:
+- **Generic "consider adding" advice** — you can't name what concretely breaks
+- **Speculative future-work** — "might not scale" without evidence the concern is reachable
+- **Already handled** — guards, middleware, or framework defaults cover it (code-review)
+- **Linter territory** — formatting, unused vars, import order (code-review)
+- **Alternative approaches** without naming what breaks about the chosen one (plan-review)
+- **Scope creep** — "also add Z while you're at it"; review evaluates the stated plan, not expansions (plan-review)
 
 ---
 
-## Scope Discipline
+## Finding Quality: Lead with the Failure
 
-Build only what's asked. These principles are defined in specific skills - this section consolidates references:
+The `failure` field is the implementer's primary input. It must contain everything needed to understand the full scope of the problem in one read. **Four slots:**
 
-- **YAGNI ruthlessly**: `brainstorm/SKILL.md` (defer until needed)
-- **No extras**: `work-implementation/SKILL.md` (don't add features beyond request)
+1. **Principle name** — any well-known principle. Pick from the elegance catalog (`references/elegance.md`), SOLID, DRY, language-specific anti-patterns, or domain-canonical names ("N+1 Query", "Race Condition", "Layering Violation", "Convention Drift"). The synthesizer routes structural failures by this leading token — keep it first, with a period.
+2. **Intent** — what the code or plan was trying to achieve.
+3. **Observation** — what's specifically wrong (the discrepancy from intent).
+4. **Reasoning** — why this discrepancy matters: consequences for users, the system, or design integrity.
 
-When in doubt, do less. Premature abstraction costs more than duplication.
+Format: `<Principle>. <Intent>. <Observation>. <Reasoning>.`
 
----
+**Strong (observable failure, named):**
+> "Silent Logout. parseDate is supposed to accept the common date formats users actually submit. It only handles YYYY-MM-DD and returns null for DD/MM/YYYY; the caller at line 78 treats null as 'expired' and logs the user out. DD/MM/YYYY input becomes a silent logout — wrong outcome and confusing UX."
 
-## Pre-Implementation Readiness
+**Strong (principle violation, named):**
+> "God Class. AuthService should expose only orchestration concerns. It currently imports React components and renders login forms inline. Every UI tweak forces re-testing auth logic, and headless contexts can't use the service."
 
-Before starting implementation, confirm readiness. See Pre-Flight Check in `work-implementation/references/verification-gates.md`.
+**Weak — drops the leading principle or is too terse:**
+- "parseDate doesn't validate input format." ← no principle, no intent, no consequence.
+- "AuthService is doing too much." ← no principle, no specific intent.
+- "Violates SRP and the auth code is bloated and ..." ← buries the principle mid-sentence; the synthesizer can't route it.
 
-Quick self-check: Problem understood? Approach fits patterns? No obvious duplicates?
-
----
-
-## Input Context Discipline
-
-When dispatching to subagents, minimize input tokens:
-
-- **Agents WITH Read tool** (analyzers, reviewers): Pass file paths, not content. The agent can Read files itself.
-- **Agents WITHOUT Read tool** (locators): Pass content inline — they cannot read files.
-- **Plan excerpts in dispatch**: Paste only the current phase, not the entire plan.
-- **Keep dispatched context under 100 lines** where possible.
-
-**Exception:** `work-implementation` explicitly passes plan content (not paths) to subagents — this is correct because subagents start with fresh context and need the plan text.
+If you can't lead with a principle name, the finding is observational only — mark P3 or suppress.
 
 ---
 
-## Token Efficiency: Input + Output
+## Spec Quality Bar
 
-Flywheel controls token usage from both sides:
+Before emitting `spec.json`, verify each phase contains:
 
-**Output controls** (existing):
-- Word limits per agent tier: Locators 500, Analyzers 750, Reviewers 1000
+- Clear goal and success criterion
+- Repo-relative file paths (never absolute)
+- Enumerated test scenarios specific enough that the implementer doesn't invent coverage
+- Explicit verification command
 
-**Input controls** (new):
-- Skill core SKILL.md files kept under 200 lines; detail in `references/`
-- Pass paths (not content) for Read-capable agents
-- Phase-only excerpts in dispatch, not full plans
-- Lazy-load references via "Read `references/X.md` before proceeding" directives
+A spec is ready when an implementer can start confidently without needing to infer.
 
-**Target**: 40-60% context utilization with both input and output contributing to efficiency.
+If any phase fails the bar, loop back: read the codebase, ask the user, or defer the phase explicitly as `status: deferred` with rationale.
 
 ---
 
-## 3-Strike Error Protocol
+## Research Agent Behavior
 
-When a subagent or operation fails:
+**Documentarian mode** (locators + analyzers): Document what IS, not what SHOULD BE. No suggestions, critiques, or recommendations.
 
-**Attempt 1: Diagnose & Fix**
-- Read error message carefully
-- Identify root cause
-- Apply targeted fix
-
-**Attempt 2: Alternative Approach**
-- If same error recurs, try different method/tool/approach
-- NEVER repeat the exact same failing action
-
-**Attempt 3: Broader Rethink**
-- Question assumptions
-- Search for solutions
-- Consider whether the plan needs updating
-
-**After 3 Failures: Escalate**
-- Log all attempts in state file Error Log
-- Explain what was tried to user
-- Ask for guidance
-
-### Error Log Table Format
-
-Track errors in state file:
-
-| Error | Attempt | Approach | Outcome |
-|-------|---------|----------|---------|
-| [error message] | 1 | [what you tried] | [result] |
+**Read files fully**: Use Read WITHOUT limit/offset. Partial reads cause hallucination.
 
 ---
 
-## References
+## Dispatch Patterns (for orchestrators)
 
-- `references/tdd-cycle.md` - RED/GREEN/REFACTOR steps and skip conditions
+### Locator → Analyzer (two-pass research)
+
+1. **Locators first** — run in parallel
+   - `locator-codebase`, `locator-patterns`, `locator-docs` (haiku)
+   - `locator-web` (sonnet — query crafting needs stronger reasoning)
+   - No Read tool — return paths/URLs only
+   - Pass search context inline (locators can't read files)
+
+2. **Analyzers second** — targeted, use sonnet
+   - `analyzer-codebase`, `analyzer-patterns`, `analyzer-docs`
+   - Feed only the top 15 findings from locators
+   - Pass file paths, not content (analyzers have Read)
+   - Documentarian mode — no suggestions
+
+### Model inheritance
+
+Implementation subagents (`general-purpose`, `Explore`, `Plan`) inherit the parent model — never set `model`. Only research agents (locators, analyzers) use explicit models.
+
+### Input context
+
+Pass file paths (not content) to Read-capable agents. Content inline to locators. Phase-only plan excerpts, not full plans. Under 100 lines where possible.
+
+---
+
+## Error Protocol
+
+3 strikes then escalate:
+1. **Diagnose** — read error, identify root cause, targeted fix
+2. **Alternative** — different method/tool/approach. Never repeat same failing action.
+3. **Rethink** — question assumptions, search for solutions
+4. **Escalate** — log attempts, explain to user, ask for guidance
+
+---
+
+## Rationale Discipline
+
+Every line in a SKILL.md loads on every invocation. Include rationale only when it changes what the agent does at runtime. If behavior would not differ without the sentence, cut it. Extract conditional/late-sequence content to `references/` and load on demand.
+
