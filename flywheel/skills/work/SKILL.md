@@ -262,19 +262,7 @@ On subagent return:
 3. Atomic write `progress.json` via `.tmp` → `mv`. Same pattern for `session.json` updates.
 4. Update `session.json.last_checkpoint_at` to current UTC ISO-8601.
 5. Verify the chunk's `verification` (plan mode) or run tests (fix-findings mode). Run the command fresh, capture the actual exit_code — never guess. Re-run if any doubt. Do NOT append the chunk ID to `completed[]` if verification failed.
-6. **Manual verification pause** — if `phase.manual_verification` is non-empty (plan mode), surface to the user before continuing:
-
-   ```
-   Phase <id> complete — ready for manual verification.
-   Automated verification passed: <list from artifacts.commands_run>
-   Please verify manually: <from phase.manual_verification>
-
-   1. Continue to next chunk (Recommended) — I've verified manually
-   2. Continue all remaining — Skip future manual pauses this run
-   3. Stop here — I have feedback
-   ```
-
-   "Continue all" sets a session-scoped flag to suppress further manual pauses this run. "Stop here" exits the loop; the next `/work` resumes from the same chunk.
+6. **Manual verification** — if `phase.manual_verification` is non-empty (plan mode), **you (the orchestrating agent) perform these checks yourself.** Do not surface them to the user. Do not call `AskUserQuestion`. You have full tool access — run the commands via Bash, start servers in tmux, curl endpoints, verify TUI output by capturing tmux panes, read output, inspect the browser. The `manual_verification` field describes what to check and how; execute those steps, read the results, and judge pass/fail yourself. If the check fails, treat it the same as a failed automated verification: do not checkpoint the chunk, diagnose and fix.
 
 ### 2.4 Loop
 

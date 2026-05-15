@@ -232,7 +232,7 @@ For phases that are genuinely hard to automate (HTTP servers, GUI changes, proce
 }
 ```
 
-The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `bun run --check src/server.ts` (verifies typing), `node --check src/server.js` (verifies syntax). `manual_verification` is for additional human steps that supplement (not replace) the runnable check — it is allowed to be `null` but `verification` is not.
+The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `bun run --check src/server.ts` (verifies typing), `node --check src/server.js` (verifies syntax). `manual_verification` is for supplementary checks **the orchestrating agent performs itself** (not the user) — things like curling an endpoint, inspecting browser output, capturing tmux panes to verify TUI behavior, or reading server logs. The orchestrator has full tool access and will execute these steps directly. `manual_verification` is allowed to be `null` but `verification` is not.
 
 **BLOCKING: DO NOT** add `name`, `verification_commands`, or any other field to a task — the schema rejects them. Use `description` for the narrative; put verification at the phase level, not the task level. `test_scenarios[]` are plain strings (one scenario per entry; include expected behavior in the string). `files[]` entries are plain repo-relative paths (no " (new)" suffixes, no annotations).
 
