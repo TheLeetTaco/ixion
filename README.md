@@ -150,7 +150,7 @@ Plan → Work → Review → Fix → Ship
 
 `/research` (and the research step inside `/plan-creation`) uses a two-phase locate→analyze pattern:
 
-- **Locators** (cheap, parallel, haiku) find WHERE things are — paths and `file:line` refs only, no Read tool
+- **Locators** (cheap, parallel, haiku for the local ones) find WHERE things are — paths and `file:line` refs only, no Read tool
 - **Analyzers** (expensive, targeted, sonnet) understand HOW things work — full file reads on the top findings, documentarian mode (no suggestions)
 
 This costs a fraction of an all-in-one research agent for the same fidelity.
@@ -184,16 +184,16 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 | `reviewer-patterns`       | Project conventions, codebase norms, duplicated utilities |
 | `reviewer-performance`    | Bottlenecks, query plans, scalability characteristics |
 
-### Locators (4) — cheap, parallel, haiku
+### Locators (4) — cheap, parallel
 
-Find WHERE things are without reading files. No Read tool — paths and `file:line` references only.
+Find WHERE things are without reading files. No Read tool — paths and `file:line` references only. The three local locators run on haiku; `locator-web` needs sonnet to judge search-result relevance.
 
-| Agent              | Tools         | Purpose |
-|--------------------|---------------|---------|
-| `locator-codebase` | Grep, Glob    | Files and components |
-| `locator-patterns` | Grep, Glob    | Specific patterns (`file:line`) |
-| `locator-docs`     | Grep, Glob    | Documentation |
-| `locator-web`      | WebSearch     | Relevant URLs (no fetching) |
+| Agent              | Model  | Tools           | Purpose |
+|--------------------|--------|-----------------|---------|
+| `locator-codebase` | haiku  | Grep, Glob, LS  | Files and components |
+| `locator-patterns` | haiku  | Grep, Glob, LS  | Specific patterns (`file:line`) |
+| `locator-docs`     | haiku  | Grep, Glob, LS  | Documentation |
+| `locator-web`      | sonnet | WebSearch       | Relevant URLs (no fetching) |
 
 ### Analyzers (5) — more powerful, targeted, sonnet
 
@@ -218,6 +218,8 @@ Session artifacts live in `.ixion/plugin/sessions/<id>/` and validate against sc
 | `progress.json`           | `progress.schema.json`  | `work` |
 | `session.json`            | `session.schema.json`   | `plan-creation` |
 | `active.json`             | `active.schema.json`    | `plan-creation` (pure pointer — run state lives in `session.json`) |
+
+Two sidecars also land in the session dir and are audit trails, not inputs: `spec.json.pre-consolidation` (the pre-refinement spec, written by `plan-consolidation`) and `progress.json.plan-mode` (the completed plan-mode progress, renamed by `work` when it enters fix-findings mode).
 
 ## Client differences
 
@@ -254,15 +256,20 @@ Real `tmux` sessions running `claude` against the local plugin (loaded via `--pl
 ```bash
 bash tests/integration/run.sh                 # all cases
 bash tests/integration/run.sh plugin-loads    # filter by name
+IXION_TEST_JOBS=2 bash tests/integration/run.sh   # run 2 cases concurrently
 ```
 
-Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH. Schema validation uses `bunx ajv-cli` (no install needed).
+Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
+
+Two env vars tune a run: `IXION_TEST_MODEL` overrides the model (cases default to haiku; the runner's default is `claude-sonnet-4-6`), and `IXION_TEST_JOBS` runs N cases concurrently — 2–3 is a sensible ceiling, since parallel cases multiply concurrent API spend and rate-limit pressure.
 
 | Case                                | What it exercises | Cost |
 |-------------------------------------|-------------------|------|
 | `00-plugin-loads.test.sh`           | `--plugin-dir` discovery; `/plan` and `/work` show up in palette | none (no model call) |
 | `01-fly-work-resumes.test.sh`       | `work` against a seeded session: `progress.json` lands and validates, mode is `plan` | ~1–3 min |
 | `02-fly-plan-creates-spec.test.sh`  | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~3–10 min |
+| `05-parallel-sessions.test.sh`      | `/work <slug>` targets the named session, not whatever `active.json` points at | ~3–4 min |
+| `06-parallel-chunks.test.sh`        | `work` executes a `depends_on` spec to completion via wave dispatch | ~4–5 min |
 | `07-chain-smoke.test.sh`            | The full chain driven skill-by-skill (`/plan`, `/work`, `/work-review`, `/work`); asserts each artifact, both schema validity and `Skill()` markers | ~10 min |
 
 When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/ixion-int-<session>-<timestamp>-<label>.pane.txt` and leaves the sandbox in place so you can inspect session state. `bash tests/cleanup.sh --apply` deletes them when you're done. See `CLAUDE.md` for monitoring and debugging recipes.
