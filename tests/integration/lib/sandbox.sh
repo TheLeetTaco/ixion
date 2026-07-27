@@ -1,5 +1,5 @@
 # Sandbox dir helpers. Each test case runs claude in its own temp cwd so
-# the real ~/Documents/.../flywheel/plugin/.flywheel state is never touched.
+# the real ~/Documents/.../ixion/plugin/.ixion state is never touched.
 
 # make_sandbox <test-name> -> echoes path to a fresh tmpdir.
 # The tmpdir is git-init'd (claude reads git context at startup) and gets
@@ -7,12 +7,12 @@
 make_sandbox() {
   local name="$1"
   local dir
-  dir=$(mktemp -d -t "flywheel-int-${name}-XXXXXX")
+  dir=$(mktemp -d -t "ixion-int-${name}-XXXXXX")
   (
     cd "$dir"
     git init -q
-    git config user.email "test@flywheel.local"
-    git config user.name "Flywheel Test"
+    git config user.email "test@ixion.local"
+    git config user.name "Ixion Test"
     : > .gitignore
     git add .gitignore
     git commit -q -m "init" >/dev/null 2>&1 || true
@@ -30,12 +30,4 @@ make_sandbox() {
 preserve_sandbox() {
   local dir="$1"
   [ -n "$dir" ] && [ -d "$dir" ] && echo "Sandbox preserved: $dir (run tests/cleanup.sh to remove)"
-}
-
-# cleanup_sandbox <dir>
-# DEPRECATED — kept only so existing tests don't break. Behaves like
-# preserve_sandbox: prints the path instead of deleting. Update callers
-# to use preserve_sandbox directly.
-cleanup_sandbox() {
-  preserve_sandbox "$1"
 }

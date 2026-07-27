@@ -17,14 +17,14 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LIB="$REPO_ROOT/tests/integration/lib"
-SCHEMAS="$REPO_ROOT/flywheel/schemas"
+SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
 
 pass=0
 fail=0
-SESSION="flywheel-int-plan"
+SESSION="ixion-int-plan"
 SBOX=""
 
 cleanup() {
@@ -61,8 +61,8 @@ fi
 # leave the input box stuck without ever submitting Enter.
 tmux_send_line "$SESSION" "/plan Update hello.sh to print hello world instead of hi"
 
-ACTIVE="$SBOX/.flywheel/plugin/active.json"
-SESSIONS_DIR="$SBOX/.flywheel/plugin/sessions"
+ACTIVE="$SBOX/.ixion/plugin/active.json"
+SESSIONS_DIR="$SBOX/.ixion/plugin/sessions"
 
 # Wait up to 15 minutes for active.json to appear. plan-creation does
 # real codebase research and drafting; the orchestrator may also chain
@@ -91,7 +91,7 @@ else
   finalize
 fi
 
-# spec.json should validate against task-list.schema.json.
+# spec.json should validate against spec.schema.json.
 if [ -f "$SDIR/spec.json" ]; then
   note_pass "spec.json present"
 else
@@ -100,13 +100,13 @@ else
 fi
 
 AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
-if "${AJV[@]}" validate -s "$SCHEMAS/task-list.schema.json" -d "$SDIR/spec.json" >/dev/null 2>&1; then
-  note_pass "spec.json validates against task-list.schema.json"
+if "${AJV[@]}" validate -s "$SCHEMAS/spec.schema.json" -d "$SDIR/spec.json" >/dev/null 2>&1; then
+  note_pass "spec.json validates against spec.schema.json"
 else
   note_fail "spec.json failed schema validation"
   echo "----- spec.json -----"; cat "$SDIR/spec.json"; echo "----- end -----"
   echo "----- ajv error -----"
-  "${AJV[@]}" validate -s "$SCHEMAS/task-list.schema.json" -d "$SDIR/spec.json" 2>&1 || true
+  "${AJV[@]}" validate -s "$SCHEMAS/spec.schema.json" -d "$SDIR/spec.json" 2>&1 || true
   echo "----- end -----"
 fi
 

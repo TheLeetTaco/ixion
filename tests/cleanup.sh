@@ -13,12 +13,14 @@ set -u
 
 TMPDIR_RESOLVED="${TMPDIR:-/tmp}"
 
-# Find candidates
-SANDBOXES=$(find "$TMPDIR_RESOLVED" -maxdepth 2 -type d -name 'flywheel-int-*' 2>/dev/null)
-PANE_HISTORIES=$(find /tmp -maxdepth 1 -type f -name 'flywheel-int-*.pane.txt' 2>/dev/null)
-LOGS=$(find /tmp -maxdepth 1 -type f -name 'yolo-test*.log' 2>/dev/null)
+# Find candidates. Pane histories are written to ${TMPDIR:-/tmp} (see
+# lib/tmux.sh::pane_save_history) but older runs wrote to /tmp — search
+# both and dedup. The pre-rename 'flywheel-int-*' patterns are matched
+# too, so debris from runs before the ixion rename still gets cleaned.
+SANDBOXES=$(find "$TMPDIR_RESOLVED" -maxdepth 2 -type d \( -name 'ixion-int-*' -o -name 'flywheel-int-*' \) 2>/dev/null)
+PANE_HISTORIES=$(find "$TMPDIR_RESOLVED" /tmp -maxdepth 1 -type f \( -name 'ixion-int-*.pane.txt' -o -name 'flywheel-int-*.pane.txt' \) 2>/dev/null | sort -u)
 
-if [ -z "$SANDBOXES" ] && [ -z "$PANE_HISTORIES" ] && [ -z "$LOGS" ]; then
+if [ -z "$SANDBOXES" ] && [ -z "$PANE_HISTORIES" ]; then
   echo "Nothing to clean."
   exit 0
 fi
@@ -42,14 +44,6 @@ if [ -n "$PANE_HISTORIES" ]; then
   echo
 fi
 
-if [ -n "$LOGS" ]; then
-  echo "Test logs:"
-  echo "$LOGS" | while read -r f; do
-    [ -n "$f" ] && echo "  $(du -sh "$f" 2>/dev/null | cut -f1)  $f"
-  done
-  echo
-fi
-
 if [ "${1:-}" != "--apply" ]; then
   echo "(dry run — pass --apply to delete)"
   exit 0
@@ -59,5 +53,4 @@ fi
 echo "Deleting..."
 [ -n "$SANDBOXES" ] && echo "$SANDBOXES" | xargs -I{} rm -rf "{}"
 [ -n "$PANE_HISTORIES" ] && echo "$PANE_HISTORIES" | xargs -I{} rm -f "{}"
-[ -n "$LOGS" ] && echo "$LOGS" | xargs -I{} rm -f "{}"
 echo "Done."

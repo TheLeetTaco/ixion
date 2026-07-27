@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Install Flywheel for OpenCode.
+"""Install Ixion for OpenCode.
 
-Transforms flywheel/ markdown files to ~/.config/opencode/ format and
+Transforms ixion/ markdown files to ~/.config/opencode/ format and
 optionally configures Context7 MCP server.
 """
 
@@ -49,7 +49,7 @@ BODY_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"#\$ARGUMENTS"), "$ARGUMENTS"),
     (re.compile(r"/fly:(\w+)"), r"/fly/\1"),
     (re.compile(r"^skill:\s*([\w-]+)\s*$", re.MULTILINE), r'skill({ name: "\1" })'),
-    (re.compile(r"^See `flywheel/skills/.*$\n?", re.MULTILINE), ""),
+    (re.compile(r"^See `ixion/skills/.*$\n?", re.MULTILINE), ""),
     (re.compile(r"(references/[\w-]+)\.md"), r"\1.txt"),
 ]
 
@@ -71,8 +71,8 @@ PATH_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"[^\n]*CLAUDE_CODE_TASK_LIST_ID[^\n]*\n?"), ""),
     # claude --worktree -> git worktree add
     (re.compile(r"`claude --worktree <branch>` or "), ""),
-    # flywheel/skills/ (source repo path) -> ~/.config/opencode/skills/ (installed path)
-    (re.compile(r"\bflywheel/skills/"), "~/.config/opencode/skills/"),
+    # ixion/skills/ (source repo path) -> ~/.config/opencode/skills/ (installed path)
+    (re.compile(r"\bixion/skills/"), "~/.config/opencode/skills/"),
     # --- Claude Code directory paths ---
     # ~/.claude/plugins/cache .../agents/*.md -> ~/.config/opencode/agents
     (
@@ -94,8 +94,8 @@ PATH_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # .claude/skills (project-local) -> .opencode/skills
     (re.compile(r"(?<![~/])\.claude/skills/"), ".opencode/skills/"),
     (re.compile(r"(?<![~/])\.claude/skills\b"), ".opencode/skills"),
-    # .claude/flywheel/... (local plugin path) -> .opencode/...
-    (re.compile(r"(?<![~/])\.claude/flywheel/"), ".opencode/"),
+    # .claude/ixion/... (local plugin path) -> .opencode/...
+    (re.compile(r"(?<![~/])\.claude/ixion/"), ".opencode/"),
     # ${CLAUDE_PLUGIN_ROOT}/skills/ -> ~/.config/opencode/skills/
     (re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/skills/"), "~/.config/opencode/skills/"),
     # --- Agent namespace ---
@@ -428,16 +428,16 @@ def configure_context7(config_path: Path, dry_run: bool) -> None:
                     print(f"  \u2713 Updated CONTEXT7_API_KEY in {profile}")
                 else:
                     with profile.open("a", encoding="utf-8") as f:
-                        f.write(f"\n# Context7 API key for Flywheel plugin\n{export_line}\n")
+                        f.write(f"\n# Context7 API key for Ixion plugin\n{export_line}\n")
                     print(f"  \u2713 Added CONTEXT7_API_KEY to {profile}")
                 print("  * Restart your terminal to use this variable in future sessions.")
 
 
 def main() -> int:
-    """Install Flywheel for OpenCode."""
-    parser = argparse.ArgumentParser(description="Install Flywheel for OpenCode")
+    """Install Ixion for OpenCode."""
+    parser = argparse.ArgumentParser(description="Install Ixion for OpenCode")
     _script_dir = Path(__file__).resolve().parent
-    parser.add_argument("--source", type=Path, default=_script_dir / "flywheel")
+    parser.add_argument("--source", type=Path, default=_script_dir / "ixion")
     parser.add_argument("--output", type=Path, default=Path.home() / ".config/opencode")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     parser.add_argument(
@@ -448,7 +448,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print("================================")
-    print("  Flywheel Installer (OpenCode)")
+    print("  Ixion Installer (OpenCode)")
     print("================================")
     print("")
 
@@ -463,7 +463,7 @@ def main() -> int:
             print(f"  {short:8s} -> {full}")
     print()
 
-    print("Step 2: Installing Flywheel files...")
+    print("Step 2: Installing Ixion files...")
 
     # Paths we manage (relative to output), only these will be replaced.
     # agents/fly and commands/fly are namespaced subfolders so we don't

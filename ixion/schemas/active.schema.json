@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ixion/schemas/active.schema.json",
+  "title": "Active session pointer",
+  "description": "Pure pointer: which session bare skill invocations default to. Run state lives in the session's own session.json, so concurrent sessions never clobber each other's state through this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "session_id": { "type": "string", "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$" }
+  }
+}

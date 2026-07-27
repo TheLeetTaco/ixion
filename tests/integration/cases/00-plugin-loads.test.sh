@@ -3,7 +3,7 @@
 #
 # Spawns claude in a tmux session with the local plugin loaded via
 # --plugin-dir, opens the slash-command palette by typing distinct
-# flywheel-skill prefixes, and asserts that the expected skills appear
+# ixion-skill prefixes, and asserts that the expected skills appear
 # in the autocompletion list.
 #
 # This is the cheapest test in the suite — claude does not actually
@@ -20,7 +20,7 @@ LIB="$REPO_ROOT/tests/integration/lib"
 
 pass=0
 fail=0
-SESSION="flywheel-int-plugin-loads"
+SESSION="ixion-int-plugin-loads"
 SBOX=""
 
 cleanup() {
@@ -53,7 +53,7 @@ if tmux_capture "$SESSION" | grep -q "Quick safety check"; then
   fi
 fi
 
-# Filter the palette by typing each distinct flywheel-skill prefix and
+# Filter the palette by typing each distinct ixion-skill prefix and
 # capturing the pane. Multiple filter cycles (rather than one bare "/"
 # capture) avoid pane-cutoff when the palette grows past the visible
 # rows. Between cycles we send Backspace several times to clear the
@@ -77,14 +77,6 @@ assert_palette_has() {
   fi
 }
 
-# /yolo — the single-skill prefix; verifies the new top-level orchestrator
-# is registered.
-tmux_send "$SESSION" "/yolo"
-sleep 3
-yolo_palette="$(tmux_capture "$SESSION")"
-assert_palette_has "$yolo_palette" "/yolo"
-clear_input
-
 # /plan — multi-skill prefix; verifies the plan orchestrator and its
 # three sub-skills all surface.
 tmux_send "$SESSION" "/plan"
@@ -103,16 +95,15 @@ work_palette="$(tmux_capture "$SESSION")"
 assert_palette_has "$work_palette" "/work"
 assert_palette_has "$work_palette" "/work-review"
 
-# Sanity: the (flywheel) source tag appears in at least one capture,
+# Sanity: the (ixion) source tag appears in at least one capture,
 # confirming the entries come from the plugin we --plugin-dir'd in
 # (not from the user-installed copy).
-combined="$yolo_palette
-$plan_palette
+combined="$plan_palette
 $work_palette"
-if echo "$combined" | grep -F -q "(flywheel)"; then
-  note_pass "palette tags entries with (flywheel) source"
+if echo "$combined" | grep -F -q "(ixion)"; then
+  note_pass "palette tags entries with (ixion) source"
 else
-  note_fail "palette did not tag any entry as (flywheel)"
+  note_fail "palette did not tag any entry as (ixion)"
   echo "----- combined palette captures -----"; echo "$combined"; echo "----- end -----"
 fi
 

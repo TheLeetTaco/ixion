@@ -1,20 +1,20 @@
 {
-  "name": "flywheel-marketplace",
-  "version": "1.0.1",
-  "description": "Flywheel - A Claude Code plugin that runs autonomous workflows",
+  "name": "ixion-marketplace",
+  "version": "3.0.0",
+  "description": "Ixion - plan, implement, review, and ship with multi-agent review",
   "owner": {
     "name": "Wesley Sauret"
   },
   "plugins": [
     {
-      "name": "flywheel",
-      "source": "./flywheel",
-      "description": "A Claude Code plugin that runs autonomous workflows",
-      "version": "1.0.1",
+      "name": "ixion",
+      "source": "./ixion",
+      "description": "Plan, implement, review, and ship — with six-perspective agent review at the plan and code boundaries",
+      "version": "3.0.0",
       "author": {
         "name": "Wesley Sauret"
       },
-      "homepage": "https://github.com/wsauret/flywheel",
+      "homepage": "https://github.com/TheLeetTaco/ixion",
       "license": "MIT",
       "keywords": ["workflows", "planning", "review", "agents", "skills"],
       "category": "development"

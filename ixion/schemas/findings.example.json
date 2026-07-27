@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "findings": [
+    {
+      "title": "parse_date silently drops DD/MM/YYYY input",
+      "severity": "P1",
+      "location": "src/auth.rs:42",
+      "failure": "Parse, Don't Validate. parse_date is supposed to accept the common date formats users actually submit and make failure explicit to the caller. It only handles YYYY-MM-DD and returns None for DD/MM/YYYY, and the caller at line 78 treats None as 'expired' and logs the user out. Conflating 'unparseable' with 'expired' in a single None turns bad input into a silent logout with no path for the user to recover.",
+      "fix": "Return Result<Date, ParseDateError> with a typed error on unrecognized input so the caller routes to the retry dialog instead of logging the user out; accept both formats explicitly."
+    },
+    {
+      "title": "Phase 2 network-failure fallback is missing",
+      "severity": "P2",
+      "location": "phase-2",
+      "failure": "Untested Path. Phase 2 is supposed to enumerate the failure modes of the API fetch so the fallback is buildable and testable. The phase's task list covers only the success path — no fallback UI, no retry logic specified. When the request fails users see a crash with no recovery path, and the plan can't be meaningfully tested under realistic conditions because the failure modes aren't enumerated.",
+      "fix": "Add a task under Phase 2 that specifies the fallback UI plus exponential-backoff retry, and a test scenario covering the network-failure path."
+    },
+    {
+      "title": "AuthService mixes display and orchestration concerns",
+      "severity": "P2",
+      "location": "src/auth.rs",
+      "failure": "God Class. AuthService should expose only orchestration concerns — login, refresh, logout. It also formats and prints the login prompts and error screens inline, pulling terminal rendering into the auth module. Every UI tweak forces re-testing auth logic, headless contexts can't use the service, and consumers depending on auth get pulled into rendering code they don't need.",
+      "fix": "Split into src/auth/orchestration.rs (pure auth logic) and src/ui/auth_views.rs (rendering). Keep the auth interface narrow to the operations consumers actually need."
+    }
+  ],
+  "open_questions": []
+}

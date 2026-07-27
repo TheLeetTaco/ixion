@@ -1,0 +1,56 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: shellcheck
+        run: |
+          shellcheck --severity=error \
+            install_claude_code.sh \
+            tests/cleanup.sh \
+            tests/integration/run.sh \
+            tests/integration/cases/*.test.sh
+          # lib files are sourced, not executed — tell shellcheck the dialect
+          shellcheck --severity=error --shell=bash tests/integration/lib/*.sh
+
+      - name: compile JSON schemas
+        run: |
+          for s in ixion/schemas/*.schema.json; do
+            bunx ajv-cli compile --spec=draft2020 --validate-formats=false -s "$s"
+          done
+
+      - name: validate findings example against its schema
+        run: |
+          bunx ajv-cli validate --spec=draft2020 --validate-formats=false \
+            -s ixion/schemas/findings.schema.json \
+            -d ixion/schemas/findings.example.json
+
+      - name: plugin/marketplace version parity
+        run: |
+          p=$(jq -r .version ixion/.claude-plugin/plugin.json)
+          m=$(jq -r .version .claude-plugin/marketplace.json)
+          e=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          if [ "$p" != "$m" ] || [ "$p" != "$e" ]; then
+            echo "Version mismatch: plugin.json=$p marketplace.json=$m marketplace entry=$e" >&2
+            exit 1
+          fi
+          echo "Versions in sync: $p"
+
+      - name: frontmatter sanity (every agent/skill has name + description)
+        run: |
+          fail=0
+          for f in ixion/agents/*.md ixion/skills/*/SKILL.md; do
+            head -n 30 "$f" | grep -q '^name:' || { echo "missing name: $f" >&2; fail=1; }
+            head -n 30 "$f" | grep -q '^description:' || { echo "missing description: $f" >&2; fail=1; }
+          done
+          exit $fail

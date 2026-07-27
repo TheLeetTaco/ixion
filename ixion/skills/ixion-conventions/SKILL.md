@@ -1,0 +1,170 @@
+---
+name: ixion-conventions
+description: Shared conventions for Ixion subagents. Tool discipline, output format, research patterns.
+user-invocable: false
+---
+
+## Elegance — applied at every stage
+
+**Maximize elegance.** This is the single governing principle. Every rule below describes what elegance looks like — heuristics in service of the principle, not the goal themselves. When a rule produces awkward or indirect output, break it and document why the result is more elegant.
+
+Maximize elegance over minimizing churn. Pick the more elegant design no matter how big the refactor. Better now than months from now with more features and dependencies in place.
+
+The output — plan or code — must read as if every decision was deliberate. A reader should never ask "why is this here?" about any line, phase, or task.
+
+### Decision checklist (heuristics, not laws — interrogate any check that feels wrong)
+
+| # | Check | If violated |
+|---|-------|-------------|
+| 1 | Is there exactly one source of truth for this data? | You're creating a copy. Read from the existing source. |
+| 2 | Would deleting this code change behavior? | If not, delete it now. |
+| 3 | Is this abstraction used in 2+ places? | If not, inline it — unless inlining would force the caller to do two unrelated jobs. |
+| 4 | Does this wrapper add a new capability? | If not, call the underlying API directly. |
+| 5 | Could a reader understand this in 30 seconds without context? | If not, the names or shape are wrong. |
+| 6 | Does data flow in one direction? | If A updates B and B updates A, you have a cycle. Pick one owner. |
+| 7 | Are you fighting the language or framework? | Use the idiomatic primitive. Ceremony signals the tool wants to be used differently. |
+| 8 | Are you adding something speculative ("we might need…")? | Delete it. Add when the need is concrete. |
+
+### Anti-patterns and dispatch bar
+
+For the canonical anti-pattern catalog and the elegance dispatch bar, see `references/elegance.md`. Use catalog names ("Shallow Wrapper", "Forwarding Chain", "Parallel State", "Premature Abstraction", "Dead Code", "God Class", and the Universal Principles) when leading the Failure paragraph in findings — plan-consolidation routes structural failures to redesign by these names.
+
+### Symptoms vs. structure
+
+When you see multiple small issues clustered in one area, they usually point at one structural defect. Fix the structure; the symptoms dissolve. If you find yourself patching N findings in the same file, stop and redesign instead.
+
+---
+
+## Tool Discipline
+
+**BLOCKING: Never use Bash for operations that have a dedicated tool.**
+
+- **Content search**: Use **Grep**, not `grep`/`rg` via Bash
+- **File search**: Use **Glob**, not `find`/`ls` via Bash
+- **File reading**: Use **Read**, not `cat`/`head`/`tail` via Bash
+
+Bash is only for: git commands, `bun` commands, and system operations with no dedicated tool.
+
+---
+
+## Output Rules
+
+**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings (Title / Severity / Location / Failure / Fix per finding). The orchestrating skill (plan-review or work-review) parses your prose into `ixion/schemas/findings.schema.json`. Do NOT emit JSON.
+
+**Format**: Structured sections (End Goal, Key Findings, Files Identified). Paths only, never file contents. Flag ambiguities with "OPEN QUESTION:".
+
+**Severity**: `P1` blocks merge (security, data loss, breaking change, normal-path defect). `P2` should fix (real downside — edge case, perf regression, maintainability trap). `P3` user's discretion (low-impact, narrow scope).
+
+**References**: Always `path/to/file.rs:42-67`, never "in the auth module."
+
+---
+
+## False-Positive Suppression
+
+Core rule: don't emit a finding without a concrete, named consequence. A suppressed finding beats a noisy one — when in doubt, suppress.
+
+Suppress if:
+- **Generic "consider adding" advice** — you can't name what concretely breaks
+- **Speculative future-work** — "might not scale" without evidence the concern is reachable
+- **Already handled** — guards, middleware, or framework defaults cover it (code-review)
+- **Linter territory** — formatting, unused vars, import order (code-review)
+- **Alternative approaches** without naming what breaks about the chosen one (plan-review)
+- **Scope creep** — "also add Z while you're at it"; review evaluates the stated plan, not expansions (plan-review)
+
+---
+
+## Finding Quality: Lead with the Failure
+
+The `failure` field is the implementer's primary input. It must contain everything needed to understand the full scope of the problem in one read. **Four slots:**
+
+1. **Principle name** — any well-known principle. Pick from the elegance catalog (`references/elegance.md`), SOLID, DRY, language-specific anti-patterns, or domain-canonical names ("N+1 Query", "Race Condition", "Layering Violation", "Convention Drift"). The synthesizer routes structural failures by this leading token — keep it first, with a period.
+2. **Intent** — what the code or plan was trying to achieve.
+3. **Observation** — what's specifically wrong (the discrepancy from intent).
+4. **Reasoning** — why this discrepancy matters: consequences for users, the system, or design integrity.
+
+Format: `<Principle>. <Intent>. <Observation>. <Reasoning>.`
+
+**Strong (observable failure, named):**
+> "Silent Logout. parseDate is supposed to accept the common date formats users actually submit. It only handles YYYY-MM-DD and returns null for DD/MM/YYYY; the caller at line 78 treats null as 'expired' and logs the user out. DD/MM/YYYY input becomes a silent logout — wrong outcome and confusing UX."
+
+**Strong (principle violation, named):**
+> "God Class. AuthService should expose only orchestration concerns. It currently imports React components and renders login forms inline. Every UI tweak forces re-testing auth logic, and headless contexts can't use the service."
+
+**Weak — drops the leading principle or is too terse:**
+- "parseDate doesn't validate input format." ← no principle, no intent, no consequence.
+- "AuthService is doing too much." ← no principle, no specific intent.
+- "Violates SRP and the auth code is bloated and ..." ← buries the principle mid-sentence; the synthesizer can't route it.
+
+If you can't lead with a principle name, the finding is observational only — mark P3 or suppress.
+
+### Runtime claims carry Evidence
+
+When the Failure asserts the code misbehaves *when it runs* — wrong output, panic, hang, race, N+1, leak — add an **Evidence** slot naming the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose the command; they never run it. In code review the synthesizer runs it for P1s and drops findings that don't reproduce (`work-review` 2.3c).
+
+Structural findings need no Evidence — a God Class is visible in the source. Plan review has no code to run, so the slot doesn't apply there at all.
+
+---
+
+## Spec Quality Bar
+
+Before emitting `spec.json`, verify each phase contains:
+
+- Clear goal and success criterion
+- Repo-relative file paths (never absolute)
+- Enumerated test scenarios specific enough that the implementer doesn't invent coverage
+- Explicit verification command
+
+A spec is ready when an implementer can start confidently without needing to infer.
+
+If any phase fails the bar, loop back: read the codebase, ask the user, or defer the phase explicitly as `status: deferred` with rationale.
+
+---
+
+## Research Agent Behavior
+
+**Documentarian mode** (locators + analyzers): Document what IS, not what SHOULD BE. No suggestions, critiques, or recommendations.
+
+**Read files fully**: Use Read WITHOUT limit/offset. Partial reads cause hallucination.
+
+---
+
+## Dispatch Patterns (for orchestrators)
+
+### Locator → Analyzer (two-pass research)
+
+1. **Locators first** — run in parallel
+   - `locator-codebase`, `locator-patterns`, `locator-docs` (haiku)
+   - `locator-web` (sonnet — query crafting needs stronger reasoning)
+   - No Read tool — return paths/URLs only
+   - Pass search context inline (locators can't read files)
+
+2. **Analyzers second** — targeted, use sonnet
+   - `analyzer-codebase`, `analyzer-patterns`, `analyzer-docs`
+   - Feed only the top 15 findings from locators
+   - Pass file paths, not content (analyzers have Read)
+   - Documentarian mode — no suggestions
+
+### Model inheritance
+
+Implementation subagents (`general-purpose`, `Explore`, `Plan`) inherit the parent model — never set `model`. Only research agents (locators, analyzers) use explicit models.
+
+### Input context
+
+Pass file paths (not content) to Read-capable agents. Content inline to locators. Phase-only plan excerpts, not full plans. Under 100 lines where possible.
+
+---
+
+## Error Protocol
+
+3 strikes then escalate:
+1. **Diagnose** — read error, identify root cause, targeted fix
+2. **Alternative** — different method/tool/approach. Never repeat same failing action.
+3. **Rethink** — question assumptions, search for solutions
+4. **Escalate** — log attempts, explain to user, ask for guidance
+
+---
+
+## Rationale Discipline
+
+Every line in a SKILL.md loads on every invocation. Include rationale only when it changes what the agent does at runtime. If behavior would not differ without the sentence, cut it. Extract conditional/late-sequence content to `references/` and load on demand.
+

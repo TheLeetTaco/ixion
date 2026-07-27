@@ -1,8 +1,8 @@
-# Flywheel
+# Ixion
 
-A plugin for Claude Code and OpenCode that runs autonomous workflows.
+A plugin for Claude Code and OpenCode that runs a plan → work → review → ship workflow, with six-perspective agent review at the plan and code boundaries.
 
-Everything is a skill. `/plan` to plan, `/work` to implement, `/work-review` to review, `/ship` to send a PR. `/yolo` does the whole loop unattended. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
+Everything is a skill. `/plan` to plan, `/work` to implement, `/work-review` to review, `/ship` to send a PR. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -11,23 +11,23 @@ Everything is a skill. `/plan` to plan, `/work` to implement, `/work-review` to 
 **Marketplace (recommended):**
 
 ```
-/plugin marketplace add wsauret/flywheel
-/plugin install flywheel@flywheel-marketplace
+/plugin marketplace add TheLeetTaco/ixion
+/plugin install ixion@ixion-marketplace
 ```
 
 **Local:**
 
 ```bash
-git clone https://github.com/wsauret/flywheel.git
-cd flywheel
+git clone https://github.com/TheLeetTaco/ixion.git
+cd ixion
 ./install_claude_code.sh
 ```
 
 ### OpenCode
 
 ```bash
-git clone https://github.com/wsauret/flywheel.git
-cd flywheel
+git clone https://github.com/TheLeetTaco/ixion.git
+cd ixion
 python3 install_opencode.py
 ```
 
@@ -74,7 +74,7 @@ Re-run the install script for your client to pull the latest version. The Claude
 
 ### Agents write good code only when forced to re-evaluate from different perspectives
 
-A single pass produces plausible code. Plausible code passes type checks and runs the happy path, but it is rarely well-architected, fast, safe, idiomatic, or elegant — those are different concerns that don't all surface from the same vantage point. Flywheel's core loop forces re-evaluation from six perspectives at the two moments where it matters most:
+A single pass produces plausible code. Plausible code passes type checks and runs the happy path, but it is rarely well-architected, fast, safe, idiomatic, or elegant — those are different concerns that don't all surface from the same vantage point. Ixion's core loop forces re-evaluation from six perspectives at the two moments where it matters most:
 
 ```
 plan → 6-perspective review → fix → work → 6-perspective review → fix
@@ -93,7 +93,7 @@ Findings are deduplicated and conflicts surfaced as open questions, then fed bac
 
 ### Context windows fill up too fast
 
-Agents struggle on large codebases because context fills with search results, file contents, and tool output. Flywheel compacts at every phase:
+Agents struggle on large codebases because context fills with search results, file contents, and tool output. Ixion compacts at every phase:
 
 - **Research** produces persistent docs, not sprawling chat
 - **Plans** distill research into actionable phases (`spec.json`)
@@ -112,7 +112,7 @@ Reviewing code line-by-line catches individual mistakes. Reviewing research and 
 | Plans         | Hundreds of bad lines  |
 | Code          | Individual mistakes    |
 
-Flywheel asks for human approval at research and plan boundaries because that's where attention has the most leverage. If you're looking to go fully autonomous, you can opt out of all human in the loop checkpoints via the `/yolo` skill. It skips all these gates and runs the whole sequence of skills unattended.
+Ixion asks for human approval at research and plan boundaries because that's where attention has the most leverage. Those gates are the design, not an obstacle to route around: a wrong assumption caught at the research boundary costs a sentence, and the same assumption caught after implementation costs a rewrite. The skills are separate commands precisely so you can stop between them.
 
 ## Workflow
 
@@ -120,7 +120,7 @@ Flywheel asks for human approval at research and plan boundaries because that's 
 Plan → Work → Review → Fix → Ship
 ```
 
-`brainstorm` and `research` are optional entry points. `work-review` can be added before shipping. `ship` automatically compounds learnings. `yolo` chains the whole thing.
+`brainstorm` and `research` are optional entry points. `work-review` can be added before shipping. `ship` automatically compounds learnings.
 
 | Skill                | What it does |
 |----------------------|--------------|
@@ -128,14 +128,13 @@ Plan → Work → Review → Fix → Ship
 | `/research`          | Standalone codebase research using locate→analyze |
 | `/plan`              | Orchestrator: runs `plan-creation` → `plan-review` → `plan-consolidation` |
 | `/plan-creation`     | Research, validate claims via Context7, emit a work-ready `spec.json` |
-| `/plan-review`       | All reviewer agents in parallel; deduplicates findings into `findings.json` |
+| `/plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
 | `/plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
 | `/work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
 | `/work-review`       | Multi-agent code review on PRs, branches, or current changes |
 | `/debug`             | Iterative fix-verify cycle for a specific reported issue |
 | `/compound`          | Capture a solved problem as searchable documentation |
 | `/ship`              | Branch → commit → PR; compounds learnings on the way out |
-| `/yolo`              | Plan → implement → review → fix-findings, fully autonomous |
 
 ## How it works
 
@@ -158,24 +157,18 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Execution with recovery
 
-`/work` uses a probe-dispatch-checkpoint pattern. State files and session tracking mean you can clear context mid-work and resume with `/work` (no args). It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and transitions automatically when `/yolo` is driving.
+`/work` uses a probe-dispatch-checkpoint pattern. State files and session tracking mean you can clear context mid-work and resume with `/work` (no args). It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and picks the mode itself from session state: a completed plan-mode `progress.json` alongside a present `review.findings.json` means the next bare `/work` is a fix pass.
 
 ### Multi-agent review
 
 `/work-review` runs all reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and writes a structured `review.findings.json` ready for `/work` to consume in fix-findings mode.
-
-### Autonomous mode
-
-`/yolo` chains plan → work → review → fix-findings without stopping. The agent answers its own open questions, drives all phase transitions, and only stops when the loop reports complete or a phase fails irrecoverably. Use it when you trust the plan target and will be away from the keyboard.
 
 ## Components
 
 | Type                 | Count | Examples |
 |----------------------|------:|----------|
 | Workflow skills      | 11    | `brainstorm`, `research`, `plan`, `plan-creation`, `plan-review`, `plan-consolidation`, `work`, `work-review`, `debug`, `compound`, `ship` |
-| Autonomous skill     | 1     | `yolo` |
-| Domain skills        | 1     | `astronomer-airflow` |
-| Utility skills       | 2     | `flywheel-conventions`, `language-standards` |
+| Utility skills       | 2     | `ixion-conventions`, `language-standards` |
 | Reviewer agents      | 6     | `architecture`, `code-quality`, `data-integrity`, `elegance`, `patterns`, `performance` |
 | Research locators    | 4     | `codebase`, `patterns`, `docs`, `web` |
 | Research analyzers   | 5     | `codebase`, `patterns`, `docs`, `web`, `git-history` |
@@ -185,7 +178,7 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 | Agent                     | What it reviews |
 |---------------------------|-----------------|
 | `reviewer-architecture`   | Architectural decisions, component boundaries, system design |
-| `reviewer-code-quality`   | Type safety, idioms, maintainability; loads `language-standards` on demand |
+| `reviewer-code-quality`   | Type safety, idioms, maintainability; loads `language-standards` (Rust) on demand |
 | `reviewer-data-integrity` | Database migrations, transaction boundaries, referential integrity |
 | `reviewer-elegance`       | Single source of truth, working with the grain, no ceremony |
 | `reviewer-patterns`       | Project conventions, codebase norms, duplicated utilities |
@@ -216,15 +209,15 @@ Understand HOW things work via full file reads. Documentarian mode — no sugges
 
 ## Schemas
 
-Session artifacts live in `.flywheel/plugin/sessions/<id>/` and validate against schemas in `flywheel/schemas/`:
+Session artifacts live in `.ixion/plugin/sessions/<id>/` and validate against schemas in `ixion/schemas/`:
 
 | Artifact                  | Schema                  | Written by |
 |---------------------------|-------------------------|------------|
-| `spec.json`               | `session.schema.json`   | `plan-creation` / `plan-consolidation` |
-| `findings.json`           | `findings.schema.json`  | `plan-review` |
-| `review.findings.json`    | `findings.schema.json`  | `work-review` |
+| `spec.json`               | `spec.schema.json` | `plan-creation` / `plan-consolidation` |
+| `review.findings.json`    | `findings.schema.json`  | `plan-review` / `work-review` |
 | `progress.json`           | `progress.schema.json`  | `work` |
-| Task lists                | `task-list.schema.json` | `work` |
+| `session.json`            | `session.schema.json`   | `plan-creation` |
+| `active.json`             | `active.schema.json`    | `plan-creation` (pure pointer — run state lives in `session.json`) |
 
 ## Client differences
 
@@ -243,10 +236,10 @@ Same skills, slightly different plumbing.
 ### Layout
 
 ```
-flywheel/
-├── flywheel/         # plugin source (skills, agents, schemas)
+ixion/
+├── ixion/         # plugin source (skills, agents, schemas)
 │   ├── agents/       # 15 subagent definitions
-│   ├── skills/       # 15 skill definitions, one per directory
+│   ├── skills/       # 13 skill definitions, one per directory
 │   └── schemas/      # JSON Schemas for session artifacts
 ├── docs/adrs/        # architectural decisions (read 0001 first)
 ├── tests/            # tmux integration tests against real API
@@ -267,12 +260,12 @@ Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH. S
 
 | Case                                | What it exercises | Cost |
 |-------------------------------------|-------------------|------|
-| `00-plugin-loads.test.sh`           | `--plugin-dir` discovery; `/yolo`, `/plan`, `/work` show up in palette | none (no model call) |
+| `00-plugin-loads.test.sh`           | `--plugin-dir` discovery; `/plan` and `/work` show up in palette | none (no model call) |
 | `01-fly-work-resumes.test.sh`       | `work` against a seeded session: `progress.json` lands and validates, mode is `plan` | ~1–3 min |
-| `02-fly-plan-creates-spec.test.sh`  | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~5–15 min |
-| `03-pipeline-end-to-end.test.sh`    | `/yolo` runs the full pipeline: plan → work → review → fix-findings; asserts every phase's artifacts | ~25–45 min |
+| `02-fly-plan-creates-spec.test.sh`  | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~3–10 min |
+| `07-chain-smoke.test.sh`            | The full chain driven skill-by-skill (`/plan`, `/work`, `/work-review`, `/work`); asserts each artifact, both schema validity and `Skill()` markers | ~10 min |
 
-When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/flywheel-int-<session>-<timestamp>-<label>.pane.txt` and leaves the sandbox in place so you can inspect session state. `bash tests/cleanup.sh --apply` deletes them when you're done. See `CLAUDE.md` for monitoring and debugging recipes.
+When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/ixion-int-<session>-<timestamp>-<label>.pane.txt` and leaves the sandbox in place so you can inspect session state. `bash tests/cleanup.sh --apply` deletes them when you're done. See `CLAUDE.md` for monitoring and debugging recipes.
 
 ### Reinstall after plugin changes
 
@@ -280,7 +273,7 @@ When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/f
 bash install_claude_code.sh < /dev/null 2>&1 | tail -3
 ```
 
-The integration tests load from `flywheel/` directly via `--plugin-dir`, so they pick up source changes without reinstall. `claude` may cache parts of the plugin between sessions — when in doubt, reinstall.
+The integration tests load from `ixion/` directly via `--plugin-dir`, so they pick up source changes without reinstall. `claude` may cache parts of the plugin between sessions — when in doubt, reinstall.
 
 ### Architectural philosophy
 

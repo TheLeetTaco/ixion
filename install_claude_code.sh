@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Flywheel Plugin Installer
+# Ixion Plugin Installer
 # Installs the plugin and configures Context7 MCP with your API key
 
 set -e
@@ -9,16 +9,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 
 echo "================================"
-echo "  Flywheel Plugin Installer"
+echo "  Ixion Plugin Installer"
 echo "================================"
 echo ""
 
-# Step 1: Hard uninstall any prior install (plugin + marketplace + cache)
-echo "Step 1: Hard uninstall of any prior flywheel install..."
+# Step 1: Hard uninstall any prior install (plugin + marketplace + cache).
+# Also removes installs under the plugin's pre-rename name (flywheel) so
+# upgrading users don't end up with both plugins registered.
+echo "Step 1: Hard uninstall of any prior ixion install..."
+claude plugin uninstall ixion@ixion-marketplace > /dev/null 2>&1 || true
+claude plugin uninstall ixion@local-marketplace > /dev/null 2>&1 || true
 claude plugin uninstall flywheel@flywheel-marketplace > /dev/null 2>&1 || true
 claude plugin uninstall flywheel@local-marketplace > /dev/null 2>&1 || true
+claude plugin marketplace remove ixion-marketplace > /dev/null 2>&1 || true
 claude plugin marketplace remove flywheel-marketplace > /dev/null 2>&1 || true
 claude plugin marketplace remove local-marketplace > /dev/null 2>&1 || true
+rm -rf "$HOME/.claude/plugins/cache/ixion-marketplace" 2>/dev/null || true
 rm -rf "$HOME/.claude/plugins/cache/flywheel-marketplace" 2>/dev/null || true
 rm -rf "$HOME/.claude/plugins/cache/local-marketplace" 2>/dev/null || true
 echo "  ✓ Prior install cleaned"
@@ -30,7 +36,7 @@ echo "  ✓ Marketplace added"
 
 # Step 3: Install the plugin
 echo "Step 3: Installing plugin..."
-claude plugin install flywheel@flywheel-marketplace > /dev/null
+claude plugin install ixion@ixion-marketplace > /dev/null
 echo "  ✓ Plugin installed"
 
 # Step 4: Configure Context7 API key
@@ -52,19 +58,25 @@ get_shell_profile() {
 }
 
 # Check if CONTEXT7_API_KEY env var is already set
-if [ -n "$CONTEXT7_API_KEY" ]; then
+if [ -n "${CONTEXT7_API_KEY:-}" ]; then
     echo "  * Found CONTEXT7_API_KEY in environment, using it..."
     API_KEY="$CONTEXT7_API_KEY"
     SAVE_TO_PROFILE=false
-else
+elif [ -t 0 ]; then
     echo "  * Context7 provides up-to-date framework documentation for the planning workflow."
     read -p "  * Enter your Context7 API key (or press Enter to skip): " API_KEY
     SAVE_TO_PROFILE=true
+else
+    # Non-interactive (CI, piped stdin): skip the prompt entirely.
+    API_KEY=""
+    SAVE_TO_PROFILE=false
 fi
 
 if [ -n "$API_KEY" ]; then
 
-    # Remove existing context7 config if present
+    # Remove existing context7 config if present. The keyed registration
+    # below supersedes the keyless one bundled in plugin.json — the header
+    # is what unlocks Context7's authenticated rate limits.
     claude mcp remove context7 > /dev/null 2>&1 || true
 
     # Add with the API key header
@@ -88,7 +100,7 @@ if [ -n "$API_KEY" ]; then
             else
                 # Add new entry
                 echo "" >> "$PROFILE_FILE"
-                echo "# Context7 API key for Flywheel plugin" >> "$PROFILE_FILE"
+                echo "# Context7 API key for Ixion plugin" >> "$PROFILE_FILE"
                 echo "export CONTEXT7_API_KEY=\"$API_KEY\"" >> "$PROFILE_FILE"
                 echo "  ✓ Added CONTEXT7_API_KEY to $PROFILE_FILE"
             fi
@@ -97,6 +109,15 @@ if [ -n "$API_KEY" ]; then
     fi
 else
     echo "  * Skipped Context7 configuration"
+fi
+
+# Step 5: Verify the plugin actually loaded
+echo "Step 5: Verifying install..."
+if claude plugin list 2>/dev/null | grep -qi "ixion"; then
+    echo "  ✓ Plugin appears in 'claude plugin list'"
+else
+    echo "  ✗ Plugin NOT found in 'claude plugin list' — install did not take" >&2
+    exit 1
 fi
 
 echo "Installation Complete!"

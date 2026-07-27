@@ -5,21 +5,21 @@
 # poll the pane and the on-disk sandbox to verify behavior.
 
 # Resolve plugin dir once. The plugin layout is:
-#   plugin/flywheel/{commands,skills,agents,schemas}
-# Claude's --plugin-dir wants the dir that contains commands/ and skills/.
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/flywheel"
+#   ixion/{skills,agents,schemas}
+# Claude's --plugin-dir wants the dir that contains skills/.
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/ixion"
 
 # tmux_start <session> <cwd>
 # Spawn a detached tmux session running claude inside <cwd> with the plugin.
 # Uses bypassPermissions so the session does not block on tool prompts.
 #
-# Model is configurable via FLYWHEEL_TEST_MODEL env var; default matches
-# the model real users typically run /yolo against. Override per-run with
-# e.g. FLYWHEEL_TEST_MODEL=claude-opus-4-7 bash tests/integration/...
+# Model is configurable via IXION_TEST_MODEL env var; default matches
+# the model real users typically run the pipeline against. Override
+# per-run with e.g. IXION_TEST_MODEL=claude-opus-4-7 bash tests/integration/...
 tmux_start() {
   local session="$1"
   local cwd="$2"
-  local model="${FLYWHEEL_TEST_MODEL:-claude-sonnet-4-6}"
+  local model="${IXION_TEST_MODEL:-claude-sonnet-4-6}"
   tmux kill-session -t "$session" 2>/dev/null || true
   # Fresh shell; explicitly cd into sandbox so claude reads sandbox cwd.
   tmux new-session -d -s "$session" -x 200 -y 50 "cd '$cwd' && exec claude --plugin-dir '$PLUGIN_ROOT' --permission-mode bypassPermissions --model $model"
@@ -176,8 +176,8 @@ wait_for_prompt() {
 # Returns 0 if the pane scrollback shows the agent invoking the named
 # skill via the Skill tool. The TUI emits "Skill(<name>)" when a skill
 # is loaded; absence means the skill wasn't invoked even if the agent
-# claimed otherwise. Plugin-installed skills appear with a "flywheel:"
-# namespace prefix (Skill(flywheel:plan-creation)); skills loaded directly
+# claimed otherwise. Plugin-installed skills appear with a "ixion:"
+# namespace prefix (Skill(ixion:plan-creation)); skills loaded directly
 # via --plugin-dir without an installed marketplace may appear bare. We
 # accept either form. Captures the FULL scrollback (-S -), not just the
 # visible window, so milestones that scrolled out are still found.
@@ -185,11 +185,13 @@ pane_has_skill_invocation() {
   local session="$1"
   local skill="$2"
   tmux capture-pane -t "$session" -p -S - 2>/dev/null \
-    | grep -qE "Skill\((flywheel:)?${skill}\)"
+    | grep -qE "Skill\((ixion:)?${skill}\)"
 }
 
 # pane_save_history <session> [label]
-# Captures the FULL pane scrollback (-S -) to a labeled file in /tmp.
+# Captures the FULL pane scrollback (-S -) to a labeled file in
+# ${TMPDIR:-/tmp} (same root the sandboxes use, so tests/cleanup.sh
+# finds both).
 # Call BEFORE tmux_kill in cleanup traps — once tmux is gone, the
 # scrollback is gone with it. The pane history is the most informative
 # diagnostic for failures where the test bash exited without printing
@@ -202,7 +204,7 @@ pane_save_history() {
   local label="${2:-final}"
   local timestamp
   timestamp=$(date +%Y%m%d-%H%M%S)
-  local dest="/tmp/flywheel-int-${session}-${timestamp}-${label}.pane.txt"
+  local dest="${TMPDIR:-/tmp}/ixion-int-${session}-${timestamp}-${label}.pane.txt"
   if tmux capture-pane -t "$session" -p -S - > "$dest" 2>/dev/null; then
     echo "Pane history saved: $dest"
   fi

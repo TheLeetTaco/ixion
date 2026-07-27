@@ -16,14 +16,14 @@ set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LIB="$REPO_ROOT/tests/integration/lib"
-SCHEMAS="$REPO_ROOT/flywheel/schemas"
+SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
 
 pass=0
 fail=0
-SESSION="flywheel-int-work"
+SESSION="ixion-int-work"
 SBOX=""
 
 cleanup() {
@@ -35,9 +35,9 @@ trap cleanup EXIT
 
 SBOX=$(make_sandbox "work")
 SESSION_ID="smoketask-2026-04-24"
-SDIR="$SBOX/.flywheel/plugin/sessions/$SESSION_ID"
+SDIR="$SBOX/.ixion/plugin/sessions/$SESSION_ID"
 mkdir -p "$SDIR"
-mkdir -p "$SBOX/.flywheel/plugin"
+mkdir -p "$SBOX/.ixion/plugin"
 
 # Seed: a trivial valid spec. No actual code changes will succeed since the
 # files referenced do not exist in the sandbox; that's fine — we only need
@@ -61,7 +61,8 @@ cat > "$SDIR/spec.json" <<'EOF'
         }
       ],
       "verification": "bash hello.sh | grep -q hello",
-      "manual_verification": null
+      "manual_verification": null,
+      "depends_on": []
     }
   ],
   "success_criteria": ["hello.sh prints hello"]
@@ -80,14 +81,14 @@ cat > "$SDIR/session.json" <<EOF
 }
 EOF
 
-cat > "$SBOX/.flywheel/plugin/active.json" <<EOF
+cat > "$SBOX/.ixion/plugin/active.json" <<EOF
 { "schema_version": 1, "session_id": "$SESSION_ID" }
 EOF
 
 # Validate fixtures before driving the test, so we know any later failure
 # is in the skill, not the seed.
 AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
-if "${AJV[@]}" validate -s "$SCHEMAS/task-list.schema.json" -d "$SDIR/spec.json" >/dev/null 2>&1; then
+if "${AJV[@]}" validate -s "$SCHEMAS/spec.schema.json" -d "$SDIR/spec.json" >/dev/null 2>&1; then
   note_pass "seed spec.json validates"
 else
   note_fail "seed spec.json did not validate (test bug, not skill bug)"
