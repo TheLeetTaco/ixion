@@ -49,7 +49,7 @@ Bash is only for: git commands, `bun` commands, and system operations with no de
 
 ## Output Rules
 
-**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings (Title / Severity / Location / Failure / Fix per finding). The orchestrating skill (plan-review or work-review) parses your prose into `ixion/schemas/findings.schema.json`. Do NOT emit JSON.
+**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings in the shape of `ixion/skills/ixion-conventions/references/finding-format.md`. The orchestrating skill (plan-review or work-review) parses your prose into `ixion/schemas/findings.schema.json`. Do NOT emit JSON.
 
 **Format**: Structured sections (End Goal, Key Findings, Files Identified). Paths only, never file contents. Flag ambiguities with "OPEN QUESTION:".
 

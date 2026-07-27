@@ -27,11 +27,7 @@ Before assessing your domain, read the pasted reference excerpts and the project
 <paste the Elegance Dispatch Bar + Anti-Pattern Catalog excerpt from elegance.md>
 <paste the "Lead with the Failure" excerpt from ixion-conventions SKILL.md>
 
-Required output discipline:
-1. Format each Failure as four slots: `**Failure:** <Principle name>. <Intent>. <Observation>. <Reasoning>.` Principle name = any well-known principle (elegance catalog, SOLID, DRY, language-specific anti-pattern, performance/data-integrity canonical name like "N+1 Query" or "Race Condition"). The synthesizer uses the leading name to route structural failures to redesign vs patch — keep it the first token.
-2. If your Failure claims the code misbehaves when it RUNS (wrong output, panic, hang, race, N+1, leak), add `**Evidence:** <command that would demonstrate it>` or `**Evidence:** unproven: <why running something can't show it>`. Propose the command — you have no Bash, so don't try to run it. Structural findings need no Evidence line; omit it. The synthesizer runs your command for P1s and drops the finding if it doesn't reproduce, so name something precise enough to actually fail.
-3. Each Fix MUST propose the elegant alternative concretely, not just flag the issue. The implementer treats your Fix as a hypothesis — be specific without over-prescribing.
-4. If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
+If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
 ```
 
-Item 2 applies to code review only. `plan-review` dispatches against a plan — no code exists to run — so its callers drop that line from the preamble.
+The preamble deliberately says nothing about the shape of a finding — that contract lives in `ixion/skills/ixion-conventions/references/finding-format.md`, which every reviewer's Output Format section already points to. Don't restate it here: the restatement that used to occupy this block listed Failure, Evidence and Fix but not Severity, and reviewers took it as the authoritative element list and dropped Severity.

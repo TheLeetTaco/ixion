@@ -47,18 +47,3 @@ OPEN QUESTION: [question] (Options: A, B, C if applicable)
 ```
 
 Collect all agent Open Questions into the summary table alongside conflicts.
-
----
-
-## Dispatch Template
-
-```
-Task [agent-type]: "Review this plan for [perspective] concerns.
-PLAN: [full plan content]
-Provide findings with priority (P1/P2/P3) and specific locations.
-
-IMPORTANT: Also flag any OPEN QUESTIONS from your perspective:
-- Trade-offs where you see multiple valid approaches
-- Decisions that depend on priorities you don't know
-Format: 'OPEN QUESTION: [question] (Options: A, B, C if applicable)'"
-```

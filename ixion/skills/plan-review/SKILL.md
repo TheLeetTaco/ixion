@@ -56,8 +56,7 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 **Standard reviewer prompt shape:**
 
 ```
-<paste the "Dispatch preamble" from ixion/skills/ixion-conventions/references/reviewer-dispatch.md verbatim,
- minus its item 2 (the Evidence slot) — there is no code to run at plan time>
+<paste the "Dispatch preamble" from ixion/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
 
 Review this plan.
 
