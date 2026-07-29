@@ -17,21 +17,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       procps less \
     && rm -rf /var/lib/apt/lists/*
 
+# The harness launches claude with --permission-mode bypassPermissions, which
+# Claude Code refuses to run as root ("cannot be used with root/sudo privileges
+# for security reasons"). Under root the process exits instantly, taking its
+# tmux session with it, and every capture-pane reports "no server running" —
+# so the whole toolchain below installs into a normal user's home instead.
+RUN useradd --create-home --shell /bin/bash ixion
+USER ixion
+ENV HOME=/home/ixion
+WORKDIR /home/ixion
+
 # bunx runs ajv-cli, which validates every session artifact the suite asserts on
 RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+ENV PATH="/home/ixion/.bun/bin:${PATH}"
 
 # cargo builds and gates the Rust fixture in the chain case; clippy and rustfmt
 # are the per-phase gates language-standards names, so the fixture can compose them
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal -c clippy -c rustfmt
-ENV PATH="/root/.cargo/bin:${PATH}"
+ENV PATH="/home/ixion/.cargo/bin:${PATH}"
 
 RUN curl -fsSL https://claude.ai/install.sh | bash
-ENV PATH="/root/.local/bin:${PATH}"
+ENV PATH="/home/ixion/.local/bin:${PATH}"
 
 WORKDIR /work
 
 RUN for t in tmux jq bunx cargo claude; do \
       command -v "$t" >/dev/null 2>&1 || { echo "MISSING: $t"; exit 1; }; \
     done \
+    && [ "$(id -u)" -ne 0 ] || { echo "image must not run as root"; exit 1; } \
     && tmux -V && jq --version && cargo --version && claude --version

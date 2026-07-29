@@ -47,6 +47,16 @@ trap 'rm -f "$ENV_FILE"' EXIT
 chmod 600 "$ENV_FILE"
 printf '%s=%s\n' "$CRED_VAR" "$CRED_VAL" > "$ENV_FILE"
 
+# Anything the docker *client* opens (--env-file, the host half of -v) is read by
+# a Windows binary under Git Bash, which cannot resolve an MSYS path like
+# /tmp/tmp.AbC or /d/repo. cygpath exists only there, so this is a no-op on Linux
+# and macOS. Paths inside the container stay POSIX and must not be converted.
+host_path() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
+}
+ENV_FILE_HOST=$(host_path "$ENV_FILE")
+REPO_ROOT_HOST=$(host_path "$REPO_ROOT")
+
 docker image inspect "$IMAGE" >/dev/null 2>&1 || {
   echo "Building $IMAGE (first run only)..."
   docker build -f "$REPO_ROOT/tests/integration/Dockerfile" -t "$IMAGE" "$REPO_ROOT/tests/integration"
@@ -66,6 +76,6 @@ fi
 # MSYS_NO_PATHCONV stops Git Bash rewriting container-side paths into Windows
 # ones; harmless on Linux and macOS, required on Windows.
 MSYS_NO_PATHCONV=1 exec docker run --rm ${IXION_TEST_SHELL:+-it} \
-  --env-file "$ENV_FILE" \
-  -v "$REPO_ROOT:/work" -w /work \
+  --env-file "$ENV_FILE_HOST" \
+  -v "$REPO_ROOT_HOST:/work" -w /work \
   "$IMAGE" bash -lc "$inner"
