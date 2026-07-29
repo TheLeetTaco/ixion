@@ -55,7 +55,17 @@ Low CPU plus a present pane marker plus a missing artifact is the signature. Any
 
 ## Root Cause
 
-The agent loaded the skill, narrated what the skill would do, and treated the narration as the doing. This is the failure mode ADR-001 Principle 12 was written to make detectable: the pane marker proves the skill was *invoked*, the on-disk artifact proves it *ran*, and the two can disagree.
+**The agent believed the skill was running asynchronously and that it would be told when to continue.** A second run made this explicit:
+
+> Plan-review skill is running in the background. It will load the spec, dispatch reviewer agents, collect findings, and write review.findings.json. **I'll wait for the completion notification.**
+
+Nothing was running. `ps` showed a single `claude` process at 3.2% CPU, no subagents, no pending work. A skill load is not a job launch — it puts instructions in context that the same agent must then execute. There is no completion notification, so the wait never ends.
+
+`plan/SKILL.md` invites the misreading. It says "invoke the correct skill … using the Skill tool" six times, and line 72 reads **"After plan-review completes, invoke:"** — phrasing that describes the skill completing on its own while the agent waits for it. CLAUDE.md's "Common failure modes" section already names both the failure and its fix: prefer a plain "run X, then run Y" framing over "invoke X via the Skill tool," and state that the artifact on disk is what proves the skill ran.
+
+Reproduced 2 of 2 runs on haiku, so it is deterministic at this step rather than a frequency problem. The wording is model-independent; a larger model may paper over it, which is worth measuring before assuming the defect is small.
+
+This is also the failure mode ADR-001 Principle 12 was written to make detectable: the pane marker proves the skill was *invoked*, the on-disk artifact proves it *ran*, and the two can disagree.
 
 The disagreement is the whole point of asserting on both. A test checking only `Skill(<name>)` markers scores this as a pass. A test checking only artifacts cannot tell "invoked but didn't execute" from "never invoked at all" — and those have different fixes: the first is a skill-body problem, the second an orchestration one.
 
@@ -80,7 +90,16 @@ A chain test reports the first *wait* that expires, which can be stages downstre
 
 ### If a fix is attempted
 
-ADR-001's levers apply: the skill's own enumeration of remaining steps needs to be concrete enough that "I have described the work" cannot be mistaken for "I have done it." Principle 5's reframing — make the artifact write a precondition of starting rather than a report of finishing — is the shape that has worked elsewhere in this repo for exactly this symptom.
+The wording is the target, not the model. Two changes CLAUDE.md already prescribes:
+
+- Replace "invoke X using the Skill tool" with a plain imperative — "run plan-review, then run plan-consolidation." "Invoke" reads as dispatch; "run" reads as do.
+- Delete phrasing that describes a skill *completing* on its own ("After plan-review completes, invoke:"). Nothing completes without the agent doing it, and that sentence is what licenses the wait.
+
+Add the artifact as the success condition rather than the narration: *"`review.findings.json` on disk is what proves plan-review ran. If it is not there, the skill did not run — run it."* That gives the agent a falsifiable check on its own belief, which a status message cannot.
+
+ADR-001's Principle 5 reframing is the same shape and has worked elsewhere here: make the artifact write a precondition of proceeding rather than a report of having finished.
+
+Validating any of this needs several runs, not one — Principle 10 holds that coaxing changes are non-deterministic, and this session watched gate composition fire in run 1 and not run 2 from an unchanged prompt.
 
 ## Prevention
 
