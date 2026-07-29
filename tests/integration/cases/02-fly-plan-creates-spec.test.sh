@@ -59,7 +59,11 @@ fi
 # Drive: ask plan-creation to plan a trivial change to hello.sh.
 # Avoid apostrophes in the prompt — tmux send-keys can mangle them and
 # leave the input box stuck without ever submitting Enter.
-tmux_send_line "$SESSION" "/plan Update hello.sh to print hello world instead of hi"
+#
+# Namespaced: bare "/plan" resolves to Claude Code's own plan mode rather than
+# the plugin skill, so the TUI answers "Enabled plan mode", writes a
+# conversational plan, and no session dir is ever created. Observed on 2.1.220.
+tmux_send_line "$SESSION" "/ixion:plan Update hello.sh to print hello world instead of hi"
 
 ACTIVE="$SBOX/.ixion/plugin/active.json"
 SESSIONS_DIR="$SBOX/.ixion/plugin/sessions"
