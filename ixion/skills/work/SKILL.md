@@ -403,6 +403,17 @@ Phase 1 step 6 wrote that field before the first chunk ran, so it is a commit id
 
 Cite the diff line that proves the criterion holds.
 
+**Leave the record before Phase 4.** These checks run once per session rather than once per chunk, so nothing else ever re-runs them — and to `work-review`, `ship` and any later auditor, a criterion that passed, one that failed, and one that was never reached all read the same unless Phase 3 leaves the forensic trail 2.3 leaves for chunks. Append one entry per command you actually ran to `progress.artifacts.commands_run`, quoting its output rather than summarising it — a gate that reports itself skipped rather than failing says so in its own words, and a paraphrase drops exactly the distinction the entry exists to hold:
+
+```json
+[
+  { "command": "shellcheck tests/lib/*.sh", "exit_code": 0 },
+  { "command": "license-audit", "exit_code": 0, "stdout_tail": "SKIPPED: license-audit not installed" }
+]
+```
+
+Criteria you resolved from the cumulative diff ran no command and get no entry — the cited diff line is their evidence. Then atomic write `progress.json` via `.tmp` → `mv`, exactly as 2.3 step 5. Do it before starting Phase 4: the self-check there can send you into a polish chunk that runs commands of its own, and the record of what proved the criteria should already be on disk by then.
+
 ---
 
 ## Phase 4: Cumulative Diff Self-Check (BLOCKING)
