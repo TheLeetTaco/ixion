@@ -10,6 +10,7 @@ allowed-tools:
   - Task
   - Skill
   - AskUserQuestion
+skills: [language-standards]
 ---
 
 # Plan Creation Skill
@@ -171,6 +172,26 @@ If Phase 3 recorded "Single obvious shape — no alternative considered," use on
 
 A single criterion that applies uniformly across the whole spec is sufficient. The criterion makes elegance a verifiable acceptance bar, not a hope.
 
+#### Session-tier gates go here, not in any phase's `verification`
+
+Some gates are worth running once at the end rather than after every wave — in Rust, `cargo audit` and `cargo machete --with-metadata`. Per-phase placement taxes every wave and, for `cargo audit`, makes every phase depend on reaching the advisory database. They belong in `success_criteria[]`, which `work` Phase 3 checks once and records as a `{command, exit_code}` entry in `progress.artifacts.commands_run` — so where a session gate actually ran is provable afterwards rather than asserted.
+
+`success_criteria[]` entries are natural-language claims, and Phase 3 derives the command it runs from the claim's wording. A criterion reading "no known advisories" yields a bare `cargo audit`, which exits non-zero when it merely *failed to fetch* the database — turning a network hiccup into a failed criterion. The criterion text must therefore carry the runnable form and its failure semantics:
+
+> Advisories checked via `cargo audit || cargo audit --stale`; only a reported advisory fails this criterion — a failure to fetch the advisory database does not.
+
+A gate whose binary may be absent probes for it and skips with a zero exit, because a gate that hard-fails on a missing binary gets deleted by the first person it blocks. This is the smoke-command idiom above — exit cleanly, leave a readable trace — not the pre-flight abort in `tests/integration/run.sh:33-42`, which sets `fail_pre=1` and is right to, because missing test infrastructure means the suite cannot run at all:
+
+```bash
+if command -v cargo-machete >/dev/null 2>&1; then
+  cargo machete --with-metadata
+else
+  echo "SKIPPED: cargo-machete not installed"
+fi
+```
+
+`cargo audit || cargo audit --stale` takes the same wrapper under `command -v cargo-audit`. Skip and pass both exit zero, so the `SKIPPED:` prefix is the only thing distinguishing them; `commands_run` accepts any shape, so a summarized "machete clean" would be indistinguishable from a real pass. Require in the criterion that the prefix be recorded verbatim. This path fires on every non-Rust repo, permanently — routine `SKIPPED:` lines are expected, not gate flakiness.
+
 ### Step 6: Write `spec.json`
 
 Path: `.ixion/plugin/sessions/<session-id>/spec.json`
@@ -242,6 +263,24 @@ For phases that are genuinely hard to automate (HTTP servers, GUI changes, proce
 ```
 
 The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `cargo check` (verifies the code compiles), `cargo build` (verifies it links). `manual_verification` is for supplementary checks **the orchestrating agent performs itself** (not the user) — things like curling an endpoint, inspecting browser output, capturing tmux panes to verify TUI behavior, or reading server logs. The orchestrator has full tool access and will execute these steps directly. `manual_verification` is allowed to be `null` but `verification` is not.
+
+#### Rust phases: chaining the per-phase gates
+
+A single smoke command is the minimum, not the target. Rust has a canonical gate list with a tier assigned to each gate — **before composing a `verification` string for a Rust phase, load the `language-standards` skill and read its Tooling Gates section.** The examples below are a snapshot of that list, written out because `verification` must be runnable and a pointer is not: nothing keeps the flags here in sync with the canonical list, so when the two disagree, language-standards is right.
+
+An interior phase chains the per-phase gates:
+
+```json
+"verification": "cargo test --locked && cargo clippy --all-targets --all-features --locked -- -D warnings && cargo fmt --check"
+```
+
+The feature-combination checks join that chain on the final phase and on any phase whose `files[]` includes `Cargo.toml` or a feature-gated module. Each feature set defeats the build cache, so running them on every phase costs roughly four compilations per phase rather than one:
+
+```json
+"verification": "cargo test --locked && cargo clippy --all-targets --all-features --locked -- -D warnings && cargo fmt --check && cargo check --all-features --locked && cargo check --no-default-features --locked"
+```
+
+`spec.schema.json` types `verification` as a plain non-empty string, so a chained command is already legal — no schema change is involved. Other languages have no canonical list here; compose their `verification` from the project's own build and test commands.
 
 **BLOCKING: DO NOT** add `name`, `verification_commands`, or any other field to a task — the schema rejects them. Use `description` for the narrative; put verification at the phase level, not the task level. `test_scenarios[]` are plain strings (one scenario per entry; include expected behavior in the string). `files[]` entries are plain repo-relative paths (no " (new)" suffixes, no annotations).
 
