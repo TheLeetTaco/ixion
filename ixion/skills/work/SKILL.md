@@ -197,16 +197,24 @@ git status --porcelain -- <every wave member's declared files>
 
 **BLOCKING: every chunk runs inside a Task subagent.** Main agent does probe → dispatch → checkpoint, never Edit/Write on source files.
 
-Launch one Task per wave member in a SINGLE message. When the wave has more than one member, append this to each dispatch's `## Context` section:
+Launch one Task per wave member in a SINGLE message. Append this to every dispatch's `## Context` section:
+
+```
+- Run only file-scoped checks yourself: the specific test file, plus the gate the
+  `language-standards` skill tags **per-chunk** in its Tooling Gates section — load the
+  skill and run that gate exactly as written there, flags included. The orchestrator runs
+  each phase's full `verification` after the wave, so a full-suite run of your own is
+  duplicated work, and in a multi-member wave it contends with siblings on build locks
+  and ports.
+```
+
+When the wave has more than one member, append this bullet as well:
 
 ```
 - Concurrent phases in this wave: <other ids + their files[]>. Those files belong to their
   phases; this working tree is shared. Stay within your declared files. If the clean fix
   needs a file another wave member owns, return with `outcomes` noting it instead of
   editing it — the orchestrator re-dispatches it serially after the wave.
-- Run only file-scoped checks yourself (the specific test file, `cargo check`); the
-  orchestrator runs each phase's full `verification` after the wave — concurrent full-suite
-  runs contend on build locks and ports.
 ```
 
 The dispatch templates below paste the verbatim Elegance Dispatch Bar text captured in step 2.0. Same bar in plan mode and fix-findings mode — read once, reuse N times.

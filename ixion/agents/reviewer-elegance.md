@@ -124,6 +124,8 @@ Do NOT flag:
 
 The canonical catalog lives at `ixion/skills/ixion-conventions/references/elegance.md`. Use those names when leading the Failure paragraph in findings — naming makes findings actionable and consistent, and plan-consolidation routes structural failures to redesign by these names.
 
+Before reviewing, load the `language-standards` skill. Focus on the Ownership & API Design, Type-Driven Design, and Idiomatic Patterns sections — they name where the six universal principles land in this language, and each bolded entry there (**Clone to Satisfy Borrowck** for a `.clone()` that only silences the borrow checker, **Shallow Wrapper** for a newtype carrying no invariant) is a catalog name you lead the Failure with.
+
 ---
 
 ## Review Process
