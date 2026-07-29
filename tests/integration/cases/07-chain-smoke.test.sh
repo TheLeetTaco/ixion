@@ -37,6 +37,11 @@ SESSION="ixion-int-chain"
 SBOX=""
 AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
 
+# The per-phase Rust gates that language-standards adds beyond `cargo test`.
+# Both toolchain components ship with rustup, so a spec that composes them
+# produces commands that really run here.
+GATE_RE="clippy|fmt"
+
 dump_pane() {
   echo "----- pane tail -----"
   tmux_capture "$SESSION" 2>/dev/null || true
@@ -69,8 +74,11 @@ if tmux_capture "$SESSION" | grep -q "Quick safety check"; then
 fi
 note_pass "claude TUI started"
 
-# Trivial fixture: one function, one test, std only.
-PROMPT="Create a Rust library with one function double(n: i64) -> i64 that returns n * 2, with a unit test in the same file. Std and built-in cargo test only — no external crates."
+# Trivial fixture: one function, one test, no external crates so the run stays
+# offline and fast. The prompt says nothing about the toolchain, which leaves
+# plan-creation free to compose the language-standards gates — the thing the
+# GATE_RE assertions below are here to catch.
+PROMPT="Create a Rust library with one function double(n: i64) -> i64 that returns n * 2, with a unit test in the same file. Std only — no external crates."
 
 # ---- Step 1: /plan drives creation -> review -> consolidation --------------
 # NOTE: bare "/plan" is what 02-fly-plan-creates-spec sends. If the host
@@ -125,6 +133,19 @@ else
   echo "----- end -----"
 fi
 
+# A valid spec is not a gated one: plan-creation must have read the Tooling
+# Gates list and chained it into the phases it wrote, not settled for the bare
+# `cargo test` a schema check would accept just as happily.
+GATED_PHASES=$(jq --arg re "$GATE_RE" '[.phases[] | select(.verification | test($re))] | length' "$SDIR/spec.json" 2>/dev/null || echo 0)
+if [ "$GATED_PHASES" -gt 0 ]; then
+  note_pass "spec composed a lint/format gate into $GATED_PHASES phase verification(s)"
+else
+  note_fail "no phase verification names a gate beyond cargo test"
+  echo "----- phase verifications -----"
+  jq -r '.phases[].verification' "$SDIR/spec.json" 2>/dev/null || echo "(unreadable)"
+  echo "----- end -----"
+fi
+
 # ---- Step 2: /work in plan mode -------------------------------------------
 tmux_send_line "$SESSION" "/work"
 
@@ -146,6 +167,20 @@ if [ "$plan_done" = "true" ]; then
 else
   note_fail "work plan-mode did not complete in 15min"
   dump_pane; finalize
+fi
+
+# Composing a gate is not running one. work records every verification and
+# success_criteria command it ran as a commands_run entry, so a gate that
+# actually executed leaves its command text here. Entries are ceremony and may
+# be objects or bare strings, hence tostring before matching.
+GATE_RUNS=$(jq --arg re "$GATE_RE" '[.artifacts.commands_run[]? | tostring | select(test($re))] | length' "$SDIR/progress.json" 2>/dev/null || echo 0)
+if [ "$GATE_RUNS" -gt 0 ]; then
+  note_pass "work ran $GATE_RUNS gated command(s) beyond cargo test"
+else
+  note_fail "commands_run[] records no gate beyond cargo test"
+  echo "----- commands_run -----"
+  jq -r '.artifacts.commands_run' "$SDIR/progress.json" 2>/dev/null || echo "(unreadable)"
+  echo "----- end -----"
 fi
 
 # ---- Step 3: /work-review -------------------------------------------------

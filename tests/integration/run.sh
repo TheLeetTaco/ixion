@@ -42,6 +42,9 @@ fi
 if ! command -v bunx >/dev/null 2>&1; then
   echo "ERROR: bunx not found in PATH (used to run ajv-cli)" >&2; fail_pre=1
 fi
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "ERROR: cargo not found in PATH (used to build and gate the Rust fixture in the chain case)" >&2; fail_pre=1
+fi
 if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
   echo "ERROR: ANTHROPIC_API_KEY is not set — these are real-API tests" >&2
   fail_pre=1
