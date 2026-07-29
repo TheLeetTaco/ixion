@@ -104,6 +104,17 @@ Authoring a gate is not done until all three hold:
 
 When the artifact is only produced at runtime, simulate all three inputs rather than skipping the check — a fifteen-line script that builds a regressed artifact, a correct one, and a partially-correct one costs less than one bad round.
 
+### Escape 3, same session, by the person who wrote escape 2's fix
+
+The (c) leg is the one that gets skipped, and knowing about it does not stop you skipping it. Hours after diagnosing escape 2 and writing this table, I approved a fresh assertion demanding `cargo audit`/`cargo machete` appear in a spec's `success_criteria`. Its token had a clean zero baseline. It fired correctly against a spec that omitted the gates. And it would have failed every correct run, because the chain fixture is deliberately dependency-free — `cargo audit` scans a dependency graph that does not exist, so a planner omitting it is right.
+
+Nobody caught it by reading. It surfaced only when a live run produced a correct spec the gate rejected, which is also the first time any of these assertions had ever executed.
+
+Two things generalise:
+
+- **(a) and (b) are about the artifact; (c) is about every writer that produces it.** You cannot answer (c) by looking at the assertion — you have to enumerate what actually populates the artifact and confirm at least one path emits the token. Both escape 2 and escape 3 died on that step.
+- **When a fixture cannot exercise a behaviour, an assertion about it is a false gate, not coverage.** The honest move is to report the value and say why it is not judged. Both session-tier checks became `INFO:` lines naming the fixture's dependency-free property as the reason, plus what a real gate would cost (a fixture with a dependency, trading away the offline property it was built around).
+
 ### A gate that fails on correct input is worse than a weak one
 
 A weak gate under-reports. A gate that blocks correct work gets **deleted by the first person it blocks** — taking its real coverage with it. This is the same dynamic that makes a tool-presence probe skip loudly rather than hard-fail on a missing binary. When the two errors are not equally cheap, bias toward the weaker assertion and say so in a comment.
@@ -152,6 +163,10 @@ grep -rn '<base>' ixion/skills/ ; # not: three explicit SKILL.md paths
 - **Repo:** Ixion plugin (`ixion/skills/`, `ixion/schemas/`)
 - **Shipped in:** `ae14cdf`; amended after `7aa23b2` (session `cargo-gate-tiering`)
 
-### Why both escapes were caught by reasoning, not by a red test
+### Escapes 1 and 2 were caught by reasoning; escape 3 needed a real run
 
-Neither the amended gate nor the original ever ran: the authoring host lacks `tmux`, `jq` and `bunx`, so `tests/integration/` cannot execute there and `bash -n` proves parse-only. Both escapes were found by tracing writers and hand-simulating inputs. That is the expensive path, and it is the one this rule exists to shorten — but note it also means the three-way check above has itself only been reasoned through, not observed failing a real run.
+The authoring host lacks `tmux`, `jq` and `bunx`, so `tests/integration/` could not execute there and `bash -n` proved parse-only. Escapes 1 and 2 were found by tracing writers and hand-simulating inputs — the expensive path this rule exists to shorten.
+
+Escape 3 was not. It survived the amendment, its author, and a reviewer, and only died when the suite finally ran in a container and produced a correct artifact the gate rejected. Reading has now missed this class three times in one session; executing caught it on the first attempt. Weight the two accordingly when deciding whether an unrun assertion is good enough.
+
+Getting to that first execution cost five container bugs — MSYS path conversion, a root refusal, two unaccepted first-run dialogs, and a wrapper that discarded the pane scrollback needed to debug any of them. None was findable by inspection either. See `tests/integration/docker-run.sh`.
