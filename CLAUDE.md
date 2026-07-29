@@ -161,6 +161,10 @@ The integration test loads the plugin via `--plugin-dir` pointing at the source 
 
 Schema changes affect both the plugin AND the test (which validates artifacts via `bunx ajv-cli`). After a schema change: reinstall plugin AND recheck test assertions still match the schema.
 
+## Past solutions
+
+Compound learnings from previous sessions live in `docs/solutions/`. Grep it before re-deriving a fix.
+
 ## Don't do
 
 - **Don't clean up before debugging.** `rm -rf` the sandbox and log in the next-run setup; the previous run's evidence is gone forever.
