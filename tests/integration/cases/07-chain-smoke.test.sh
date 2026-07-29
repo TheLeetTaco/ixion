@@ -133,11 +133,17 @@ note_pass "claude TUI started"
 PROMPT="Create a Rust library with one function double(n: i64) -> i64 that returns n * 2, with a unit test in the same file. Std only — no external crates."
 
 # ---- Step 1: /plan drives creation -> review -> consolidation --------------
-# NOTE: bare "/plan" is what 02-fly-plan-creates-spec sends. If the host
-# Claude Code build resolves /plan to its own built-in plan mode instead of
-# the plugin skill, this and 02 fail the same way — that is a plugin-naming
-# bug to fix at the source, not something to work around here.
-tmux_send_line "$SESSION" "/plan $PROMPT"
+# Namespaced because bare "/plan" resolves to Claude Code's own plan mode, not
+# the plugin skill: the TUI answers "Enabled plan mode" and writes a
+# conversational plan, so no session dir is ever created and the run fails at
+# the active.json wait with nothing to show for it. Observed on 2.1.220.
+#
+# This file used to say the shadowing was a plugin-naming bug to fix at the
+# source rather than route around here, and that is still the better fix. The
+# namespace is what every other invocation surface uses, though, so testing the
+# bare form was testing a path nobody drives. `02-fly-plan-creates-spec` still
+# sends bare "/plan" and still fails this way.
+tmux_send_line "$SESSION" "/ixion:plan $PROMPT"
 
 if ! wait_for_file_with_autopilot "$SESSION" "$ACTIVE" 300; then
   note_fail "active.json never appeared (plan-creation stalled)"
