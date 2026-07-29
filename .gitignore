@@ -74,3 +74,5 @@ temp/
 .claude/
 .ixion/
 inspiration/
+tests/integration/.artifacts/
+tests/integration/.logs/

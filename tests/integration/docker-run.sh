@@ -62,15 +62,27 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || {
   docker build -f "$REPO_ROOT/tests/integration/Dockerfile" -t "$IMAGE" "$REPO_ROOT/tests/integration"
 }
 
+# The suite's own trap saves pane scrollback and preserves its sandbox under
+# TMPDIR — the most informative diagnostics it produces, and both die with the
+# container. Sandboxes stay on the container filesystem while the test runs
+# (cargo builds there; a bind mount would crawl) and get copied out at the end.
+ARTIFACTS="$REPO_ROOT/tests/integration/.artifacts"
+mkdir -p "$ARTIFACTS"
+ARTIFACTS_HOST=$(host_path "$ARTIFACTS")
+# Runs on the test's exit path, so a normal FAIL still yields diagnostics; a
+# SIGKILLed container loses them, which is the one case this cannot cover.
+harvest='rc=$?; cp -a /tmp/ixion-int-*.pane.txt /artifacts/ 2>/dev/null || true; cp -a /tmp/ixion-int-*/ /artifacts/ 2>/dev/null || true; exit $rc'
+
 if [ -n "${IXION_TEST_SHELL:-}" ]; then
   inner='bash install_claude_code.sh </dev/null >/dev/null 2>&1; exec bash'
 elif [ -n "$filter" ]; then
   case_file=$(cd "$REPO_ROOT/tests/integration/cases" && ls "$filter"*.test.sh 2>/dev/null | head -1 || true)
   [ -n "$case_file" ] || { echo "ERROR: no case matching '$filter' in tests/integration/cases/" >&2; exit 2; }
   echo "Running case: $case_file"
-  inner="bash install_claude_code.sh </dev/null && bash tests/integration/cases/$case_file"
+  echo "Artifacts:    $ARTIFACTS"
+  inner="bash install_claude_code.sh </dev/null && bash tests/integration/cases/$case_file; $harvest"
 else
-  inner='bash install_claude_code.sh </dev/null && bash tests/integration/run.sh'
+  inner="bash install_claude_code.sh </dev/null && bash tests/integration/run.sh; $harvest"
 fi
 
 # MSYS_NO_PATHCONV stops Git Bash rewriting container-side paths into Windows
@@ -78,4 +90,5 @@ fi
 MSYS_NO_PATHCONV=1 exec docker run --rm ${IXION_TEST_SHELL:+-it} \
   --env-file "$ENV_FILE_HOST" \
   -v "$REPO_ROOT_HOST:/work" -w /work \
+  -v "$ARTIFACTS_HOST:/artifacts" \
   "$IMAGE" bash -lc "$inner"

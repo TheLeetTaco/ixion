@@ -42,10 +42,18 @@ ENV PATH="/home/ixion/.local/bin:${PATH}"
 # A fresh config means first-run onboarding: the TUI stops on the theme picker
 # and never prints the "? for shortcuts" banner the harness waits for, so every
 # case fails as "claude TUI did not start" while the process is alive and well.
-# Marking onboarding done is what lets the suite reach a usable prompt.
+#
+# bypassPermissionsModeAccepted matters even more. The harness launches with
+# --permission-mode bypassPermissions, and an unaccepted mode raises a warning
+# whose default option is "No, exit". The harness answers the trust dialog with
+# Enter, then types its first command — that keystroke lands on this second
+# dialog, takes the default, and claude exits. tmux dies with it, so every
+# later step reports "no server running" and the real cause never surfaces.
+# A developer machine has accepted both long ago; only a fresh container sees them.
 RUN printf '%s\n' \
       '{' \
       '  "hasCompletedOnboarding": true,' \
+      '  "bypassPermissionsModeAccepted": true,' \
       '  "theme": "dark",' \
       '  "numStartups": 1' \
       '}' > /home/ixion/.claude.json
