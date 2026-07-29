@@ -105,9 +105,15 @@ Do NOT write to any files. The synthesizer owns all file writes.
 Determine the diff size before dispatching:
 
 ```bash
-git diff <base>...HEAD --shortstat
+BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
 ```
+
+`work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against `main`, sizes the reviewer set off the wrong number.
+
+The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and `jq -r` prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the default branch is the same base `work` would have recorded. With no remote configured, that `symbolic-ref` fails — use whichever of `main` or `master` this repo has.
 
 Choose the set:
 
@@ -272,7 +278,7 @@ Validate against `ixion/schemas/findings.schema.json`. If validation fails, the 
 Resolve the target path via `.ixion/plugin/active.json`:
 
 ```
-.ixion/plugin/sessions/<session_id>/review.findings.json
+.ixion/plugin/sessions/<session-id>/review.findings.json
 ```
 
 Write atomically: write to `review.findings.json.tmp` then rename.
@@ -298,7 +304,7 @@ Top findings:
 - <title> (P1)
 - <title> (P2)
 
-Review written to: .ixion/plugin/sessions/<session_id>/review.findings.json
+Review written to: .ixion/plugin/sessions/<session-id>/review.findings.json
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.

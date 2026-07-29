@@ -13,6 +13,10 @@
     "status": { "enum": ["active", "paused", "completed"] },
     "started_at": { "type": "string", "format": "date-time" },
     "last_checkpoint_at": { "type": ["string", "null"], "format": "date-time" },
+    "base_ref": {
+      "type": ["string", "null"],
+      "description": "Commit this session's work is measured from. Resolved once by work Phase 1 (the branch point) and read by work Phase 3/4, work-review, and ship, which are separate invocations with no shared variable. Absent on sessions that predate checkpoint commits."
+    },
     "active_skill": {
       "oneOf": [
         { "enum": ["plan-creation", "plan-review", "plan-consolidation", "work", "work-review"] },

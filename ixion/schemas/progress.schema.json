@@ -40,6 +40,19 @@
               }
             ]
           }
+        },
+        "checkpoint_commits": {
+          "type": "array",
+          "description": "One entry per chunk committed at its checkpoint, written immediately after that chunk's commit. Names the same chunks as completed[] — a failed commit removes the chunk from completed[] and writes no entry here, leaving it in neither list. A chunk in completed[] with no entry here means the process died between those two writes; resume looks the commit up by its Ixion-Chunk trailer and either re-appends the entry or, if the commit never landed, drops the chunk from completed[] so its wave re-runs it.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["chunk_id", "sha"],
+            "properties": {
+              "chunk_id": { "type": "string", "minLength": 1 },
+              "sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+            }
+          }
         }
       }
     },

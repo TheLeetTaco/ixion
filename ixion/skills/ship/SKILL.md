@@ -38,10 +38,22 @@ git log --oneline -5
 git rev-parse --abbrev-ref HEAD
 ```
 
+Then resolve the base — the commit this branch's work is measured from. `work` recorded it when it created the branch:
+
+```bash
+SDIR=".ixion/plugin/sessions/<session-id>"   # from .ixion/plugin/active.json, or the id this conversation established
+BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+git log "$BASE_REF"..HEAD --oneline
+```
+
+An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the default branch. With no remote configured, that `symbolic-ref` fails — use whichever of `main` or `master` this repo has.
+
 Determine:
 - **Current branch**: Are we on the base branch (main/master/develop)?
 - **Changes**: What files are modified, staged, or untracked?
-- **If no changes exist**: Inform the user and stop.
+- **Commits ahead of base**: what `git log "$BASE_REF"..HEAD` listed.
+- **If there is neither**: nothing to ship — inform the user and stop. A clean tree on its own is not that. `work` commits each chunk as it verifies it, so a finished session normally arrives here clean with its whole feature already in commits.
 
 ---
 
@@ -57,11 +69,15 @@ If current branch is `main`, `master`, or `develop`:
    git checkout -b <branch-name>
    ```
 
-If already on a feature branch, skip this phase.
+If already on a feature branch, skip this phase — which is the normal pipeline case, since `work` branched before its first checkpoint commit.
 
 ---
 
-## Phase 3: Commit Changes
+## Phase 3: Commit What's Left
+
+The checkpoint commits `work` already made are the branch's history and stay exactly as they are: don't re-commit them, don't amend them, and don't offer to squash them. A reviewer reading the PR chunk by chunk is the point of them.
+
+So commit only what is still uncommitted. If the tree is clean there is nothing to do here — that's the expected outcome after a full session, not an error; go to Phase 4.
 
 1. Review `git diff` (staged and unstaged) to understand all modifications
 2. Group related changes logically — prefer one commit unless changes are clearly separate concerns
@@ -86,9 +102,14 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
 
 2. Analyze all commits on this branch (vs base) to write a PR description:
    ```bash
-   git log main..HEAD --oneline
-   git diff main..HEAD --stat
+   SDIR=".ixion/plugin/sessions/<session-id>"
+   BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
+   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+   git log "$BASE_REF"..HEAD --oneline
+   git diff "$BASE_REF"..HEAD --stat
    ```
+
+   Phase 1's shell is long gone, so resolve it the same way again. The base matters here because the branch this PR targets is often not `main`, and the checkpoint commits are only visible from the base `work` actually branched at.
 
 3. Create the PR using `gh`:
    ```bash
