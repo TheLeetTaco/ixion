@@ -45,8 +45,13 @@ fi
 if ! command -v cargo >/dev/null 2>&1; then
   echo "ERROR: cargo not found in PATH (used to build and gate the Rust fixture in the chain case)" >&2; fail_pre=1
 fi
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  echo "ERROR: ANTHROPIC_API_KEY is not set — these are real-API tests" >&2
+# What the suite needs is a credential `claude` can authenticate with, not an API
+# key specifically. Demanding ANTHROPIC_API_KEY locked out every Claude
+# subscription user, who has no API key and would have to buy a second,
+# pay-as-you-go billing path to run these at all.
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  echo "ERROR: no Anthropic credential — these are real-API tests" >&2
+  echo "  set ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN from 'claude setup-token'" >&2
   fail_pre=1
 fi
 [ "$fail_pre" = "1" ] && exit 2
