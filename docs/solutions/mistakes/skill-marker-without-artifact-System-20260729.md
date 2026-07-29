@@ -82,7 +82,10 @@ No fix applied — this is a live finding recorded for the next person to hit it
 | `Skill(<name>)` in pane + artifact present | Skill ran. Fine. |
 | `Skill(<name>)` in pane + artifact absent + low CPU | **This failure.** Invoked, narrated, stopped. |
 | `Skill(<name>)` in pane + artifact absent + high CPU | Still working. Wait. |
+| No marker + artifact **present** | Skill was compressed into inline reasoning — the agent did the work from memory of what the skill does, never loading it. Output looks plausible and may be wrong in ways only the skill's own steps would have caught. |
 | No marker + artifact absent | Skill was never invoked — an orchestration bug, not a skill-body one. |
+
+The fourth row was observed in the same run that produced the second: `work-review` wrote a schema-valid `review.findings.json` via direct `Write` calls with no `Skill(ixion:work-review)` anywhere in the scrollback. An artifact-only assertion passes it. A marker-only assertion passes the second row. Neither alone is sufficient, which is the whole reason ADR-001 Principle 12 asks for both.
 
 ### When the reported failure is not the real one
 
