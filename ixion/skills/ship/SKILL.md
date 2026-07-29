@@ -114,21 +114,45 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
 
 ## Phase 5: Compound Learnings
 
-After the PR is created, invoke the `compound` skill to capture knowledge from this work session:
+Two sources feed this phase. The conversation holds the debugging story. The session dir holds the *reviewed* record — what the plan got wrong before review caught it, which findings survived scrutiny, which didn't. The session dir is the one that gets skipped, and it's the one that's gitignored, so it's also the only one that disappears. Harvest it first, then hand both to `compound`.
+
+### 5a. Harvest the session record
+
+Only if this ship followed a pipeline session. Resolve the session id (`.ixion/plugin/active.json`, or the id this conversation already established) and read what's there:
+
+```bash
+SDIR=".ixion/plugin/sessions/<session-id>"
+ls "$SDIR"
+```
+
+If `$SDIR` doesn't exist, skip to 5b with the conversation as the only source — an ad-hoc ship has no session to distill.
+
+Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
+
+| Read | Question it answers |
+|---|---|
+| `spec.json.pre-consolidation` vs `spec.json` | What did plan review reshape? A phase deleted or restructured is a design we'd have built wrong — the most valuable thing in the session. |
+| `review.findings.json` | Which anti-patterns did six reviewers actually find in the code? A principle name appearing here that also appears in a past `docs/solutions/` entry is a recurring habit, not an incident. |
+| Surviving vs dropped P1s in `review.findings.json` | Whether the empirical gate (`work-review` 2.3c) killed runtime claims. A round where nothing was killed says something about the reviewers, not the code. |
+| `progress.json.plan-mode` vs `progress.json` | What the fix pass had to undo. Fixes that fought the original structure point at a planning miss. |
+
+Most sessions yield nothing here, and that's the expected outcome — a plan that survived review intact and a fix pass that changed little is a session with no lesson in it. Distill only what a future reader would change their behavior over.
+
+### 5b. Invoke compound
 
 ```
 skill: compound
 ```
 
-The compound skill will review the conversation for non-trivial problems solved, debugging insights, or patterns discovered during implementation. If nothing worth documenting was encountered (simple feature, no surprises), compound will detect this and skip gracefully.
+Hand it both sources: the conversation, and the harvest from 5a stated plainly (what was reshaped, which principle names recurred, what the fix pass undid). `compound` owns the file format, category routing, and sanitization — don't write to `docs/solutions/` directly from here. If neither source yields a non-trivial lesson, compound detects that and skips gracefully.
 
-**BLOCKING: Do NOT skip this phase.** The value of shipping is not just the code — it's the institutional knowledge captured alongside it.
+**BLOCKING: Do NOT skip this phase.** The value of shipping is not just the code — it's the institutional knowledge captured alongside it. The session dir is gitignored; whatever isn't distilled here is gone when the sandbox is cleaned.
 
 ---
 
 ## Edge Cases
 
-- **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session-id> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split.
+- **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session-id> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split. Do the copy-back before Phase 5 so the harvest reads the merged record, and before any `git worktree remove` takes the artifacts with it.
 - **No remote configured**: Inform the user and stop
 - **Branch already has a PR**: Show the existing PR URL, ask if they want to update it
 - **Push fails**: Check if branch exists on remote, suggest force-push only with user confirmation
