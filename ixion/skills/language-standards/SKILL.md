@@ -54,9 +54,17 @@ Bolded names below (**Clone to Satisfy Borrowck**, **Shallow Wrapper**, ...) are
 
 ## Tooling Gates
 
-- `cargo clippy -- -D warnings` — clean, no `#[allow]` without a one-line justification
-- `cargo fmt --check`
-- `cargo test` — includes doc-tests
+Each gate names the tier it runs at: **per-chunk** (a subagent, file-scoped, mid-implementation), **per-phase** (the orchestrator, after a wave), **session** (the orchestrator, once at the end).
+
+- `cargo check --locked` — per-chunk. `--locked` exits 0 when `Cargo.lock` is present and current and refuses clearly when it would have to write one, so a verification run cannot silently resolve a different dependency graph than the one reviewed; it also refuses in a repo with no committed lockfile, normal for a library crate, where these gates do not apply.
+- `cargo clippy --all-targets --all-features --locked -- -D warnings` — per-phase. No `#[allow]` without a one-line justification. Without `--all-targets` a violation in a test or example is never reported; without `--all-features` feature-gated code is invisible to the lint pass.
+- `cargo fmt --check` — per-phase. Do not add `--all`: measured on a two-member workspace, `cargo fmt` already flags every member from any working directory (rustfmt #2488), so the flag would be ceremony.
+- `cargo test --locked` — per-phase; includes doc-tests. Do not add `--all-targets` here — it silently drops the `Doc-tests` runner (cargo #11015, #6669); `cargo test --doc` is the companion when you want doc-tests alone.
+- `cargo check --all-features --locked` and `cargo check --no-default-features --locked` — per-phase, but only on the final phase and on any phase whose `files[]` includes `Cargo.toml` or a feature-gated module: each feature set defeats the build cache, so running both unconditionally costs about four compilations per phase, roughly forty on a ten-phase spec. `--all-features` catches code rotting behind a feature nobody enables by default; `--no-default-features` catches code that only compiles because a default feature happened to be on.
+- `cargo audit || cargo audit --stale` — session, because the fetch is networked and per-phase would make every phase network-dependent. The fallback form checks fresh advisories and falls back to the cached database only when the fetch fails; unconditional `--stale` would report clean against a frozen advisory set indefinitely.
+- `cargo machete --with-metadata` — session, because it is noisy enough that repeating it per wave trains the reader to ignore it. Finds unused dependencies; `--with-metadata` cuts false positives. (`cargo udeps` rejected: nightly-only.)
+
+Never, at any tier: `cargo deny`, MSRV checks, coverage thresholds, benchmarks, cross-compilation — CI's job, not a wave's. A gate whose binary is missing skips loudly rather than failing the phase, and that skip path fires on every non-Rust repo, so routine `SKIPPED:` lines are expected rather than gate flakiness.
 
 ## Anti-Patterns to Flag
 
