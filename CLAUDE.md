@@ -10,7 +10,7 @@ When asked to plan a feature, run the `plan` skill rather than producing an ad-h
 
 The chain test (`tests/integration/cases/07-chain-smoke.test.sh`) drives the full pipeline against the real Anthropic API, invoking each skill as its own command (`/plan` → `/work` → `/work-review` → `/work`). Prerequisites:
 
-- `ANTHROPIC_API_KEY` set
+- A credential: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`. A Claude subscription has no API key, and buying pay-as-you-go access purely to run tests is a tax nobody should pay — the token draws on the subscription instead.
 - `tmux`, `claude`, `jq`, `bunx`, `cargo` on PATH (the fixture builds and tests a Rust crate)
 - The plugin installed via `bash install_claude_code.sh < /dev/null` (non-TTY stdin skips the Context7 prompt)
 
@@ -25,6 +25,20 @@ LOG=/tmp/ixion-chain-test.log
 bash tests/integration/cases/07-chain-smoke.test.sh \
   > "$LOG" 2>&1; echo "TEST EXITED: $?" >> "$LOG"
 ```
+
+### Running from Windows
+
+The suite needs a Linux userspace — it drives `claude` inside tmux and reads pane scrollback — so it cannot run natively on Windows. `tests/integration/docker-run.sh` supplies one:
+
+```bash
+tests/integration/docker-run.sh 07    # one case by filename prefix
+tests/integration/docker-run.sh       # whole suite
+IXION_TEST_SHELL=1 tests/integration/docker-run.sh   # shell inside the container, to poke around
+```
+
+It builds `tests/integration/Dockerfile` on first use, then mounts the repo at `/work`. The credential comes from `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in the environment, or from a `claude_token=` line in a gitignored `.env` at the repo root; it is passed by `--env-file` so it never reaches `docker inspect`. Sandboxes land in the container's `/tmp`, not on the bind mount, so the Windows filesystem is not in the hot path.
+
+Two things the container gets right by construction: `tmux new-session -d` with pinned `-x 200 -y 50` geometry makes pane capture more deterministic than a real terminal, and `.gitattributes` pins `*.sh` to LF so the scripts run under Linux without CRLF damage.
 
 Because no orchestrator pre-answers prompts, `07` drives the skills' live `AskUserQuestion` dialogs via `wait_for_file_with_autopilot` / `autopilot_respond` (`lib/tmux.sh`). A deadlock in `07` usually means a dialog shape the autopilot doesn't recognize, not a stalled agent.
 
