@@ -39,6 +39,17 @@ ENV PATH="/home/ixion/.cargo/bin:${PATH}"
 RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/ixion/.local/bin:${PATH}"
 
+# A fresh config means first-run onboarding: the TUI stops on the theme picker
+# and never prints the "? for shortcuts" banner the harness waits for, so every
+# case fails as "claude TUI did not start" while the process is alive and well.
+# Marking onboarding done is what lets the suite reach a usable prompt.
+RUN printf '%s\n' \
+      '{' \
+      '  "hasCompletedOnboarding": true,' \
+      '  "theme": "dark",' \
+      '  "numStartups": 1' \
+      '}' > /home/ixion/.claude.json
+
 WORKDIR /work
 
 RUN for t in tmux jq bunx cargo claude; do \
