@@ -44,7 +44,7 @@ Two things the container gets right by construction: `tmux new-session -d` with 
 Because no orchestrator pre-answers prompts, `07` drives the skills' live `AskUserQuestion` dialogs via `wait_for_file_with_autopilot` / `autopilot_respond` (`lib/tmux.sh`). A deadlock in `07` usually means a dialog shape the autopilot doesn't recognize, not a stalled agent.
 
 Smaller tests:
-- `00-plugin-loads.test.sh` — palette discovery, still no model call, but no longer the near-instant case it once was (~1min). Every sandbox now pays a pinned `git init`, a bare-repo init, a push and an `origin/HEAD` symref write, because `make_sandbox` gives the whole suite a resolvable origin.
+- `00-plugin-loads.test.sh` — palette discovery, no model call (~30s). `make_sandbox` gives every sandbox a resolvable origin, so this case also pays a bare-repo init, a `remote add`, a push of a one-commit repo and an `origin/HEAD` symref write — four local git calls, well under a second against a ~30s wall-clock dominated by TUI startup and the palette `sleep`s.
 - `01-fly-work-resumes.test.sh` — `work` skill against seeded session (~1–3min)
 - `02-fly-plan-creates-spec.test.sh` — `plan` skill end-to-end (~3–10min)
 - `05-parallel-sessions.test.sh`, `06-parallel-chunks.test.sh` — concurrency behavior
