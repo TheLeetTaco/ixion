@@ -38,35 +38,41 @@ git log --oneline -5
 git rev-parse --abbrev-ref HEAD
 ```
 
-Then resolve the base — the commit this branch's work is measured from. `work` recorded it when it created the branch:
+Then resolve the branch roles — which branches are off-limits to commit onto, and which one this branch's work is measured from:
+
+```bash
+<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+```
+
+Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
 SDIR=".ixion/plugin/sessions/<session-id>"   # from .ixion/plugin/active.json, or the id this conversation established
 BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "<integration branch>")
 git log "$BASE_REF"..HEAD --oneline
 ```
 
-An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the default branch. With no remote configured, that `symbolic-ref` fails — use whichever of `main` or `master` this repo has.
+`<integration branch>` is the `integration=` line the first block printed; its shell is gone by the second call, so the printed value is what carries across. An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the integration branch.
 
 Determine:
-- **Current branch**: Are we on the base branch (main/master/develop)?
+- **Current branch**: did the resolution print `on_protected=yes`?
 - **Changes**: What files are modified, staged, or untracked?
 - **Commits ahead of base**: what `git log "$BASE_REF"..HEAD` listed.
 - **If there is neither**: nothing to ship — inform the user and stop. A clean tree on its own is not that. `work` commits each chunk as it verifies it, so a finished session normally arrives here clean with its whole feature already in commits.
 
 ---
 
-## Phase 2: Create Branch (if on base branch)
+## Phase 2: Create Branch (if on a protected branch)
 
-If current branch is `main`, `master`, or `develop`:
+If Phase 1's resolution printed `on_protected=yes` — the current branch is in the protected set, production or integration:
 
 1. Analyze the changes to generate a short, descriptive branch name
 2. Use format: `<type>/<short-description>` (e.g. `fix/search-pagination`, `feat/match-scoring`)
 3. Present the branch name to the user for confirmation using AskUserQuestion
 4. Create and switch to the branch:
    ```bash
-   git checkout -b <branch-name>
+   git switch -c <branch-name>
    ```
 
 If already on a feature branch, skip this phase — which is the normal pipeline case, since `work` branched before its first checkpoint commit.
@@ -100,21 +106,50 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
    git push -u origin HEAD
    ```
 
-2. Analyze all commits on this branch (vs base) to write a PR description:
+2. Resolve the branch roles again — Phase 1's shell is long gone and each fenced block is its own process, so the reference is cited a second time rather than a value threaded through:
+
+   ```bash
+   <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+   ```
+
+3. Read what `work` recorded, and analyze the commits on this branch to write the PR description:
+
    ```bash
    SDIR=".ixion/plugin/sessions/<session-id>"
    BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+   RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
+   printf 'base_ref=%s\nrecorded_integration=%s\n' "$BASE_REF" "$RECORDED_INTEGRATION"
+   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "<integration branch>")
    git log "$BASE_REF"..HEAD --oneline
    git diff "$BASE_REF"..HEAD --stat
    ```
 
-   Phase 1's shell is long gone, so resolve it the same way again. The base matters here because the branch this PR targets is often not `main`, and the checkpoint commits are only visible from the base `work` actually branched at.
+   The checkpoint commits are only visible from the base `work` actually branched at.
 
-3. Create the PR using `gh`:
+4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, so `recorded_integration=` distinguishes three cases:
+
+   - **A branch name** — `work` resolved it, but it is a mutable ref and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome, so `git show-ref` it before use:
+
+     ```bash
+     <paste the "Verify a recorded integration branch" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+     ```
+
+     `recorded=usable` → that branch is the PR base. `recorded=stale` → use the freshly resolved `integration=` instead of handing a dead ref to `gh`.
+   - **`null` or empty with `base_ref` present** — a session recorded before `work` wrote this field. Deriving the base fresh could name a branch the diff was never measured against, so name the branch holding the recorded commit instead, keeping the PR and the diff describing one branch point:
+
+     ```bash
+     git branch --format='%(refname:short)' --contains "<base_ref from session.json>"
+     ```
+
+     Of the branches listed, the PR base is whichever is protected; the current branch is always listed and is never it.
+   - **Both absent** — an ad-hoc ship with no session dir. The freshly resolved `integration=` is the PR base.
+
+5. Create the PR using `gh`:
    ```bash
-   gh pr create --title "<concise title>" --body "<description>"
+   gh pr create --base "<pr base branch>" --title "<concise title>" --body "<description>"
    ```
+
+   Without `--base`, `gh` targets `origin/HEAD` — production — so a branch cut from the integration branch opens its PR against production and shows the whole release as its diff.
 
    **PR title**: Short, under 70 characters, imperative mood.
 
@@ -129,7 +164,7 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
 
    Keep it concise. No filler, no boilerplate sections, no AI disclaimers.
 
-4. Output the PR URL to the user.
+6. Output the PR URL to the user.
 
 ---
 
