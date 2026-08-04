@@ -163,6 +163,14 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 `/work-review` runs all reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and writes a structured `review.findings.json` ready for `/work` to consume in fix-findings mode.
 
+### Branching in a two-branch repo
+
+`/work` creates the session branch from the integration branch, and `/ship` opens its PR against that same branch. Start `/work` on production while a distinct integration branch exists and it switches to integration first, then branches — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release.
+
+The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither is unchanged** — integration resolves to the repo's default branch and every skill behaves exactly as it did before. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets the single-branch behavior.
+
+The resolution itself, the protected set, and the error states every skill handles identically (dirty tree, detached HEAD, an integration branch deleted between `work` and `ship`) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
+
 ## Components
 
 | Type                 | Count | Examples |

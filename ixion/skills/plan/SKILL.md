@@ -90,7 +90,35 @@ Pass the captured session id to both — they accept a slug/id argument. Bare in
 
 ### Phase 4: Present Results
 
-Display summary: session id, session dir path, phases completed, findings count, and any critical items.
+Two parts, in this order. The metrics first, then the overview — and the overview is the part I actually read.
+
+`plan-consolidation` signs off with its own short summary and a "what next?" prompt. That is not this. It's the last child skill closing out, and when it returns you still owe me the overview below before the run is finished — answering the next-step prompt is not the end of the pipeline.
+
+**1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open.
+
+**2. The high-level overview.** Write this every time, unprompted. I shouldn't have to ask "so what does this plan actually do?" after reading a findings count — by the time you're printing the receipt you already know the answer, and asking me to request it wastes a round trip. Prose and short tables, not JSON, and no restating the spec field by field:
+
+```
+## The problem
+What's broken today and what it costs, in two or three sentences. Name the
+concrete failure, not the abstraction — "checkpoint commits land on the shared
+branch" beats "branch handling is inconsistent".
+
+## The fix
+The shape of the solution in a few sentences. Name the one design decision that
+mattered most and say what was rejected, if anything was.
+
+## Phases
+A small table: phase, what it does, and why it's separate — dependencies,
+concurrency, or the reason it can't be folded into its neighbour.
+
+## Two things I'd flag
+The riskiest or least-certain parts. Unresolved open questions, assumptions that
+could be wrong, coverage gaps, costs the user hasn't seen yet. If review rejected
+a finding or the user's decision overrode one, say so here.
+```
+
+Scale it to the spec: a two-phase spec gets a shorter version of the same shape, never a longer one. If a section has nothing honest to put in it, drop the section rather than padding it — an empty "things I'd flag" on a genuinely low-risk plan is fine to omit, but reaching for filler to fill it is not.
 
 ---
 

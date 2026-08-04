@@ -105,15 +105,21 @@ Do NOT write to any files. The synthesizer owns all file writes.
 Determine the diff size before dispatching:
 
 ```bash
+<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+```
+
+```bash
 BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
 ```
 
-`work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against `main`, sizes the reviewer set off the wrong number.
+`<integration branch>` is the `integration=` line the first block printed.
 
-The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and `jq -r` prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the default branch is the same base `work` would have recorded. With no remote configured, that `symbolic-ref` fails — use whichever of `main` or `master` this repo has.
+`work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against production, sizes the reviewer set off the wrong number.
+
+The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and `jq -r` prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the integration branch is the same base `work` would have recorded.
 
 Choose the set:
 

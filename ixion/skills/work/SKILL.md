@@ -93,7 +93,17 @@ Procedure:
    trap cleanup_active_skill EXIT
    ```
 
-5. **Worktree assessment** (advisory): if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt:
+5. **Resolve the branch roles, then decide where commits land.** Every chunk gets committed at its checkpoint (2.3), so this decision precedes all of them. Resolve once, here — the worktree path and the in-place path both consume the same answer.
+
+   ```bash
+   <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+   ```
+
+   **`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section. `on_protected=no` here is not permission to carry on: nothing matched because there is no branch name to match.
+
+   **`on_protected=no`** — HEAD is already on a feature branch, where a resumed session and a hand-branched one both arrive. Nothing in the rest of this step applies; go to step 6.
+
+   **`on_protected=yes`** — a checkpoint commit would otherwise land on a shared branch, so the session needs a branch of its own. The **worktree assessment** (advisory) picks how it gets one: if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt:
 
    ```
    Ready to execute.
@@ -103,38 +113,49 @@ Procedure:
    2. Create worktree (Recommended for >10 files or high-risk paths)
    ```
 
-   If worktree: `git worktree add`, then make the worktree a self-contained pipeline home — the session artifacts must travel with the code they describe:
+   **Worktree.** Branch it from the resolved `integration=`, then make the worktree a self-contained pipeline home — the session artifacts must travel with the code they describe:
 
    ```bash
-   git worktree add ../<repo>-<slug> -b <slug>
+   git worktree add -b <slug> ../<repo>-<slug> '<integration= from the resolution block>'
    mkdir -p ../<repo>-<slug>/.ixion/plugin/sessions
    cp -r .ixion/plugin/sessions/<session-id> ../<repo>-<slug>/.ixion/plugin/sessions/
    printf '{ "schema_version": 1, "session_id": "%s" }\n' "<session-id>" > ../<repo>-<slug>/.ixion/plugin/active.json
    ```
 
+   Passing the start point is what lets this path check nothing out in the primary working tree — leaving that tree untouched is the reason the worktree flow exists, so it neither switches nor probes for dirt.
+
    Then remind about dependency install + `/init`, and continue the session from inside the worktree. The copy in the main checkout is stale from this moment — run `work-review` and `ship` from the worktree; `ship` copies the final session dir back before `git worktree remove`. This is also the strong-isolation answer for running two features in parallel: each gets its own worktree, its own branch, and its own `.ixion/plugin/` state. That isolation covers concurrent sessions and file collisions; it does not protect against the destructive git commands the dispatch templates' `## Constraints` block prohibits, which run inside the worktree and discard its uncommitted work just the same.
 
-6. **Branch, then record the base ref.** Every chunk gets committed at its checkpoint (2.3), so decide where those commits land before any of them can happen.
-
-   If HEAD is sitting on the default branch, branch before the first checkpoint commit can land partial work there:
+   **In place.** The session branch is created where HEAD stands, so when `current=` is the production branch and `integration=` differs, move to integration first — branching from production would measure the session against production. That switch rewrites tracked files, so probe before it:
 
    ```bash
-   git checkout -b "<slug>"
+   <paste the "Probe the working tree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
    ```
 
-   The worktree path already branched via `git worktree add -b <slug>`. Then resolve the base:
+   `tree=dirty` halts the session: name the files and stop so the user can commit or stash them. Do not fall through to branching from production — that records `base_ref` against production and reproduces, for exactly those sessions, the stale-base bug this resolution exists to remove. On `tree=clean`:
 
    ```bash
-   DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')
+   <paste the "Switch to the integration branch" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+   ```
+
+   Where `current=` is already `integration=` there is nothing to move to and no probe to run. Either way, the session branch is cut from where HEAD now stands:
+
+   ```bash
+   git switch -c "<slug>"
+   ```
+
+6. **Record the base ref and the integration branch.**
+
+   ```bash
    BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
-   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "$DEFAULT_BRANCH")
+   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
    ```
 
-   With no remote configured, or one never fetched, `symbolic-ref` fails — use whichever of `main` or `master` this repo has. `base_ref` is optional in `session.schema.json`, and `jq -r` prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. `git checkout -b` doesn't move the commit HEAD points at, so the merge-base is this branch's starting point whether it runs before or after the branch exists.
+   `base_ref` is optional in `session.schema.json`, and `jq -r` prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
 
-   Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the default branch has advanced and been merged in, which empties every diff measured against it. The guard fires only when there is nothing recorded to trust.
+   Write `BASE_REF` into `session.json.base_ref` and step 5's `integration=` into `session.json.integration_branch` in one atomic write (same pattern as step 3) — but only when the fallback above fired. A resume leaves both fields exactly as recorded: where `integration_branch` is absent there, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its PR base from `base_ref` instead.
 
-   Finish by writing `BASE_REF` into `session.json.base_ref` (atomic write, same pattern as step 3). It is the commit this session's work is measured from, and `work` is the only skill that ever writes it — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so this field is how they agree on one base. Writing it here is what lets Phase 3 and Phase 4 read it back without a fallback of their own.
+   `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one PR target.
 
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 

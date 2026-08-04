@@ -32,6 +32,7 @@ The suite needs a Linux userspace — it drives `claude` inside tmux and reads p
 
 ```bash
 tests/integration/docker-run.sh 07    # one case by filename prefix
+tests/integration/docker-run.sh 08    # the branch-resolution case
 tests/integration/docker-run.sh       # whole suite
 IXION_TEST_SHELL=1 tests/integration/docker-run.sh   # shell inside the container, to poke around
 ```
@@ -43,10 +44,11 @@ Two things the container gets right by construction: `tmux new-session -d` with 
 Because no orchestrator pre-answers prompts, `07` drives the skills' live `AskUserQuestion` dialogs via `wait_for_file_with_autopilot` / `autopilot_respond` (`lib/tmux.sh`). A deadlock in `07` usually means a dialog shape the autopilot doesn't recognize, not a stalled agent.
 
 Smaller tests:
-- `00-plugin-loads.test.sh` — palette discovery, no model call (~30s)
+- `00-plugin-loads.test.sh` — palette discovery, no model call (~30s). `make_sandbox` gives every sandbox a resolvable origin, so this case also pays a bare-repo init, a `remote add`, a push of a one-commit repo and an `origin/HEAD` symref write — four local git calls, well under a second against a ~30s wall-clock dominated by TUI startup and the palette `sleep`s.
 - `01-fly-work-resumes.test.sh` — `work` skill against seeded session (~1–3min)
 - `02-fly-plan-creates-spec.test.sh` — `plan` skill end-to-end (~3–10min)
 - `05-parallel-sessions.test.sh`, `06-parallel-chunks.test.sh` — concurrency behavior
+- `08-branch-resolution.test.sh` — `work` branches off the integration branch, not production; two TUI runs, one two-branch repo and one single-branch (~4–8min). Topology correctness is proven offline by `tests/branch-resolution-harness.sh`, which needs no credential and runs in seconds — start there.
 
 ## Monitoring a long-running test
 
@@ -105,7 +107,7 @@ Why the dual signal: an AskUserQuestion-pattern monitor alone misses silent stop
 
 The monitor catches *failure shapes* (PASS/FAIL/INFO, deadlock, silent stop). It does not tell you whether the artifacts are any good. **That's your job.** Each `PASS:` milestone is a ping to read the artifact that just landed and audit it against the bar — surface concerns immediately, don't wait for the test to finish. A spec missing an elegance criterion, or a findings.json missing the 4-slot Failure format, is a real signal about the prompt tuning, and the earliest place to catch it is the milestone where it lands.
 
-Find the active session: `find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*'`, then `<sbox>/.ixion/plugin/sessions/<session_id>/`.
+Find the active session: `find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git'`, then `<sbox>/.ixion/plugin/sessions/<session_id>/`. The exclusion skips the bare origin `make_sandbox` parks beside each sandbox — it matches the same glob and holds no session state.
 
 | Milestone | Artifact to read | What to audit |
 |---|---|---|
@@ -126,7 +128,7 @@ After a failed run:
 
 ```bash
 # Find the sandbox the failed test left behind
-SBOX=$(find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' | head -1)
+SBOX=$(find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git' | head -1)
 SDIR="$SBOX/.ixion/plugin/sessions/<session-id>"
 
 # Session artifacts
