@@ -110,12 +110,12 @@ Determine the diff size before dispatching:
 
 ```bash
 BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "<integration branch>")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
 ```
 
-`<integration branch>` is the `integration=` line the first block printed — its shell is gone by the second call, so the printed value is what carries across.
+`<integration branch>` is the `integration=` line the first block printed.
 
 `work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against production, sizes the reviewer set off the wrong number.
 

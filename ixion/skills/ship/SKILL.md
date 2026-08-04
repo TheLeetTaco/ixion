@@ -44,16 +44,18 @@ Then resolve the branch roles — which branches are off-limits to commit onto, 
 <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
+**`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section; `on_protected=no` here is not the "already on a feature branch" case Phase 2 skips for. Commit anyway and the commits are reachable from no ref, which nothing notices until `git push -u origin HEAD` refuses the detached ref in Phase 4, by which point they exist with nothing pointing at them.
+
 Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
 SDIR=".ixion/plugin/sessions/<session-id>"   # from .ixion/plugin/active.json, or the id this conversation established
 BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "<integration branch>")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git log "$BASE_REF"..HEAD --oneline
 ```
 
-`<integration branch>` is the `integration=` line the first block printed; its shell is gone by the second call, so the printed value is what carries across. An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the integration branch.
+`<integration branch>` is the `integration=` line the first block printed. An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the integration branch.
 
 Determine:
 - **Current branch**: did the resolution print `on_protected=yes`?
@@ -106,7 +108,7 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
    git push -u origin HEAD
    ```
 
-2. Resolve the branch roles again — Phase 1's shell is long gone and each fenced block is its own process, so the reference is cited a second time rather than a value threaded through:
+2. Resolve the branch roles again — re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference:
 
    ```bash
    <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
@@ -119,7 +121,7 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
    BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
    RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
    printf 'base_ref=%s\nrecorded_integration=%s\n' "$BASE_REF" "$RECORDED_INTEGRATION"
-   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD "<integration branch>")
+   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
    git log "$BASE_REF"..HEAD --oneline
    git diff "$BASE_REF"..HEAD --stat
    ```

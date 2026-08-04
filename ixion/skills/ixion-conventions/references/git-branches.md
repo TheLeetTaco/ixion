@@ -4,6 +4,8 @@ One resolution block and three error states that `work`, `work-review` and `ship
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
+Callers cite several sections apiece; read this file once per invocation and hold the blocks, rather than re-reading at each citation. A resolved name spliced back into a later block goes inside single quotes — the ladder's last rung returns whatever branch name the repo happens to carry, and single quotes are what keep a backtick in one from running.
+
 ## The two roles
 
 The **protected set** is the branches a session must never commit onto — production and integration together. The **integration branch** is the single branch to create the session branch from, measure `base_ref` against, and target with a PR.
@@ -68,12 +70,14 @@ On `tree=dirty`, name the files and stop so the user can commit or stash them. N
 
 ### Detached HEAD
 
-`current=` comes back empty from the resolution block, because `git branch --show-current` prints nothing when HEAD is detached. `git rev-parse --abbrev-ref HEAD` prints the literal string `HEAD` there instead, which is why the block uses the former and why no caller ever compares a branch name against `HEAD`. `on_protected` is `no`, but that is not permission to proceed: refuse the automatic switch and surface the state. A commit made on a detached HEAD is reachable from no ref, so switching away strands it even though the tree reports clean.
+Every caller reads `current=` before it acts on `on_protected=`. An empty `current=` is a detached HEAD: stop and surface it. `on_protected` reads `no` there — nothing matched because there is no branch name to match — and taking that as "already on a feature branch, carry on" is the whole failure, since a commit made on a detached HEAD is reachable from no ref and the next switch strands it even though the tree reports clean.
+
+`git branch --show-current` prints nothing when HEAD is detached, which is why the block uses it over `git rev-parse --abbrev-ref HEAD`; that one prints the literal string `HEAD`, and no caller ever compares a branch name against `HEAD`.
 
 ### Verify a recorded integration branch
 
 ```bash
-RECORDED_INTEGRATION="<integration_branch recorded in session.json>"
+RECORDED_INTEGRATION='<integration_branch recorded in session.json>'
 if git show-ref --verify --quiet "refs/heads/$RECORDED_INTEGRATION" || git show-ref --verify --quiet "refs/remotes/origin/$RECORDED_INTEGRATION"; then
   printf 'recorded=usable\nintegration=%s\n' "$RECORDED_INTEGRATION"
 else
@@ -86,7 +90,7 @@ fi
 ### Switch to the integration branch
 
 ```bash
-git switch "<integration branch>"
+git switch '<integration branch>'
 ```
 
 Run this only after the tree probes clean and `current=` is non-empty. `git switch` never reads its argument as a pathspec, so a repo containing a directory named `dev` still switches branches; `git checkout` is ambiguous there, which is why no branch operation in this pipeline uses it.
