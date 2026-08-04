@@ -17,6 +17,10 @@
       "type": ["string", "null"],
       "description": "Commit this session's work is measured from. Resolved once by work Phase 1 (the branch point) and read by work Phase 3/4, work-review, and ship, which are separate invocations with no shared variable. Absent on sessions that predate checkpoint commits."
     },
+    "integration_branch": {
+      "type": ["string", "null"],
+      "description": "Branch this session was created from, measures its diff against, and targets with its PR. Resolved and recorded once by work Phase 1 — the only writer — and read by ship to set the PR base, so a feature PR never opens against production. Recorded rather than re-resolved because ship is a separate invocation, and a fresh resolution can name a different branch than the base_ref already recorded. Unlike base_ref, which is an immutable commit id, this is a mutable ref name: verify it still exists per the 'Error states' section of ixion/skills/ixion-conventions/references/git-branches.md before using it. Absent on sessions that predate the two-branch model. A copy of this schema that predates it rejects any artifact carrying this key, since additionalProperties is false — reinstall the plugin rather than editing the session."
+    },
     "active_skill": {
       "oneOf": [
         { "enum": ["plan-creation", "plan-review", "plan-consolidation", "work", "work-review"] },
