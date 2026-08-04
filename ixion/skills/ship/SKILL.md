@@ -135,13 +135,7 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
      ```
 
      `recorded=usable` → that branch is the PR base. `recorded=stale` → use the freshly resolved `integration=` instead of handing a dead ref to `gh`.
-   - **`null` or empty with `base_ref` present** — a session recorded before `work` wrote this field. Deriving the base fresh could name a branch the diff was never measured against, so name the branch holding the recorded commit instead, keeping the PR and the diff describing one branch point:
-
-     ```bash
-     git branch --format='%(refname:short)' --contains "<base_ref from session.json>"
-     ```
-
-     Of the branches listed, the PR base is whichever is protected; the current branch is always listed and is never it.
+   - **`null` or empty with `base_ref` present** — a session recorded before `work` wrote this field. Back then resolution knew one default branch, `origin/HEAD`, so that `base_ref` is `merge-base(HEAD, production)` and the diff has only ever been measured against production. The freshly resolved `production=` is therefore the PR base, even where `integration=` differs. Targeting integration instead would open the PR against a branch this diff was never measured from.
    - **Both absent** — an ad-hoc ship with no session dir. The freshly resolved `integration=` is the PR base.
 
 5. Create the PR using `gh`:

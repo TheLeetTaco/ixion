@@ -39,7 +39,7 @@ printf 'production=%s\nintegration=%s\nprotected=%s\ncurrent=%s\non_protected=%s
   "$PRODUCTION_BRANCH" "$INTEGRATION_BRANCH" "$PROTECTED_BRANCHES" "$CURRENT_BRANCH" "$ON_PROTECTED"
 ```
 
-Production resolves down a three-rung ladder: `refs/remotes/origin/HEAD`, then a local `main`, then a local `master`, then whatever branch HEAD points at. The last rung is what makes a repo whose default branch is `trunk` — or anything else a team chose — resolve at all; it comes back empty only on a detached HEAD, which is the error state below.
+Production resolves down a four-rung ladder: `refs/remotes/origin/HEAD`, then a local `main`, then a local `master`, then whatever branch HEAD points at. The last rung is what makes a repo whose default branch is `trunk` — or anything else a team chose — resolve at all; it comes back empty only on a detached HEAD, which is the error state below.
 
 `dev` is probed before `develop`, and local before remote-tracking for each. The precedence is a documented choice, not an accident of ordering: the feature was asked for in terms of `dev`, so `dev` wins in a repo carrying both. A repo with neither has no distinct integration branch — integration is production, the protected set collapses to one entry, and every single-branch repo behaves exactly as it did before this file existed.
 
@@ -52,7 +52,7 @@ Three conditions decided here so no caller re-decides them.
 ### Probe the working tree
 
 ```bash
-DIRTY=$(git status --porcelain)
+DIRTY=$(git status --porcelain -- ':(top,exclude).ixion')
 if [ -n "$DIRTY" ]; then
   printf 'tree=dirty\n%s\n' "$DIRTY"
 else
@@ -60,7 +60,11 @@ else
 fi
 ```
 
-`--porcelain` reports modified, staged and untracked entries alike, and each of the three makes a branch switch unsafe. On `tree=dirty`, name the files and stop so the user can commit or stash them. Never switch, never stash, never clean — the tree may hold work unrelated to this session, and the `## Constraints` prohibition on destructive git commands applies here exactly as it does inside a dispatch. Stopping is the whole handling: falling through to branch from production instead would record a `base_ref` against production and reproduce, for those sessions, the stale-base bug this file exists to remove.
+`--porcelain` reports modified, staged and untracked entries alike. Only the tracked ones would actually be overwritten by a switch — untracked files ride across untouched — but an untracked file still means the user has work in flight, and this probe is the last moment before the session starts committing, so it counts too.
+
+The pathspec carves out the one exception. Ixion writes its own session state into the user's repo at `.ixion/`, so in a repo that doesn't gitignore that path the probe would report dirty on Ixion's own bookkeeping and no session in a two-branch repo could ever start. `:(top,exclude)` is anchored at the repo root, so the carve-out holds from any subdirectory a caller runs in. Excluding it here is what stops each caller re-deciding whether the tool's own state counts as the user's uncommitted work.
+
+On `tree=dirty`, name the files and stop so the user can commit or stash them. Never switch, never stash, never clean — the tree may hold work unrelated to this session, and the `## Constraints` prohibition on destructive git commands applies here exactly as it does inside a dispatch. Stopping is the whole handling: falling through to branch from production instead would record a `base_ref` against production and reproduce, for those sessions, the stale-base bug this file exists to remove.
 
 ### Detached HEAD
 

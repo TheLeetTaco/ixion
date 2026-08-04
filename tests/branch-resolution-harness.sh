@@ -160,6 +160,16 @@ git -C "$repo" add seed.txt
 out=$(run_block "$repo" "$TREE_BLOCK")
 expect "staged but uncommitted change: reported dirty" "$(field "$out" tree)" dirty
 
+repo=$(new_repo ixion-state-tree main)
+mkdir -p "$repo/.ixion/plugin/sessions/s"
+echo '{}' > "$repo/.ixion/plugin/sessions/s/progress.json"
+out=$(run_block "$repo" "$TREE_BLOCK")
+expect "only Ixion's own session state untracked: reported clean" "$(field "$out" tree)" clean
+
+echo scratch > "$repo/scratch.txt"
+out=$(run_block "$repo" "$TREE_BLOCK")
+expect "Ixion session state alongside a user file: still reported dirty" "$(field "$out" tree)" dirty
+
 repo=$(new_repo recorded-live main)
 git -C "$repo" branch develop
 out=$(run_block "$repo" "$(fill "$RECORDED_BLOCK" '<integration_branch recorded in session.json>' develop)")
