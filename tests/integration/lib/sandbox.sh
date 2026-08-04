@@ -1,5 +1,22 @@
 # Sandbox dir helpers. Each test case runs claude in its own temp cwd so
 # the real ~/Documents/.../ixion/plugin/.ixion state is never touched.
+#
+# Nothing here sources another lib or reaches for tmux, claude or a credential,
+# which is what lets tests/branch-resolution-harness.sh share add_bare_origin
+# while staying runnable offline.
+
+# add_bare_origin <repo> <production branch>
+#
+# Gives <repo> a real origin — a bare repo at "<repo>.git" — so
+# `refs/remotes/origin/HEAD` resolves and the caller exercises the scripted
+# first rung of the branch-resolution ladder instead of the local-ref fallback.
+# It is a plain path, not a URL, so nothing here touches the network.
+add_bare_origin() {
+  git init -q --bare "$1.git"
+  git -C "$1" remote add origin "$1.git"
+  git -C "$1" push -q origin --all
+  git -C "$1" remote set-head origin "$2"
+}
 
 # make_sandbox <test-name> [<integration-branch>] -> echoes path to a fresh tmpdir.
 #
@@ -7,12 +24,10 @@
 # production branch pinned to `main`: a runner whose init.defaultBranch is
 # `master` would otherwise give branch assertions a different answer than CI.
 #
-# Every sandbox gets a real origin — a bare repo at "<sandbox>.git" — so
-# `refs/remotes/origin/HEAD` resolves and the whole suite exercises the
-# scripted first rung of the branch-resolution ladder instead of the local-ref
-# fallback. It is a plain path, not a URL, so nothing here touches the network.
-# The ".git" sibling name is load-bearing: it matches tests/cleanup.sh's
-# 'ixion-int-*' glob, so the bare repo is removed with the sandbox it serves.
+# Every sandbox gets an origin, not just the branch-resolution cases. The ".git"
+# sibling name add_bare_origin uses is load-bearing here: it matches
+# tests/cleanup.sh's 'ixion-int-*' glob, so the bare repo is removed with the
+# sandbox it serves.
 #
 # Passing <integration-branch> also seeds that branch with a commit production
 # does not carry, which is what lets a test tell "branched from integration"
@@ -46,12 +61,8 @@ make_sandbox() {
       git commit -q -m "integration-only commit"
       git switch -q "$production"
     fi
-
-    git init -q --bare "$dir.git"
-    git remote add origin "$dir.git"
-    git push -q origin --all
-    git remote set-head origin "$production"
   )
+  add_bare_origin "$dir" "$production"
   echo "$dir"
 }
 

@@ -9,8 +9,12 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
 . "$ROOT/tests/integration/lib/assert.sh"
+# sandbox.sh for add_bare_origin only. It sources nothing and shells out to
+# nothing but git, so sharing the recipe costs this harness none of the tmux or
+# credential dependencies the rest of lib/ carries.
+. "$ROOT/tests/integration/lib/sandbox.sh"
 
-[ -f "$REFERENCE" ] || { echo "FAIL: reference not found: $REFERENCE"; exit 1; }
+[ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
 
 # section <heading title> -> the bash block under that heading, at any level.
 section() {
@@ -32,15 +36,14 @@ TREE_BLOCK=$(section "Probe the working tree")
 RECORDED_BLOCK=$(section "Verify a recorded integration branch")
 SWITCH_BLOCK=$(section "Switch to the integration branch")
 
-missing=0
 check_section() {
-  [ -n "$2" ] || { echo "FAIL: no bash block under section \"$1\" in $REFERENCE"; missing=1; }
+  [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
 }
 check_section "Resolve the branch roles" "$ROLES_BLOCK"
 check_section "Probe the working tree" "$TREE_BLOCK"
 check_section "Verify a recorded integration branch" "$RECORDED_BLOCK"
 check_section "Switch to the integration branch" "$SWITCH_BLOCK"
-[ "$missing" = 0 ] || exit 1
+[ "$fail" = 0 ] || finalize
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-branch-XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
@@ -60,15 +63,6 @@ new_repo() {
   printf '%s\n' "$dir"
 }
 
-# add_origin <repo> <production branch> — a bare repo beside the sandbox, so
-# origin/HEAD resolves without touching the network.
-add_origin() {
-  git init -q --bare "$1.git"
-  git -C "$1" remote add origin "$1.git"
-  git -C "$1" push -q origin --all
-  git -C "$1" remote set-head origin "$2"
-}
-
 run_block() { ( cd "$1" && printf '%s\n' "$2" | bash ); }
 
 fill() { printf '%s\n' "$1" | sed "s|$2|$3|g"; }
@@ -82,7 +76,7 @@ expect() {
 # --- t2: the production-branch ladder ---------------------------------------
 
 repo=$(new_repo origin-head main)
-add_origin "$repo" main
+add_bare_origin "$repo" main
 out=$(run_block "$repo" "$ROLES_BLOCK")
 expect "origin/HEAD -> origin/main: production resolves to main" "$(field "$out" production)" main
 
@@ -137,7 +131,7 @@ expect "dev and develop both present: dev wins" "$(field "$out" integration)" de
 
 repo=$(new_repo remote-develop main)
 git -C "$repo" branch develop
-add_origin "$repo" main
+add_bare_origin "$repo" main
 git -C "$repo" branch -q -D develop
 out=$(run_block "$repo" "$ROLES_BLOCK")
 expect "remote-tracking origin/develop, no local develop: integration resolves to develop" \
