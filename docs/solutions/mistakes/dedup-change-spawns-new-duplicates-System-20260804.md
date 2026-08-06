@@ -79,8 +79,18 @@ When a chunk's stated purpose is de-duplication, name the risk in the dispatch i
 - When a shared recipe is reimplemented for dependency reasons (as the offline harness reimplemented the sandbox's bare-origin setup), that can be the right call — but record the reasoning in a comment, or the next reader re-derives it or "fixes" it wrongly.
 - Expect drift to be immediate, not gradual. Two copies written in the same session already differed in punctuation and flags.
 
+## Recurrence — 2026-08-06, same file pair, one copy later
+
+Session `resume-command-in-handoff` hit this a third time, in the *same two files* item 2 above names. The harness that session added needed a throwaway git repo, and re-typed the identity block (`user.email`, `user.name`, `commit.gpgsign`) inline rather than reusing `branch-resolution-harness.sh`'s `new_repo` — which is itself a copy of `sandbox.sh`'s `make_sandbox`. Three copies, and they had already drifted exactly as this entry predicts: `sandbox.sh` said `"Ixion Test"` where both harnesses said `"Ixion Harness"`, and the newest copy silently dropped the `core.autocrlf false` its sibling carries.
+
+Two things this recurrence teaches that the original entry did not:
+
+- **The prevention above did not fire, because the new harness followed this file's own precedent for structure and not for sharing.** Its header comment says it "follows `tests/branch-resolution-harness.sh`" — and the branch harness carries a comment justifying *selective reuse* of `sandbox.sh`. The author copied the shape and skipped the sentence explaining it. A comment recording why sharing was chosen is weaker than the sharing itself being the obvious path.
+- **The right unit to extract was smaller than the obvious one.** The review finding proposed moving `new_repo` wholesale into `sandbox.sh`. The implementer showed the three fixtures differ on location, initial branch, first commit and extras, so a shared `new_repo` needs three switches — Config Soup traded for duplication. Only the identity block had actually drifted, so only the identity block was extracted, as `fixture_git_config <repo>` with three callers. **Extract the unit that drifted, not the unit that looks shared.**
+
 ## Related Issues
 
+- `docs/solutions/patterns/a-findings-fix-is-a-hypothesis-not-an-instruction-System-20260806.md` — the recurrence above is one of its two worked examples.
 - `docs/adrs/0001-skill-design-as-negotiation.md` — Principle 8 (one source of truth for shared text). This session supplied its evidence and then violated it twice.
 - `docs/solutions/mistakes/copied-wiring-pattern-without-its-consumer-System-20260729.md` — the sibling habit: reproducing a pattern by resemblance rather than by checking what consumes it.
 - `docs/solutions/mistakes/verified-a-proxy-instead-of-the-outcome-System-20260804.md` — the verification failure from the same session.
