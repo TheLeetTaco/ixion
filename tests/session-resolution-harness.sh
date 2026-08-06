@@ -31,6 +31,11 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md"
 . "$ROOT/tests/integration/lib/assert.sh"
+# sandbox.sh for fixture_git_config, the settings the resume block's git fixtures
+# need before they can commit. Same selective reuse tests/branch-resolution-harness.sh
+# makes: sandbox.sh sources nothing and shells out to nothing but git, so this
+# costs the harness none of lib/'s tmux or credential dependencies.
+. "$ROOT/tests/integration/lib/sandbox.sh"
 
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
 
@@ -320,9 +325,7 @@ else
   main="$WORK/plain"
   mkdir -p "$main/nested"
   git -C "$main" init -q
-  git -C "$main" config user.email test@ixion.local
-  git -C "$main" config user.name "Ixion Harness"
-  git -C "$main" config commit.gpgsign false
+  fixture_git_config "$main"
   git -C "$main" commit -q --allow-empty -m init
   expect "plain checkout, from its root: the resume line stands alone" \
     "$(resume "$main" work "$id")" "/ixion:work $id"

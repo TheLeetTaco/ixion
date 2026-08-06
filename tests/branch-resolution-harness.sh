@@ -9,9 +9,9 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
 . "$ROOT/tests/integration/lib/assert.sh"
-# sandbox.sh for add_bare_origin only. It sources nothing and shells out to
-# nothing but git, so sharing the recipe costs this harness none of the tmux or
-# credential dependencies the rest of lib/ carries.
+# sandbox.sh for fixture_git_config and add_bare_origin. It sources nothing and
+# shells out to nothing but git, so sharing the recipe costs this harness none of
+# the tmux or credential dependencies the rest of lib/ carries.
 . "$ROOT/tests/integration/lib/sandbox.sh"
 
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
@@ -53,10 +53,7 @@ new_repo() {
   local dir="$WORK/$1"
   mkdir -p "$dir"
   if [ "$#" -ge 2 ]; then git -C "$dir" init -q -b "$2"; else git -C "$dir" init -q; fi
-  git -C "$dir" config user.email test@ixion.local
-  git -C "$dir" config user.name "Ixion Harness"
-  git -C "$dir" config commit.gpgsign false
-  git -C "$dir" config core.autocrlf false
+  fixture_git_config "$dir"
   echo seed > "$dir/seed.txt"
   git -C "$dir" add seed.txt
   git -C "$dir" commit -qm init

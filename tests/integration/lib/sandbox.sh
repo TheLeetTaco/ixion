@@ -2,8 +2,25 @@
 # the real ~/Documents/.../ixion/plugin/.ixion state is never touched.
 #
 # Nothing here sources another lib or reaches for tmux, claude or a credential,
-# which is what lets tests/branch-resolution-harness.sh share add_bare_origin
-# while staying runnable offline.
+# which is what lets the offline harnesses in tests/ share fixture_git_config and
+# add_bare_origin while staying runnable themselves.
+
+# fixture_git_config <repo>
+#
+# Everything a throwaway repo needs set before its first commit: a committer,
+# because git refuses to commit without one; no signing, because a signing host
+# would otherwise fail every commit a fixture makes; and no CRLF translation,
+# because a Windows checkout would otherwise round-trip fixture files with \r.
+#
+# The repo's location, initial branch and first commit stay with the caller —
+# those are what the sandbox and the two harnesses genuinely differ on, and
+# folding them in here would buy one shared function three switches.
+fixture_git_config() {
+  git -C "$1" config user.email test@ixion.local
+  git -C "$1" config user.name "Ixion Test"
+  git -C "$1" config commit.gpgsign false
+  git -C "$1" config core.autocrlf false
+}
 
 # add_bare_origin <repo> <production branch>
 #
@@ -43,11 +60,7 @@ make_sandbox() {
   (
     cd "$dir"
     git init -q -b "$production"
-    git config user.email "test@ixion.local"
-    git config user.name "Ixion Test"
-    # A signing host would otherwise fail every commit below, taking the
-    # branch topology with it.
-    git config commit.gpgsign false
+    fixture_git_config .
     # Session state is tool output, not source. Untracked .ixion/ would read
     # as a dirty tree to work's pre-switch probe and halt the session.
     printf '%s\n' '.ixion/' > .gitignore
