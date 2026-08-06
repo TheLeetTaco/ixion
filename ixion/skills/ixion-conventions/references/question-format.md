@@ -1,0 +1,37 @@
+# Question Format (skills that address the user)
+
+Every question you put to the user answers one implicit question first: what makes this choice theirs rather than yours? The `**Why you:**` slot is that answer, and its catalog is also the gate — when no reason fits, you don't ask.
+
+One question per AskUserQuestion call — never a `questions: [...]` array longer than one. Ask, await the answer, then ask the next; bundled prompts collapse into a wizard-style "Review your answers" flow.
+
+```
+Question: "[Topic]: [the question, one line]"
+**Why you:** <Reason>. <one sentence>.
+Options:
+1. [Recommended option] - [what it does]
+2. [Alternative] - [what it does]
+3. "You pick what's best" - Let me decide
+```
+
+The recommended option is listed first because the default answer should be the one worth accepting unread. Option 3 is always present and always last; when the user takes it, apply the recommendation and record the outcome as a delegated decision rather than a picked one, because a later reader treats "they chose this" and "they let me choose" differently.
+
+Two fields from earlier question templates are dropped. `Context:` and `My recommendation:` are both subsumed by the slots above — Why-you already carries the only context that changes the user's answer, and the recommendation now shows as option 1 instead of as prose the reader has to match back to the list.
+
+## Reasons
+
+- **Preference** — the answer turns on taste or priorities that no amount of reading the codebase would settle.
+- **Irreversible** — the action is hard or impossible to undo: a force-push, a published branch, rewritten history.
+- **Missing fact** — only the user holds the input, such as the error text, the repro command, or what they actually observed.
+- **Scope** — the choice changes what gets built rather than how, so answering it for them would enlarge the job they agreed to.
+
+A fifth reason is added when a concrete site needs one, not in advance.
+
+**The gate:** when no reason fits, don't ask. Pick the determined best solution, apply it, and report what you picked and why in the same breath. Questions tagged **Irreversible** are exempt from the gate — ask them even when you could compute the answer, because being right about an unrecoverable action is not the same as being allowed to take it.
+
+**Strong:**
+> Question: "PR base: open this against `dev` or `main`?"
+> **Why you:** Irreversible. Targeting `main` puts the branch in front of release review, and retargeting afterward re-runs CI for everyone already subscribed.
+
+**Weak:**
+> Question: "Naming: call the module `session_store` or `store`?" — no reason fits. The surrounding code already implies one; pick it and say which you picked.
+> `debug/SKILL.md:31` asks "Continue debugging anyway?" after finding a mid-work session. Nothing is irreversible and no fact is missing — the user just ran `/debug`. Name the conflicting session and continue.
