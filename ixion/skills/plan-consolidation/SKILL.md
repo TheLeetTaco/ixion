@@ -76,18 +76,7 @@ Questions to surface:
 
 An open question reached you because more reading would not settle it, so it names Preference; a severity conflict names Scope, because the severity it settles decides how much the spec goes on to prescribe.
 
-For each question:
-
-```
-Question: "[Topic]: [The question]"
-**Why you:** <Reason>. <one sentence>.
-Options:
-1. [Recommended option] - [what it does]
-2. [Alternative] - [what it does]
-3. "You pick what's best" - Let me decide
-```
-
-Record: user picks option → decision logged; "You pick what's best" → apply recommendation, note delegated; custom answer → record exactly. Phase 4 bakes all three into the spec the same way, so this note is the only surviving trace that the wording was mine rather than the user's. **BLOCKING: Never proceed with unresolved questions.**
+Ask each in the reference's shape. Record: user picks option → decision logged; "You pick what's best" → apply recommendation, note delegated; custom answer → record exactly. Phase 4 bakes all three into the spec the same way, so this note is the only surviving trace that the wording was mine rather than the user's. **BLOCKING: Never proceed with unresolved questions.**
 
 ---
 
@@ -178,8 +167,9 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
    **Why you:** Preference. Nothing is left unresolved in the artifact; whether to start the run now is about your appetite for it, not about the spec.
-   - Start implementing (Recommended)
-   - Done for now
+   1. Start implementing (Recommended)
+   2. Done for now
+   3. "You pick what's best" - Let me decide
 6. Print the command that starts it, so "done for now" and a `/clear` cost nothing:
 
    ```bash

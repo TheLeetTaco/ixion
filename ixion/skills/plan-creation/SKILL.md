@@ -25,7 +25,7 @@ Research the codebase, validate technical claims, and emit a work-ready `spec.js
 
 ## Input
 
-Feature description via `$ARGUMENTS`. If empty, ask user.
+Feature description via `$ARGUMENTS`. If empty, ask user. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
 **Why you:** Missing fact. The repo can tell me what exists, but not what you want built next or what would make it done — and a spec is nothing without both.
 
@@ -298,17 +298,14 @@ Print the spec's `summary` field + next-steps hint.
 
 ## Phase 5: Summary & Next Steps
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
-
 **AskUserQuestion:** "Spec ready at `.ixion/plugin/sessions/<id>/spec.json`. What next?"
 
 **Why you:** Preference. The spec is work-ready as written, so a review round buys a second opinion you may or may not want on this particular change.
 
-| Option | Action |
-|--------|--------|
-| Run review (Recommended) | Invoke `skill: plan-review` |
-| Proceed to work | Invoke `skill: work` |
-| Done for now | Display path and exit |
+1. Run review (Recommended) - invoke `skill: plan-review`
+2. Proceed to work - invoke `skill: work`
+3. Done for now - display path and exit
+4. "You pick what's best" - Let me decide
 
 Print both onward commands under the prompt, so "done for now" and a `/clear` cost nothing:
 

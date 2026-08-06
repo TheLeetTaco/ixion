@@ -335,8 +335,9 @@ Read `ixion/skills/ixion-conventions/references/question-format.md` before proce
 ```
 What's next?
 **Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the PR is a judgment about this change's risk, not about the findings.
-1. Implement review findings
+1. Implement review findings (Recommended)
 2. Ship as-is
+3. "You pick what's best" - Let me decide
 ```
 
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
