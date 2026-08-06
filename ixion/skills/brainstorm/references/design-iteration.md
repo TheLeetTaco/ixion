@@ -14,7 +14,7 @@ Based on your feedback, I understand you want to:
 Is this correct?
 ```
 
-**Why you:** Preference. This is my reading of your feedback played back, and only you can say whether the reading matches what you meant.
+**Why you:** Preference. This is my reading of your feedback played back, and the gap between what you meant and what I heard is visible only from your side.
 
 ## Step 2: Research If Needed
 
@@ -31,7 +31,7 @@ I plan to update the design by:
 Does this align with your intent?
 ```
 
-**Why you:** Preference. Several edits would satisfy the feedback and I cannot know mid-shape which one is the design you're steering toward.
+**Why you:** Preference. Several different edits would satisfy that reading equally well, and which of them is the design you're steering toward is a ranking only you hold.
 
 ## Step 4: Apply Changes Surgically
 
@@ -44,7 +44,7 @@ Does this align with your intent?
 - Only validate the parts that changed
 - "Here's the updated [section]. Does this look right?"
 
-**Why you:** Preference. The edit landed where you asked, but whether the section now reads the way you wanted is the judgement you started this iteration to make.
+**Why you:** Preference. The edit is faithful to what we agreed, but agreeing to a description is not the same as liking the section once it's on the page.
 
 ---
 
