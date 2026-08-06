@@ -101,14 +101,7 @@ Question: "Next: research is saved to docs/research/[filename]. What now?"
 **Why you:** Preference. The question you asked is answered and on disk, so whether to build on that, dig further, or stop here is a judgment about what you need next rather than anything the document settles.
 Options:
 1. Create plan from research (Recommended) - Invoke plan-creation with research path
-2. Continue researching - Ask follow-up question, append to document
+2. Continue researching - Ask follow-up question, re-run locate-then-analyze, append to document
 3. Done for now - Exit
 4. "You pick what's best" - Let me decide
 ```
-
-| Option | Action |
-|--------|--------|
-| Create plan (Recommended) | `Skill: plan-creation` with research document path |
-| Continue | Ask follow-up, re-run locate-then-analyze, append to document |
-| Done | Exit skill |
-| You pick what's best | Apply the recommendation, and record it as a delegated decision rather than a picked one |
