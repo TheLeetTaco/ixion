@@ -201,10 +201,12 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
    SESSION_ID='<session= from Phase 0>'
    if [ -n "$SESSION_ID" ]; then
      SDIR=".ixion/plugin/sessions/$SESSION_ID"
-     jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
-     mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+     jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp" \
+       && mv "$SDIR/session.json.tmp" "$SDIR/session.json"
    fi
    ```
+
+   The `&&` carries the same weight as the guard around it. Redirection truncates the temp before `jq` runs, so a failing `jq` plus an unconditional `mv` renames an empty file over the session record — the one this skill is here to mark terminal. Rename only on success; `work`'s Phase 0 deletes the stale temp a failure leaves.
 
    This is the write every skill's Phase 0 reads as `state=complete`. Without it a resume command pasted after the PR opened re-enters the pipeline, re-runs verification against merged work, and offers to ship a branch that is already shipped.
 

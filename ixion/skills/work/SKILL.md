@@ -83,11 +83,13 @@ Procedure:
    ```bash
    cleanup_active_skill() {
      SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
-     jq '.active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
-     mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+     jq '.active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp" \
+       && mv "$SDIR/session.json.tmp" "$SDIR/session.json"
    }
    trap cleanup_active_skill EXIT
    ```
+
+   The `&&` is what makes this atomic rather than merely two-step. The redirection truncates the temp file *before* `jq` runs, so a `jq` that fails — unparseable `session.json`, a filter typo, `jq` missing from the host — leaves an empty temp that an unconditional `mv` then renames over the real record. Reproduced: a 75-byte `session.json` became 0 bytes. Renaming only on success leaves the original untouched and a stale empty temp behind, which is exactly what Phase 0's stale-tmp cleanup above already deletes.
 
 5. **Resolve the branch roles, then decide where commits land.** Every chunk gets committed at its checkpoint (2.3), so this decision precedes all of them. Resolve once, here — the worktree path and the in-place path both consume the same answer.
 
