@@ -50,7 +50,7 @@ Then the shared resolution:
 
 `via=none` is the signal that does not halt. Nothing named a session, which is an ad-hoc ship: `/ixion:ship tighten the error copy` in a repo that never ran `/ixion:plan` is a supported way to use this skill, and halting there would answer it by naming two skills the user didn't ask for. Continue to Phase 1.
 
-An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it — Phase 1's base, Phase 4's PR base and terminal write, and Phase 5a's harvest each interpolate `SESSION_ID='<session= from Phase 0>'` and branch on `[ -n "$SESSION_ID" ]`. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
+An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it: every block below that reads session state interpolates `SESSION_ID='<session= from Phase 0>'` and branches on `[ -n "$SESSION_ID" ]`, so each block's own code is the proof rather than a list kept here. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
 
 ---
 
@@ -147,9 +147,9 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
    ```bash
    SESSION_ID='<session= from Phase 0>'
-   SDIR=".ixion/plugin/sessions/$SESSION_ID"
    BASE_REF=; RECORDED_INTEGRATION=
    if [ -n "$SESSION_ID" ]; then
+     SDIR=".ixion/plugin/sessions/$SESSION_ID"
      BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
      RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
    fi
@@ -195,11 +195,15 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 6. Output the PR URL to the user.
 
-7. Mark the session terminal, now that its work is on a remote branch under a PR. An empty `SESSION_ID` skips this step — an ad-hoc ship has no session to mark, and no resume command that could land back here:
+7. Mark the session terminal, now that its work is on a remote branch under a PR:
 
    ```bash
-   jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
-   mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+   SESSION_ID='<session= from Phase 0>'
+   if [ -n "$SESSION_ID" ]; then
+     SDIR=".ixion/plugin/sessions/$SESSION_ID"
+     jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
+     mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+   fi
    ```
 
    This is the write every skill's Phase 0 reads as `state=complete`. Without it a resume command pasted after the PR opened re-enters the pipeline, re-runs verification against merged work, and offers to ship a branch that is already shipped.
