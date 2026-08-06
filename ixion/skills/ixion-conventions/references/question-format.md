@@ -6,7 +6,7 @@ One question per AskUserQuestion call — never a `questions: [...]` array longe
 
 ```
 Question: "[Topic]: [the question, one line]"
-**Why you:** <Reason>. <one sentence>.
+**Why you:** <Reason>. <one clause naming what you can't derive>.
 Options:
 1. [Recommended option] - [what it does]
 2. [Alternative] - [what it does]
@@ -15,7 +15,7 @@ Options:
 
 The Options list is for questions that enumerate alternatives. A confirmation or an inline edge-case question — a generated branch name to accept or edit, a push that just failed — carries the Question and Why-you slots alone, with nothing to recommend or delegate.
 
-The recommended option is listed first because the default answer should be the one worth accepting unread. Option 3 is always present and always last; when the user takes it, apply the recommendation, and where the skill already records the decision in an artifact, record it there as delegated rather than picked, because a later reader treats "they chose this" and "they let me choose" differently.
+The recommended option is listed first because the default answer should be the one worth accepting unread — so under **Irreversible** the non-destructive option leads and carries the marker even where you would otherwise recommend proceeding, and a confirmation with no Options list defaults to declining. Option 3 is always present and always last; when the user takes it, apply the recommendation and name the option you applied.
 
 Two fields from earlier question templates are dropped. `Context:` and `My recommendation:` are both subsumed by the slots above — Why-you already carries the only context that changes the user's answer, and the recommendation now shows as option 1 instead of as prose the reader has to match back to the list.
 

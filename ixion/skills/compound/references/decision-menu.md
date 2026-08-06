@@ -11,7 +11,7 @@ File created:
 - docs/solutions/[category]/[filename].md
 
 Question: "Next: the solution is documented. What now?"
-**Why you:** Preference. Promoting this to Required Reading binds every future reader of the repo, and whether one debugging session is worth that weight is a call about your team, not about the doc.
+**Why you:** Preference. Required Reading binds every future reader of the repo, and whether one debugging session earns that weight is a call about your team.
 Options:
 1. Continue workflow (Recommended) - Documentation is complete
 2. Add to Required Reading - Promote to critical patterns
@@ -50,7 +50,7 @@ User selects when:
 - Confirm: "✓ Cross-reference added"
 
 ### Option 4: "You pick what's best"
-- Apply the recommendation (Option 1) and record it as a delegated decision rather than a picked one
+- Apply the recommendation (Option 1) and say so
 
 ---
 

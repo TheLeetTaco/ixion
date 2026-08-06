@@ -74,9 +74,9 @@ Questions to surface:
 1. `review.findings.json.open_questions` (entries the synthesizer could not resolve)
 2. Inter-reviewer conflicts — findings where two or more reviewers described the same issue but assigned different severities. Surface the divergence; the user decides which severity is right rather than defaulting to the more severe.
 
-An open question reached you because more reading would not settle it, so it names Preference; a severity conflict names Scope, because the severity it settles decides how much the spec goes on to prescribe.
+Pick each question's reason from what that question actually turns on — `open_questions[]` carries whatever the synthesizer could not resolve, which is Preference for a taste call and Missing fact for an input it had no way to look up. A severity conflict is usually Scope, because the severity it settles decides how much the spec goes on to prescribe.
 
-Ask each in the reference's shape. Record: user picks option → decision logged; "You pick what's best" → apply recommendation, note delegated; custom answer → record exactly. Phase 4 bakes all three into the spec the same way, so this note is the only surviving trace that the wording was mine rather than the user's. **BLOCKING: Never proceed with unresolved questions.**
+Ask each in the reference's shape, and carry the answer into Phase 4 verbatim — including whether the user picked it or delegated it, which Phase 4's decision string records. **BLOCKING: Never proceed with unresolved questions.**
 
 ---
 
@@ -91,7 +91,7 @@ For each answered question:
    - "rstest or built-in `#[test]` for tests?" → "built-in" → rewrite test task descriptions to mandate plain `#[test]` fns; remove any `#[rstest]` / `#[case]` attribute references; drop the dev-dependency from the Cargo.toml task.
    - "Single- or multi-tenant for the MVP?" → "single-tenant" → strip `tenant_id` columns from the schema task; remove tenant-scoping middleware; document deferred multi-tenancy in `context.constraints[]`.
 3. **Update `verification` commands** if the decision changes them. Example: `cargo test` → `cargo test --workspace` after a decision to split the crate into a workspace.
-4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`. Example: `"Decision: rustls over openssl → no system OpenSSL dependency in CI. Verification command runs 'cargo test --no-default-features --features rustls'."`.
+4. **Append the decision to `context.constraints[]`** as a one-line note that survives into the implementer dispatch. Format: `"Decision: <topic> → <answer>. <one-sentence why>."`, with ` (delegated)` after the answer when the user took "You pick what's best", so a later reader can tell my wording from theirs. Example: `"Decision: rustls over openssl → no system OpenSSL dependency in CI. Verification command runs 'cargo test --no-default-features --features rustls'."`.
 
 The bar: a fresh implementer who reads only `spec.json` (no conversation history) must reach the same outcome the user's answer prescribed. If they could plausibly do something different, the decision wasn't propagated thoroughly enough.
 

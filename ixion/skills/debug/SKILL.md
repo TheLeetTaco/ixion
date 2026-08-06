@@ -158,7 +158,7 @@ If the root cause was non-obvious — a surprising interaction, a misleading sym
 
 ```
 Question: "Capture: document this root cause as a solution doc?"
-**Why you:** Scope. Writing the doc is work beyond the fix you asked for, and whether it pays back depends on how often your team expects to meet this again.
+**Why you:** Scope. Writing the doc is work beyond the fix you asked for.
 Options:
 1. Run `/ixion:compound` now (Recommended) - Capture it while the details are fresh
 2. Skip - The fix stands on its own
@@ -177,8 +177,8 @@ git diff
 Question: "Next: commit the fix, or leave it in the working tree?"
 **Why you:** Irreversible. `/ixion:ship` pushes a branch and opens a PR, which puts the fix in front of reviewers and cannot be quietly taken back.
 Options:
-1. Commit (Recommended) - Invoke `/ixion:ship` to commit and open the PR
-2. Done for now - Exit; changes stay uncommitted in the working tree
+1. Done for now (Recommended) - Exit; changes stay uncommitted in the working tree
+2. Commit - Invoke `/ixion:ship` to commit and open the PR
 3. "You pick what's best" - Let me decide
 ```
 
