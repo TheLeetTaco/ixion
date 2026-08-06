@@ -330,8 +330,11 @@ The "Top findings" list shows 3-5 highest-severity finding titles, ordered by se
 
 ### Next-step prompt
 
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+
 ```
 What's next?
+**Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the PR is a judgment about this change's risk, not about the findings.
 1. Implement review findings
 2. Ship as-is
 ```

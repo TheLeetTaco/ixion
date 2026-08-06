@@ -100,7 +100,9 @@ If Phase 1's resolution printed `on_protected=yes` — the current branch is in 
 
 1. Analyze the changes to generate a short, descriptive branch name
 2. Use format: `<type>/<short-description>` (e.g. `fix/search-pagination`, `feat/match-scoring`)
-3. Present the branch name to the user for confirmation using AskUserQuestion
+3. Present the branch name to the user for confirmation using AskUserQuestion. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+
+   **Why you:** Irreversible. Phase 4 pushes this name and the PR takes its identity from it, so renaming afterward means deleting the remote branch and reopening the PR under everyone already subscribed.
 4. Create and switch to the branch:
    ```bash
    git switch -c <branch-name>
@@ -252,8 +254,8 @@ Hand it both sources: the conversation, and the harvest from 5a stated plainly (
 
 - **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session= from Phase 0> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split. Do the copy-back before Phase 5 so the harvest reads the merged record, and before any `git worktree remove` takes the artifacts with it.
 - **No remote configured**: Inform the user and stop
-- **Branch already has a PR**: Show the existing PR URL, ask if they want to update it
-- **Push fails**: Check if branch exists on remote, suggest force-push only with user confirmation
+- **Branch already has a PR**: Show the existing PR URL, ask if they want to update it. **Why you:** Irreversible. A push onto an open PR re-notifies its reviewers and rewrites what they have already read.
+- **Push fails**: Check if branch exists on remote, suggest force-push only with user confirmation. **Why you:** Irreversible. A force-push discards whatever the remote holds, including commits that were never in this checkout.
 - **Pre-commit hooks fail**: Fix the issue if possible, re-stage, create a NEW commit (never amend)
 
 ---

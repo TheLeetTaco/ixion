@@ -296,7 +296,11 @@ Print the spec's `summary` field + next-steps hint.
 
 ## Phase 5: Summary & Next Steps
 
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+
 **AskUserQuestion:** "Spec ready at `.ixion/plugin/sessions/<id>/spec.json`. What next?"
+
+**Why you:** Preference. The spec is work-ready as written, so a review round buys a second opinion you may or may not want on this particular change.
 
 | Option | Action |
 |--------|--------|

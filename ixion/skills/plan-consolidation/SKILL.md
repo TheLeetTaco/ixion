@@ -67,26 +67,27 @@ If `review.findings.json` has zero findings and zero open questions:
 
 ## Phase 3: Surface Open Questions
 
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+
 Questions to surface:
 
 1. `review.findings.json.open_questions` (entries the synthesizer could not resolve)
 2. Inter-reviewer conflicts — findings where two or more reviewers described the same issue but assigned different severities. Surface the divergence; the user decides which severity is right rather than defaulting to the more severe.
 
-**BLOCKING: Each AskUserQuestion call MUST contain exactly ONE question.** Never pass multiple questions to a single AskUserQuestion call (no `questions: [...]` arrays of length > 1). Make a separate call per question, await the response, then make the next call. Bundled multi-question prompts produce a confusing wizard-style "Review your answers / Submit" review flow that breaks both UX and test automation.
+An open question reached you because more reading would not settle it, so it names Preference; a severity conflict names Scope, because the severity it settles decides how much the spec goes on to prescribe.
 
 For each question:
 
 ```
 Question: "[Topic]: [The question]"
-Context: [Brief explanation of why this matters]
-My recommendation: [Preferred option and why]
+**Why you:** <Reason>. <one sentence>.
 Options:
-1. [Option A] (Recommended) - [Brief description]
-2. [Option B] - [Brief description]
+1. [Recommended option] - [what it does]
+2. [Alternative] - [what it does]
 3. "You pick what's best" - Let me decide
 ```
 
-Record: user picks option → decision logged; "You decide" → apply recommendation, note delegated; custom answer → record exactly. **BLOCKING: Never proceed with unresolved questions.**
+Record: user picks option → decision logged; "You pick what's best" → apply recommendation, note delegated; custom answer → record exactly. Phase 4 bakes all three into the spec the same way, so this note is the only surviving trace that the wording was mine rather than the user's. **BLOCKING: Never proceed with unresolved questions.**
 
 ---
 
@@ -176,6 +177,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
    Deferred: N
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
+   **Why you:** Preference. Nothing is left unresolved in the artifact; whether to start the run now is about your appetite for it, not about the spec.
    - Start implementing (Recommended)
    - Done for now
 6. Print the command that starts it, so "done for now" and a `/clear` cost nothing:
@@ -198,7 +200,6 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 ## Anti-Patterns
 
 - **Skip open-question resolution** — Don't refine with unresolved questions
-- **Multiple questions at once** — One at a time
 - **BLOCKING: Auto-drop a P1** — P1s integrate; only the user may downgrade to follow-up
 - **Resolve a question without rewriting the spec** — Decisions must propagate into task descriptions, verification commands, and `context.constraints[]`. A decision that lives only in the conversation history is invisible to the implementer (Phase 4).
 - **Fold structural failures into existing tasks** — Replace the affected phase or task with the simpler shape, don't patch the original. Surface the `failure` into `context.constraints[]`.

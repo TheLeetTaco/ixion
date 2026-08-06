@@ -101,14 +101,16 @@ Procedure:
 
    **`on_protected=no`** — HEAD is already on a feature branch, where a resumed session and a hand-branched one both arrive. Nothing in the rest of this step applies; go to step 6.
 
-   **`on_protected=yes`** — a checkpoint commit would otherwise land on a shared branch, so the session needs a branch of its own. The **worktree assessment** (advisory) picks how it gets one: if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt:
+   **`on_protected=yes`** — a checkpoint commit would otherwise land on a shared branch, so the session needs a branch of its own. The **worktree assessment** (advisory) picks how it gets one: if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
    ```
    Ready to execute.
    Scope: N files, M phases.
 
-   1. Current branch (Recommended for small changes)
-   2. Create worktree (Recommended for >10 files or high-risk paths)
+   **Why you:** Scope. This answer fixes the git topology every later checkpoint commit lands on, and nothing in the session records it, so deciding it for you would leave the shape of the whole run written down only in this transcript.
+
+   1. Create worktree (Recommended at this size) - its own branch and directory; the primary checkout stays untouched
+   2. Current branch - branch in place, here
    ```
 
    **Worktree.** Branch it from the resolved `integration=`, then make the worktree a self-contained pipeline home — the session artifacts must travel with the code they describe:
@@ -479,6 +481,7 @@ This check uses the same evidence discipline as `references/verification-gates.m
 All chunks complete, verified, and committed on <branch>.
 
 What's next?
+**Why you:** Preference. Every chunk's verification already passed, so a review round is worth its cost only against how much scrutiny you want on this particular change.
 1. Review the work (recommended for substantive changes)
 2. Ship it — push the branch, open the PR, compound learnings
 ```
@@ -506,7 +509,7 @@ After the user's choice:
 1. **Attempt 1**: diagnose & fix.
 2. **Attempt 2**: alternative approach — never repeat the same failing action.
 3. **Attempt 3**: broader rethink — question assumptions.
-4. **After 3 failures**: append to `progress.error_log[]` and escalate via AskUserQuestion (retry / skip / abort). If skip, the gap stays in the log so work-review can surface it.
+4. **After 3 failures**: append to `progress.error_log[]` and escalate via AskUserQuestion (retry / skip / abort). **Why you:** Scope. Three approaches are spent, so what is left to settle is whether the session delivers without this chunk — that changes what gets built, not how. If skip, the gap stays in the log so work-review can surface it.
 
 Test failures fix before checkpointing — never append a chunk ID to `completed[]` with failing tests. The chunk being attempted stays in `progress.in_progress` (not yet appended to `completed[]`) until verification passes. A schema-version mismatch on `spec.json`, `progress.json` or `review.findings.json` halts the same way Phase 0 halts on `session.json`'s — with `session-handoff.md`'s `state=schema-mismatch` message.
 
