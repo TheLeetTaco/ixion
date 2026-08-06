@@ -111,6 +111,7 @@ Procedure:
 
    1. Create worktree (Recommended at this size) - its own branch and directory; the primary checkout stays untouched
    2. Current branch - branch in place, here
+   3. "You pick what's best" - Let me decide
    ```
 
    **Worktree.** Branch it from the resolved `integration=`, then make the worktree a self-contained pipeline home — the session artifacts must travel with the code they describe:
@@ -484,6 +485,7 @@ What's next?
 **Why you:** Preference. Every chunk's verification already passed, so a review round is worth its cost only against how much scrutiny you want on this particular change.
 1. Review the work (Recommended for substantive changes)
 2. Ship it — push the branch, open the PR, compound learnings
+3. "You pick what's best" - Let me decide
 ```
 
 Print both onward commands under it, so choosing later — after a `/clear` — costs nothing:

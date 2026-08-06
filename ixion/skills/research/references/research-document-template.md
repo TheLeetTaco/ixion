@@ -98,7 +98,7 @@ Display summary to user (not the full document).
 
 ```
 Question: "Next: research is saved to docs/research/[filename]. What now?"
-**Why you:** Scope. Turning the research into a plan starts building something, which is a bigger job than the question you asked me to answer.
+**Why you:** Preference. The question you asked is answered and on disk, so whether to build on that, dig further, or stop here is a judgment about what you need next rather than anything the document settles.
 Options:
 1. Create plan from research (Recommended) - Invoke plan-creation with research path
 2. Continue researching - Ask follow-up question, append to document
