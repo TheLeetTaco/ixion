@@ -34,4 +34,4 @@ A fifth reason is added when a concrete site needs one, not in advance.
 
 **Weak:**
 > Question: "Naming: call the module `session_store` or `store`?" — no reason fits. The surrounding code already implies one; pick it and say which you picked.
-> `debug/SKILL.md:31` asks "Continue debugging anyway?" after finding a mid-work session. Nothing is irreversible and no fact is missing — the user just ran `/debug`. Name the conflicting session and continue.
+> `debug/SKILL.md` used to ask "Continue debugging anyway?" after finding a mid-work session. Nothing was irreversible and no fact was missing — the user had just run `/debug` — so this gate deleted it; the skill now names the conflicting session and continues.
