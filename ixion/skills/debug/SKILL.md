@@ -154,12 +154,12 @@ git diff
 
 Use AskUserQuestion with exactly 2 options:
 
-1. **"Commit and compound (Recommended)"** — Commit changes via `/ship`, then offer `/compound` to document the debugging solution for future reference.
+1. **"Commit and compound (Recommended)"** — Commit changes via `/ixion:ship`, then offer `/ixion:compound` to document the debugging solution for future reference.
 2. **"Done for now"** — Exit without committing. Changes remain in the working tree.
 
 **If user picks option 1:**
-- Invoke `/ship` to commit and create PR
-- Then offer: "Want to run `/compound` to document this fix for future reference?"
+- Invoke `/ixion:ship <session-id>` to commit and create PR. `ship` resolves a session first and halts when there is none, so a debug that started outside the pipeline has nothing to pass: commit and open the PR by hand, then come back for the next step.
+- Then offer: "Want to run `/ixion:compound` to document this fix for future reference?"
 
 **If user picks option 2:**
 - Inform user that changes are uncommitted in the working tree

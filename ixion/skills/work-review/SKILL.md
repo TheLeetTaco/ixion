@@ -25,21 +25,34 @@ The review target is provided via `$ARGUMENTS`. Can be:
 - PR number (numeric): `123`
 - GitHub URL: `https://github.com/org/repo/pull/123`
 - Branch name: `feature/my-branch`
-- Empty: review current branch changes
-
-The session is resolved in this order:
-
-1. **Remembered id** — if this conversation already established a session id (the pipeline ran earlier, or an orchestrator passed one), that id is authoritative — not active.json. If active.json names a different session, another Claude Code session claimed the pointer since this run started; use the remembered id directly and don't touch active.json.
-2. **Slug in `$ARGUMENTS`** (`^[a-z0-9-]+$`, and not a PR/URL/branch target) → prefix-scan `.ixion/plugin/sessions/<slug>-*`; tiebreak by most-recent date.
-3. **Otherwise** → `.ixion/plugin/active.json`. If that file is missing, error with:
-
-```
-No active session. Run /plan first.
-```
+- Session locator: a full session id or a bare slug
+- Empty: review the current branch's changes against the active session
 
 ---
 
 ## Phase 0: Setup
+
+### Resolve the session
+
+Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
+
+`$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk:
+
+```bash
+<paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
+```
+
+`names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a PR number, a URL, or a branch this repo has no session for.
+
+```bash
+<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
+<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
 
 ### Determine review target
 
@@ -110,7 +123,7 @@ Determine the diff size before dispatching:
 
 ```bash
 BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
+[ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
 ```
@@ -281,10 +294,10 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 
 Validate against `ixion/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry.
 
-Resolve the target path via `.ixion/plugin/active.json`:
+Write into the session Phase 0 resolved:
 
 ```
-.ixion/plugin/sessions/<session-id>/review.findings.json
+.ixion/plugin/sessions/<session= from the resolution block>/review.findings.json
 ```
 
 Write atomically: write to `review.findings.json.tmp` then rename.
@@ -319,12 +332,18 @@ The "Top findings" list shows 3-5 highest-severity finding titles, ordered by se
 
 ```
 What's next?
-1. Implement review findings (invoke /work on the review file)
-2. Ship as-is (skip to /ship)
+1. Implement review findings
+2. Ship as-is
 ```
 
-- Option 1: invoke the `work` skill with the `review.findings.json` path as input.
-- Option 2: proceed directly to `/ship`.
+Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+printf '/ixion:ship %s\n' "$SESSION_ID"
+```
+
+One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
 
@@ -343,7 +362,7 @@ If a finding this round repeats one from a previous review of the same codebase,
 
 ## Error Handling
 
-- **Active session missing**: error with "No active session. Run /plan first."
+- **Session resolution failures**: Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Reviewer failures**: emit synthetic P1 against that reviewer, continue with others. Minimum 50% reviewer success before proceeding.
 - **Git/GitHub failures**: if PR not found, verify number. If branch inaccessible, suggest worktree. If gh CLI not authenticated, surface setup instructions.
 - **File write failure**: retry once with the `.tmp` pattern; if still failing, include full findings in the chat summary rather than losing them.

@@ -17,24 +17,29 @@ Merge review findings into the active session's `spec.json`. Pre-refinement spec
 
 ## Input
 
-No required arguments. Optional `$ARGUMENTS`:
-
-- empty → use the active session from `.ixion/plugin/active.json`
-- slug (`^[a-z0-9-]+$`) or full session id → prefix-scan `.ixion/plugin/sessions/<slug>-*`; tiebreak by most-recent date
+Optional `$ARGUMENTS`: a session locator — a full session id, or a bare slug. Empty falls back to the active pointer. Phase 0 resolves it.
 
 ---
 
 ## Phase 0: Load Session
 
-1. Resolve `session_id`: from `$ARGUMENTS` if given (prefix-scan as above); otherwise from `.ixion/plugin/active.json`. **Identity check:** if this conversation already established a session id (plan-creation ran earlier, or an orchestrator passed one), that remembered id is authoritative — not active.json. If active.json names a different session, another Claude Code session claimed the pointer since this run started; use the remembered id directly and don't touch active.json.
-2. Compute session directory: `.ixion/plugin/sessions/<session_id>/`
-3. Read two inputs:
-   - `spec.json` (the pre-refinement spec)
-   - `review.findings.json` (written by plan-review)
+Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 6 cites it again for the resume command.
+
+```bash
+<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+```
+
+```bash
+<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, read the two inputs from `dir=`:
+
+- `spec.json` (the pre-refinement spec)
+- `review.findings.json` (written by plan-review)
 
 **Errors:**
 
-- `active.json` missing → ask the user to run plan-creation first
 - `review.findings.json` missing → ask the user to run plan-review first, or abort
 - `spec.json` missing → the session is broken; ask the user to delete and restart
 
@@ -171,14 +176,19 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
    Deferred: N
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
-   - Start `/work` (Recommended)
+   - Start implementing (Recommended)
    - Done for now
+6. Print the command that starts it, so "done for now" and a `/clear` cost nothing:
+
+   ```bash
+   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+   ```
 
 ---
 
 ## Error Handling
 
-- **Active session missing:** Prompt user to run plan-creation first
+- **Session resolution failures:** Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Findings missing:** Prompt user to run plan-review first, or abort
 - **Schema validation failure on write:** Restore from `spec.json.pre-consolidation`; report which field failed; do not leave a half-merged spec on disk
 - **User rejects every option on an open question:** Abort consolidation; spec stays in pre-refinement state (sidecar was created but the main spec.json was not overwritten)

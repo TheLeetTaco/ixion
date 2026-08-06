@@ -26,6 +26,32 @@ Automates the full flow: branch creation (if needed), commit, push, and PR creat
 
 ---
 
+## Phase 0: Resolve the Session
+
+`$ARGUMENTS` carries two things here: an optional session locator and an optional commit-message hint (Phase 3 uses the hint). Split it before resolving, so the locator handed to the shared rules is a single token and never the prose:
+
+```bash
+<paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the leading whitespace-delimited word of $ARGUMENTS>
+```
+
+`names_session=yes` — that leading word is the `LOCATOR` and the rest of `$ARGUMENTS` is the hint. `names_session=no` — there is no locator and the whole of `$ARGUMENTS` is the hint, so `/ixion:ship tighten the error copy` resolves through the pointer rather than losing `tighten` into a session lookup. A word that matches is consumed, so `/ixion:ship feat-foo-2026-08-06` leaves no hint and `/ixion:ship feat-foo-2026-08-06 tighten the error copy` keeps the rest.
+
+Then the shared resolution:
+
+```bash
+<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
+<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is a session this skill already shipped — Phase 4 step 7 is what sets `status` there — so re-entering would push a merged branch and open a second PR for it.
+
+Every later phase reads `SDIR="$SESSIONS/<session= from the resolution block>"`.
+
+---
+
 ## Phase 1: Assess Current State
 
 Run these commands in parallel:
@@ -49,13 +75,13 @@ Then resolve the branch roles — which branches are off-limits to commit onto, 
 Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
-SDIR=".ixion/plugin/sessions/<session-id>"   # from .ixion/plugin/active.json, or the id this conversation established
+SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
 BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
+[ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git log "$BASE_REF"..HEAD --oneline
 ```
 
-`<integration branch>` is the `integration=` line the first block printed. An ad-hoc ship has no `$SDIR` at all (`jq` prints nothing), and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — the guard catches both and falls back to the merge-base against the integration branch.
+`<integration branch>` is the `integration=` line the first block printed. A session from before `work` recorded `base_ref` has the field absent, and `jq -r` prints the four-character string `null` for that — the guard catches it and falls back to the merge-base against the integration branch.
 
 Determine:
 - **Current branch**: did the resolution print `on_protected=yes`?
@@ -97,7 +123,7 @@ So commit only what is still uncommitted. If the tree is clean there is nothing 
 5. Create the commit(s) — do NOT add any `Co-Authored-By` lines
 6. Verify with `git log --oneline -3`
 
-If `$ARGUMENTS` includes a commit message hint, use it as guidance.
+A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 ---
 
@@ -117,18 +143,18 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
 3. Read what `work` recorded, and analyze the commits on this branch to write the PR description:
 
    ```bash
-   SDIR=".ixion/plugin/sessions/<session-id>"
+   SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
    BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
    RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
    printf 'base_ref=%s\nrecorded_integration=%s\n' "$BASE_REF" "$RECORDED_INTEGRATION"
-   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
+   [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
    git log "$BASE_REF"..HEAD --oneline
    git diff "$BASE_REF"..HEAD --stat
    ```
 
    The checkpoint commits are only visible from the base `work` actually branched at.
 
-4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, so `recorded_integration=` distinguishes three cases:
+4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, so `recorded_integration=` distinguishes two cases:
 
    - **A branch name** — `work` resolved it, but it is a mutable ref and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome, so `git show-ref` it before use:
 
@@ -137,8 +163,7 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
      ```
 
      `recorded=usable` → that branch is the PR base. `recorded=stale` → use the freshly resolved `integration=` instead of handing a dead ref to `gh`.
-   - **`null` or empty with `base_ref` present** — a session recorded before `work` wrote this field. Back then resolution knew one default branch, `origin/HEAD`, so that `base_ref` is `merge-base(HEAD, production)` and the diff has only ever been measured against production. The freshly resolved `production=` is therefore the PR base, even where `integration=` differs. Targeting integration instead would open the PR against a branch this diff was never measured from.
-   - **Both absent** — an ad-hoc ship with no session dir. The freshly resolved `integration=` is the PR base.
+   - **`null`** — a session recorded before `work` wrote this field. Back then resolution knew one default branch, `origin/HEAD`, so that `base_ref` is `merge-base(HEAD, production)` and the diff has only ever been measured against production. The freshly resolved `production=` is therefore the PR base, even where `integration=` differs. Targeting integration instead would open the PR against a branch this diff was never measured from.
 
 5. Create the PR using `gh`:
    ```bash
@@ -162,6 +187,15 @@ If `$ARGUMENTS` includes a commit message hint, use it as guidance.
 
 6. Output the PR URL to the user.
 
+7. Mark the session terminal, now that its work is on a remote branch under a PR:
+
+   ```bash
+   jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
+   mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+   ```
+
+   This is the write every skill's Phase 0 reads as `state=complete`. Without it a resume command pasted after the PR opened re-enters the pipeline, re-runs verification against merged work, and offers to ship a branch that is already shipped.
+
 ---
 
 ## Phase 5: Compound Learnings
@@ -170,16 +204,12 @@ Two sources feed this phase. The conversation holds the debugging story. The ses
 
 ### 5a. Harvest the session record
 
-Only if this ship followed a pipeline session. Resolve the session id (`.ixion/plugin/active.json`, or the id this conversation already established) and read what's there:
-
 ```bash
-SDIR=".ixion/plugin/sessions/<session-id>"
+SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
 ls "$SDIR"
 ```
 
-If `$SDIR` doesn't exist, skip to 5b with the conversation as the only source — an ad-hoc ship has no session to distill.
-
-Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
+Read the artifacts and extract the durable signal. Each comparison answers a different question:
 
 | Read | Question it answers |
 |---|---|

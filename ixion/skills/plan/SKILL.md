@@ -17,8 +17,16 @@ allowed-tools:
 
 **Pick the first skill from the input:**
 
-- If the input is a **slug** (lowercase kebab, e.g. `feat-user-auth`) that matches an existing session under `.ixion/plugin/sessions/<slug>-*` whose `spec.json` exists: start with `plan-review` (skip creation)
-- **Otherwise** (feature description, or a path to a design document ending in `-design.md`): start with `plan-creation`
+An input naming an existing session routes to review; anything else starts a new plan. Resolve it with the shared rules rather than pattern-matching the string — a bare slug and a full session id both name a session, and only the exact-match rung tells a full id apart from its own `-2` collision sibling:
+
+```bash
+<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+```
+
+- `session=` names a directory holding `spec.json` → start with `plan-review`, passing that id
+- anything else — a feature description, a path to a `*-design.md`, or a slug matching no session → start with `plan-creation`
+
+With no input at all there is nothing to resolve: go straight to `plan-creation`, which asks for the description.
 
 **Load it NOW and begin carrying out its steps:**
 
@@ -94,7 +102,11 @@ Two parts, in this order. The metrics first, then the overview — and the overv
 
 `plan-consolidation` signs off with its own short summary and a "what next?" prompt. That is not this. It's the last child skill closing out, and when it returns you still owe me the overview below before the run is finished — answering the next-step prompt is not the end of the pipeline.
 
-**1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open.
+**1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open. Close it with the command that resumes this session — this is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+```
 
 **2. The high-level overview.** Write this every time, unprompted. I shouldn't have to ask "so what does this plan actually do?" after reading a findings count — by the time you're printing the receipt you already know the answer, and asking me to request it wastes a round trip. Prose and short tables, not JSON, and no restating the spec field by field:
 
@@ -132,10 +144,13 @@ Scale it to the spec: a two-phase spec gets a shorter version of the same shape,
 
 ## Examples
 
-- `/plan Add user authentication with OAuth2` — Full mode (all 3 phases, creates a new session)
-- `/plan .ixion/plugin/designs/oauth2-design.md` — Design mode (creation uses design doc as input, creates a new session)
-- `/plan feat-user-auth` — Review mode if a session slug `feat-user-auth-*` already exists (skips creation, starts at review)
+- `/ixion:plan Add user authentication with OAuth2` — Full mode (all 3 phases, creates a new session)
+- `/ixion:plan .ixion/plugin/designs/oauth2-design.md` — Design mode (creation uses design doc as input, creates a new session)
+- `/ixion:plan feat-user-auth` — Review mode if a session `feat-user-auth-*` already exists (skips creation, starts at review)
+- `/ixion:plan feat-user-auth-2026-08-06` — the same, pinned to one session rather than the most recent one sharing the slug
+
+The `/ixion:` prefix is not decoration here: Claude Code ships a built-in `/plan`, which shadows this skill entirely.
 
 ---
 
-After consolidation, the session dir contains: `spec.json` (refined with findings integrated), `spec.json.pre-consolidation` (backup of the pre-refinement spec), and `session.json`. The `review.findings.json` is consumed and removed. Ready for `/work`.
+After consolidation, the session dir contains: `spec.json` (refined with findings integrated), `spec.json.pre-consolidation` (backup of the pre-refinement spec), and `session.json`. The `review.findings.json` is consumed and removed.

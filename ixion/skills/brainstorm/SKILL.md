@@ -145,7 +145,7 @@ If user has feedback on the design: confirm understanding of changes, research i
 
 Read `references/design-document-template.md` before proceeding -- contains the handoff presentation format and AskUserQuestion options.
 
-When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/plan`, `/work`, continue exploring, or save for later.
+When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/ixion:plan <what to build>`, `/ixion:work`, continue exploring, or save for later. Neither carries a session id: `/ixion:plan` is what creates one.
 
 ---
 

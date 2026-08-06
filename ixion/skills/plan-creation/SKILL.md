@@ -127,18 +127,13 @@ Spec is a structured JSON document validated against `ixion/schemas/spec.schema.
 
 ### Step 1 + 2: Derive session id by claiming the directory
 
-Format: `<slug>-<YYYY-MM-DD>` (kebab-case slug), collision tiebreak `-2` … `-9`. Creation IS the probe — plain `mkdir` (no `-p`) fails atomically if the slot is taken, so a concurrent session planning the same slug can never land in the same directory:
+Pick a kebab-case slug for the feature, then claim it:
 
 ```bash
-mkdir -p .ixion/plugin/sessions
-for n in "" -2 -3 -4 -5 -6 -7 -8 -9; do
-  if mkdir ".ixion/plugin/sessions/<slug>-<YYYY-MM-DD>$n" 2>/dev/null; then
-    SESSION_ID="<slug>-<YYYY-MM-DD>$n"; break
-  fi
-done
+<paste the "Claim a session id" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-See `references/formatting-guide.md` for the full pattern.
+That file also gives the id format the slug has to satisfy and what an empty `session=` means.
 
 ### Step 3: Synthesize phases and tasks
 
@@ -309,6 +304,15 @@ Print the spec's `summary` field + next-steps hint.
 | Proceed to work | Invoke `skill: work` |
 | Done for now | Display path and exit |
 
+Print both onward commands under the prompt, so "done for now" and a `/clear` cost nothing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='plan-review'>
+printf '/ixion:work %s\n' "$SESSION_ID"
+```
+
+One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
+
 ---
 
 ## Error Handling
@@ -339,4 +343,5 @@ Print the spec's `summary` field + next-steps hint.
 ## Detailed References
 
 - `references/validation-research.md` — High-risk heuristic, Context7 workflow, external validation dispatch templates
-- `references/formatting-guide.md` — Session id format, directory layout, artifact filenames, collision behavior
+- `references/formatting-guide.md` — Spec content guidelines: what goes inside `spec.json` fields
+- `ixion/skills/ixion-conventions/references/session-handoff.md` — Session id format, directory layout, and the claim loop Phase 4 pastes

@@ -22,20 +22,23 @@ Run ALL available reviewer agents in parallel, collect their prose findings, str
 
 ## Input
 
-Plan identifier via `$ARGUMENTS`. If empty, the skill reads the active session pointer at `.ixion/plugin/active.json` and loads that session's `spec.json` as the review target.
-
-If `.ixion/plugin/active.json` does not exist, error with:
-
-```
-No active session. Run /plan first.
-```
+`$ARGUMENTS` is either a path to a standalone plan document or a session locator — a full session id, or a bare slug. Empty falls back to the active pointer.
 
 ---
 
 ## Phase 0: Load Target & Project Context
 
-1. If `$ARGUMENTS` is non-empty, treat as a plan path, or as a session slug/id (`^[a-z0-9-]+`) — prefix-scan `.ixion/plugin/sessions/<slug>-*`, most-recent date wins.
-2. Otherwise: read `.ixion/plugin/active.json`, extract `session_id`, load `.ixion/plugin/sessions/<session_id>/spec.json`. **Identity check:** if this conversation already established a session id (plan-creation ran earlier, or an orchestrator passed one), that remembered id is authoritative — not active.json. If active.json names a different session, another Claude Code session claimed the pointer since this run started; use the remembered id directly and don't touch active.json.
+1. A `$ARGUMENTS` that is a readable path is the review target directly; skip to step 3. Otherwise it is the `LOCATOR`, and the session's `spec.json` is the target:
+
+   ```bash
+   <paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+   ```
+
+   ```bash
+   <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+   ```
+
+2. `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, load `<dir>/spec.json`.
 3. The review target (plan content or spec content) is passed inline to the reviewers.
 4. Run the "Project context discovery" step from `ixion/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
 
@@ -224,8 +227,12 @@ Top findings:
 - <title> (P2)
 
 Findings written to: .ixion/plugin/sessions/<session_id>/review.findings.json
+```
 
-Next step: /plan-consolidation
+Then the command that continues this session, so a `/clear` here costs nothing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='plan-consolidation'>
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
@@ -236,7 +243,7 @@ No markdown write outside the session dir. The durable artifact is `review.findi
 
 ## Error Handling
 
-- **Active session missing**: error with "No active session. Run /plan first."
+- **Session resolution failures**: Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Reviewer timeout**: treat as incomplete output → synthetic P1 against that reviewer.
 - **Reviewer returns empty or unparseable prose**: synthetic P1 against that reviewer.
 - **50% of reviewers fail**: surface in chat summary but still write review.findings.json with whatever did parse.

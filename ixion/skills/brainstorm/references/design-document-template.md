@@ -142,10 +142,10 @@ The design documents:
 
 **Next steps:**
 
-1. **Create implementation plan:** `/plan .ixion/plugin/designs/[topic]-design.md`
+1. **Create implementation plan:** `/ixion:plan .ixion/plugin/designs/[topic]-design.md`
    - Creates a phase-by-phase implementation plan from this design
 
-2. **Start implementing directly:** `/work`
+2. **Start implementing directly:** `/ixion:work`
    - Only if design is simple enough (S effort)
 
 3. **Explore more:** Continue brainstorming
@@ -160,8 +160,8 @@ Which would you like to do?
 ```
 Question: "Design validated and saved. What next?"
 Options:
-1. Create implementation plan (Recommended) - /plan
-2. Start implementing directly - /work (S effort only)
+1. Create implementation plan (Recommended) - /ixion:plan
+2. Start implementing directly - /ixion:work (S effort only)
 3. Continue refining - Revisit specific sections
 4. Done for now - Save and come back later
 ```

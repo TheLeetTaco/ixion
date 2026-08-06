@@ -81,6 +81,25 @@ The exact-match rung is what makes a full session id mean the session it names. 
 
 **No branch of this block writes `active.json`** — not the exact match, not the prefix scan. The pointer is a convenience default for bare invocations, and a resolution step that retargeted it would let a command pasted in one terminal silently redirect a concurrent session's bare `/ixion:work` in another. Keeping the single writer (plan-creation, at create time) removes that race entirely rather than narrowing it. The accepted cost is stated so no caller re-decides it: after you paste an explicit session id, a *later bare* invocation in the same terminal still resolves through `active.json` and can land on a different session. Keep passing the id — that is what the resume command below exists to make effortless.
 
+## Does a token name a session?
+
+The same two rungs the block above tries in order, asked as a yes/no question instead of used as a lookup — which is why both exist and why they live together. Two callers need the question first, because their argument is not known to be a locator at all: `ship` must tell a leading session id from the first word of a commit-message hint, and `work-review` must tell a locator from a PR number, URL or branch name.
+
+```bash
+SESSIONS=.ixion/plugin/sessions
+TOKEN='<the single token to test>'
+
+if [ -n "$TOKEN" ] \
+   && { [ -d "$SESSIONS/$TOKEN" ] \
+        || [ -n "$(find "$SESSIONS" -maxdepth 1 -type d -name "$TOKEN-*" -print -quit 2>/dev/null)" ]; }; then
+  printf 'names_session=yes\n'
+else
+  printf 'names_session=no\n'
+fi
+```
+
+`-print -quit` where resolution sorts: existence is the whole answer here, and picking *which* dated session a bare slug means stays resolution's job.
+
 ## Error states
 
 Four conditions decided here so no caller re-decides them, each with exactly one message.

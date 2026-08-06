@@ -22,10 +22,7 @@ Execute the active session's plan or review findings via probe → dispatch → 
 
 ## Input
 
-No required arguments. Optional `$ARGUMENTS`:
-
-- empty → use the active session from `.ixion/plugin/active.json`
-- slug (`^[a-z0-9-]+$`) → prefix-scan `.ixion/plugin/sessions/<slug>-*`; tiebreak by most-recent date
+Optional `$ARGUMENTS`: a session locator — a full session id, or a bare slug. Empty falls back to the active pointer. Phase 0 resolves it.
 
 Mode is detected from session contents — never set explicitly.
 
@@ -33,20 +30,19 @@ Mode is detected from session contents — never set explicitly.
 
 ## Phase 0: Session Detection
 
-Active pointer lives at `.ixion/plugin/active.json` (`{ "schema_version": 1, "session_id": "<id>" }`); sessions live at `.ixion/plugin/sessions/<session-id>/`.
+Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 2.3 and Phase 5 cite it again for the resume command.
 
-Decision tree:
+```bash
+<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+```
 
-1. **No args, active.json missing** → error: `"No active session. Run /plan or /work <slug>."` Exit.
-2. **No args, active.json points to missing session dir** → error: `"Session <id> not found. Clearing active pointer."` `rm -f .ixion/plugin/active.json`. Exit.
-3. **No args, active.json present** → `SESSION_ID=$(jq -r .session_id .ixion/plugin/active.json)`; use it.
-4. **Slug arg** → prefix-scan: `find .ixion/plugin/sessions -maxdepth 1 -type d -name "${SLUG}-*" | sort -r`. ISO-date suffix sorts lexically = chronologically; first result wins. Update `active.json` atomically (write `active.json.tmp.$$` → `mv`; the PID suffix keeps concurrent sessions from clobbering each other's in-flight write) to the winner.
+```bash
+<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
 
-**Identity check before writing anything:** if this conversation already established a session id (plan-creation ran earlier, or an orchestrator passed one), that remembered id is authoritative — not active.json. If active.json names a different session, another Claude Code session claimed the pointer since this run started; use the remembered id directly and don't touch active.json.
+`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is the rung that matters most here: `/work` is the command a resume prints, so it is the one most likely to be pasted after the session already shipped, and continuing would re-run verification against merged work and re-offer "Ship it" on a branch that no longer needs it. Only `state=usable` continues.
 
 Stale-tmp cleanup: if `progress.json.tmp` or `session.json.tmp` exist from an interrupted prior write, delete them. The authoritative file is the un-suffixed one; partial writes never persist past a crash because `.tmp` → `mv` is atomic on local POSIX.
-
-Validate `session.json.schema_version == 1`. Mismatch → `"Unsupported schema version <N>. Re-run the producing skill to regenerate."`
 
 ---
 
@@ -60,7 +56,7 @@ Procedure:
    - `progress.json` exists with `mode: "fix-findings"` → resume fix-findings.
    - `progress.json` exists with `mode: "plan"` AND `status: "completed"` AND `review.findings.json` exists → **fix-findings transition**: rename `progress.json` → `progress.json.plan-mode` to preserve the audit trail, then continue to step 2.
    - `progress.json` exists with `mode: "plan"` → resume plan mode.
-   - `progress.json` missing AND `review.findings.json` exists AND `spec.json` exists → error: `"Run /plan-consolidation to merge review findings before starting work."`
+   - `progress.json` missing AND `review.findings.json` exists AND `spec.json` exists → error: `"Run /ixion:plan-consolidation <session-id> to merge review findings before starting work."`
    - `progress.json` missing AND `spec.json` exists → start fresh plan mode.
    - else → error: `"No spec.json or review.findings.json in session."`
 
@@ -148,7 +144,7 @@ Procedure:
 
    ```bash
    BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
-   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
+   [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
    ```
 
    `base_ref` is optional in `session.schema.json`, and `jq -r` prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
@@ -410,7 +406,19 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 
    The invariant, holding after every one of these writes rather than only at the end of the wave: each id in `completed[]` has a `checkpoint_commits[]` entry naming the commit that holds its work, and a chunk whose commit failed is in neither array.
 7. Update `session.json.last_checkpoint_at` to current UTC ISO-8601.
-8. Failed members go through the 3-strike protocol **serially** before the next wave is computed — never re-dispatch a failing chunk as part of a fresh wave.
+8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
+
+   ```bash
+   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+   printf 'waves: %s done, %s remaining\n' "<waves checkpointed so far>" "<chunks not in completed[], grouped by 2.0a>"
+   ```
+
+   Here rather than after step 5: step 5 appends every verified member to `completed[]` before this loop has attempted a single commit, and step 6 pulls an id back out when its commit is rejected — so a line printed at step 5 advertises work that may not be in history and a count that may be wrong by the time the wave ends.
+
+   Skip it when nothing remains. Phase 5's closing block is the accurate one for a finished session, and a `/ixion:work` line beside it offers to re-enter a session with no chunks left.
+
+   What this does *not* cover is an interruption between a member's commit and its record. Phase 1 step 7 is the net for that: it asks git whether each `completed[]` id has a commit and drops the ids that don't, so a resumed session re-dispatches exactly the chunks whose work never landed.
+9. Failed members go through the 3-strike protocol **serially** before the next wave is computed — never re-dispatch a failing chunk as part of a fresh wave.
 
 ### 2.4 Loop
 
@@ -469,9 +477,18 @@ This check uses the same evidence discipline as `references/verification-gates.m
 All chunks complete, verified, and committed on <branch>.
 
 What's next?
-1. Review the work — /work-review (recommended for substantive changes)
-2. Ship it — /ship (push the branch, open the PR, compound learnings)
+1. Review the work (recommended for substantive changes)
+2. Ship it — push the branch, open the PR, compound learnings
 ```
+
+Print both onward commands under it, so choosing later — after a `/clear` — costs nothing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work-review'>
+printf '/ixion:ship %s\n' "$SESSION_ID"
+```
+
+One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
 
 After the user's choice:
 
@@ -483,7 +500,7 @@ After the user's choice:
 
 ## Recovery & Errors
 
-**Recovery**: "carry on" / "continue" / `/work` with no args all route through Phase 0 → Phase 1 resume. Resume recomputes the next wave (2.0a) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
+**Recovery**: "carry on" / "continue" / `/ixion:work` with no args all route through Phase 0 → Phase 1 resume. Resume recomputes the next wave (2.0a) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
 
 **3-Strike protocol per chunk** (record each attempt in `progress.error_log[]`):
 
@@ -492,7 +509,7 @@ After the user's choice:
 3. **Attempt 3**: broader rethink — question assumptions.
 4. **After 3 failures**: append to `progress.error_log[]` and escalate via AskUserQuestion (retry / skip / abort). If skip, the gap stays in the log so work-review can surface it.
 
-Test failures fix before checkpointing — never append a chunk ID to `completed[]` with failing tests. The chunk being attempted stays in `progress.in_progress` (not yet appended to `completed[]`) until verification passes. Schema-version mismatch on any input artifact: halt with the literal `"Unsupported schema version <N>. Re-run the producing skill to regenerate."`
+Test failures fix before checkpointing — never append a chunk ID to `completed[]` with failing tests. The chunk being attempted stays in `progress.in_progress` (not yet appended to `completed[]`) until verification passes. A schema-version mismatch on `spec.json`, `progress.json` or `review.findings.json` halts the same way Phase 0 halts on `session.json`'s — with `session-handoff.md`'s `state=schema-mismatch` message.
 
 ---
 
