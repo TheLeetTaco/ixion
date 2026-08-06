@@ -83,7 +83,7 @@ Extract from conversation history:
 
 Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the PR is the verification.
 
-**If critical context missing**, ask user — one question per call, in this order, each carrying its own reason:
+**If critical context missing**, ask user, in this order:
 
 1. "Module: which component had the problem?" — **Why you:** Missing fact. The conversation is my only record of this session, and when it never named the component, nothing in the repo says which one you were standing in.
 2. "Symptom: what was the exact error text?" — **Why you:** Missing fact. The error printed in your terminal, and a doc filed under my paraphrase of it is a doc the next person's grep will miss.
