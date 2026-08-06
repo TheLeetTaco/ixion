@@ -27,6 +27,8 @@ Research the codebase, validate technical claims, and emit a work-ready `spec.js
 
 Feature description via `$ARGUMENTS`. If empty, ask user.
 
+**Why you:** Missing fact. The repo can tell me what exists, but not what you want built next or what would make it done — and a spec is nothing without both.
+
 ---
 
 ## Phase 0: Check for Existing Knowledge
