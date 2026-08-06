@@ -46,9 +46,11 @@ Then the shared resolution:
 <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is a session this skill already shipped — Phase 4 step 7 is what sets `status` there — so re-entering would push a merged branch and open a second PR for it.
+`state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 4 step 7 is what sets `status` there — so re-entering would push a merged branch and open a second PR for it.
 
-Every later phase reads `SDIR="$SESSIONS/<session= from the resolution block>"`.
+`via=none` is the signal that does not halt. Nothing named a session, which is an ad-hoc ship: `/ixion:ship tighten the error copy` in a repo that never ran `/ixion:plan` is a supported way to use this skill, and halting there would answer it by naming two skills the user didn't ask for. Continue to Phase 1.
+
+An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it — Phase 1's base, Phase 4's PR base and terminal write, and Phase 5a's harvest each interpolate `SESSION_ID='<session= from the resolution block>'` and branch on `[ -n "$SESSION_ID" ]`. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
 
 ---
 
@@ -75,13 +77,14 @@ Then resolve the branch roles — which branches are off-limits to commit onto, 
 Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
-SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
-BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-[ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
+SESSION_ID='<session= from Phase 0>'
+BASE_REF=
+[ -n "$SESSION_ID" ] && BASE_REF=$(jq -r .base_ref ".ixion/plugin/sessions/$SESSION_ID/session.json")
+[ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git log "$BASE_REF"..HEAD --oneline
 ```
 
-`<integration branch>` is the `integration=` line the first block printed. A session from before `work` recorded `base_ref` has the field absent, and `jq -r` prints the four-character string `null` for that — the guard catches it and falls back to the merge-base against the integration branch.
+`<integration branch>` is the `integration=` line the first block printed. An ad-hoc ship never reads a session file at all, and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — both leave `BASE_REF` unusable and fall back to the merge-base against the integration branch.
 
 Determine:
 - **Current branch**: did the resolution print `on_protected=yes`?
@@ -143,18 +146,22 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 3. Read what `work` recorded, and analyze the commits on this branch to write the PR description:
 
    ```bash
-   SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
-   BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-   RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
+   SESSION_ID='<session= from Phase 0>'
+   SDIR=".ixion/plugin/sessions/$SESSION_ID"
+   BASE_REF=; RECORDED_INTEGRATION=
+   if [ -n "$SESSION_ID" ]; then
+     BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
+     RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
+   fi
    printf 'base_ref=%s\nrecorded_integration=%s\n' "$BASE_REF" "$RECORDED_INTEGRATION"
-   [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
+   [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
    git log "$BASE_REF"..HEAD --oneline
    git diff "$BASE_REF"..HEAD --stat
    ```
 
    The checkpoint commits are only visible from the base `work` actually branched at.
 
-4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, so `recorded_integration=` distinguishes two cases:
+4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, and the guard above leaves both variables empty when there is no session, so `recorded_integration=` distinguishes three cases:
 
    - **A branch name** — `work` resolved it, but it is a mutable ref and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome, so `git show-ref` it before use:
 
@@ -163,7 +170,8 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
      ```
 
      `recorded=usable` → that branch is the PR base. `recorded=stale` → use the freshly resolved `integration=` instead of handing a dead ref to `gh`.
-   - **`null`** — a session recorded before `work` wrote this field. Back then resolution knew one default branch, `origin/HEAD`, so that `base_ref` is `merge-base(HEAD, production)` and the diff has only ever been measured against production. The freshly resolved `production=` is therefore the PR base, even where `integration=` differs. Targeting integration instead would open the PR against a branch this diff was never measured from.
+   - **`null` with `base_ref` present** — a session recorded before `work` wrote this field. Back then resolution knew one default branch, `origin/HEAD`, so that `base_ref` is `merge-base(HEAD, production)` and the diff has only ever been measured against production. The freshly resolved `production=` is therefore the PR base, even where `integration=` differs. Targeting integration instead would open the PR against a branch this diff was never measured from.
+   - **Both empty** — an ad-hoc ship, so nothing was read. The freshly resolved `integration=` is the PR base, matching the merge-base Phase 1 measured the diff from.
 
 5. Create the PR using `gh`:
    ```bash
@@ -187,7 +195,7 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 6. Output the PR URL to the user.
 
-7. Mark the session terminal, now that its work is on a remote branch under a PR:
+7. Mark the session terminal, now that its work is on a remote branch under a PR. An empty `SESSION_ID` skips this step — an ad-hoc ship has no session to mark, and no resume command that could land back here:
 
    ```bash
    jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
@@ -205,11 +213,13 @@ Two sources feed this phase. The conversation holds the debugging story. The ses
 ### 5a. Harvest the session record
 
 ```bash
-SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
-ls "$SDIR"
+SESSION_ID='<session= from Phase 0>'
+[ -n "$SESSION_ID" ] && ls ".ixion/plugin/sessions/$SESSION_ID"
 ```
 
-Read the artifacts and extract the durable signal. Each comparison answers a different question:
+An empty `SESSION_ID` prints nothing: skip to 5b with the conversation as the only source, because an ad-hoc ship has no session to distill.
+
+Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
 
 | Read | Question it answers |
 |---|---|
