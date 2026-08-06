@@ -8,7 +8,7 @@ When asked to plan a feature, run the `plan` skill rather than producing an ad-h
 
 ## Running integration tests
 
-The chain test (`tests/integration/cases/07-chain-smoke.test.sh`) drives the full pipeline against the real Anthropic API, invoking each skill as its own command (`/plan` → `/work` → `/work-review` → `/work`). Prerequisites:
+The chain test (`tests/integration/cases/07-chain-smoke.test.sh`) drives the full pipeline against the real Anthropic API, invoking each skill as its own command (`/ixion:plan` → `/work` → `/work-review` → `/work`). Only `plan` carries the plugin prefix, because only `plan` is shadowed by a Claude Code built-in. The other three stay bare deliberately: bare is what a user types, `05-parallel-sessions` sends bare `/work feata` and would be the only case left covering that form, and prefixing them for cosmetic uniformity would buy realism in one place by deleting coverage in another. Prerequisites:
 
 - A credential: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`. A Claude subscription has no API key, and buying pay-as-you-go access purely to run tests is a tax nobody should pay — the token draws on the subscription instead.
 - `tmux`, `claude`, `jq`, `bunx`, `cargo` on PATH (the fixture builds and tests a Rust crate)
@@ -49,6 +49,8 @@ Smaller tests:
 - `02-fly-plan-creates-spec.test.sh` — `plan` skill end-to-end (~3–10min)
 - `05-parallel-sessions.test.sh`, `06-parallel-chunks.test.sh` — concurrency behavior
 - `08-branch-resolution.test.sh` — `work` branches off the integration branch, not production; two TUI runs, one two-branch repo and one single-branch (~4–8min). Topology correctness is proven offline by `tests/branch-resolution-harness.sh`, which needs no credential and runs in seconds — start there.
+
+`tests/session-resolution-harness.sh` is the same idea for session handoff: it extracts `session-handoff.md`'s own fenced blocks and runs them against throwaway session trees, then lints `ixion/` for the `/ixion:` spelling `install_opencode.py`'s rewrite matches on. Credential-free, seconds long, and it substitutes a python-backed `jq -r .key file` shim on hosts without `jq` so the reference's text runs unchanged — run it before spending API tokens on anything session-resolution shaped.
 
 ## Monitoring a long-running test
 

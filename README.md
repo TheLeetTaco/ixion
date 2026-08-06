@@ -2,7 +2,7 @@
 
 A plugin for Claude Code and OpenCode that runs a plan → work → review → ship workflow, with six-perspective agent review at the plan and code boundaries.
 
-Everything is a skill. `/plan` to plan, `/work` to implement, `/work-review` to review, `/ship` to send a PR. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
+Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to send a PR. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -122,25 +122,27 @@ Plan → Work → Review → Fix → Ship
 
 `brainstorm` and `research` are optional entry points. `work-review` can be added before shipping. `ship` automatically compounds learnings.
 
-| Skill                | What it does |
-|----------------------|--------------|
-| `/brainstorm`        | Conversational exploration before detailed planning |
-| `/research`          | Standalone codebase research using locate→analyze |
-| `/plan`              | Orchestrator: runs `plan-creation` → `plan-review` → `plan-consolidation` |
-| `/plan-creation`     | Research, validate claims via Context7, emit a work-ready `spec.json` |
-| `/plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
-| `/plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
-| `/work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
-| `/work-review`       | Multi-agent code review on PRs, branches, or current changes |
-| `/debug`             | Iterative fix-verify cycle for a specific reported issue |
-| `/compound`          | Capture a solved problem as searchable documentation |
-| `/ship`              | Branch → commit → PR; compounds learnings on the way out |
+| Command (Claude Code form) | What it does |
+|----------------------------|--------------|
+| `/ixion:brainstorm`        | Conversational exploration before detailed planning |
+| `/ixion:research`          | Standalone codebase research using locate→analyze |
+| `/ixion:plan`              | Orchestrator: runs `plan-creation` → `plan-review` → `plan-consolidation` |
+| `/ixion:plan-creation`     | Research, validate claims via Context7, emit a work-ready `spec.json` |
+| `/ixion:plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
+| `/ixion:plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
+| `/ixion:work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
+| `/ixion:work-review`       | Multi-agent code review on PRs, branches, or current changes |
+| `/ixion:debug`             | Iterative fix-verify cycle for a specific reported issue |
+| `/ixion:compound`          | Capture a solved problem as searchable documentation |
+| `/ixion:ship`              | Branch → commit → PR; compounds learnings on the way out |
+
+Every skill but `plan` also answers to its bare name on Claude Code, which is how the prose below refers to them.
 
 ## How it works
 
 ### Planning in phases
 
-`/plan` orchestrates three skills in sequence, each writing to the same session:
+`/ixion:plan` orchestrates three skills in sequence, each writing to the same session:
 
 1. **Create** — Research the codebase (locate→analyze), validate high-risk claims against external docs (Context7), and draft `spec.json`
 2. **Review** — Run all reviewer agents in parallel (architecture, performance, data integrity, elegance, etc.), deduplicate findings, surface conflicts as open questions
@@ -157,7 +159,7 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Execution with recovery
 
-`/work` uses a probe-dispatch-checkpoint pattern. State files and session tracking mean you can clear context mid-work and resume with `/work` (no args). It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and picks the mode itself from session state: a completed plan-mode `progress.json` alongside a present `review.findings.json` means the next bare `/work` is a fix pass.
+`/work` uses a probe-dispatch-checkpoint pattern, so you can clear context mid-work and pick the session back up. Every stage ends by printing the whole line that resumes it — `/ixion:work <session-id>`, preceded by a `cd` when the session moved into a worktree. Paste that line into the fresh context and you land on the session you just left, whatever else has happened since. Invoking `/work` with no arguments still works and falls back to `active.json`, but that pointer belongs to whichever session was planned most recently, so it is the convenience path rather than the reliable one. It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and picks the mode itself from session state: a completed plan-mode `progress.json` alongside a present `review.findings.json` means the next bare `/work` is a fix pass.
 
 ### Multi-agent review
 
@@ -236,10 +238,12 @@ Same skills, slightly different plumbing.
 | Aspect          | Claude Code                     | OpenCode |
 |-----------------|---------------------------------|----------|
 | Distribution    | Plugin marketplace or local install | `install_opencode.py` |
-| Skill syntax    | `/skill-name`                   | `/skill-name` |
+| Command syntax  | `/ixion:<skill>`; bare `/plan` reaches a built-in instead | `/<skill>` — the installer rewrites `/ixion:` away |
 | Config location | `~/.claude/plugins/cache/...`   | `~/.config/opencode/` |
 | Auto-update     | Marketplace toggle              | Re-run install script |
 | Context7 MCP    | Bundled in plugin manifest or via installer | Configured into `opencode.json` |
+
+The rewrite covers the command *name*. Whether an argument typed after it — the session id a resume line carries — reaches an OpenCode skill the way it reaches a Claude Code one is untested: `install_opencode.py` leaves `SKILL.md` bodies alone, so the `#$ARGUMENTS` token installs verbatim. Treat OpenCode session targeting as unproven until someone runs it.
 
 ## Development
 
@@ -278,7 +282,7 @@ Two env vars tune a run: `IXION_TEST_MODEL` overrides the model (cases default t
 | `02-fly-plan-creates-spec.test.sh`  | `plan` orchestrator end-to-end: writes `spec.json`, `session.json`, `active.json` | ~3–10 min |
 | `05-parallel-sessions.test.sh`      | `/work <slug>` targets the named session, not whatever `active.json` points at | ~3–4 min |
 | `06-parallel-chunks.test.sh`        | `work` executes a `depends_on` spec to completion via wave dispatch | ~4–5 min |
-| `07-chain-smoke.test.sh`            | The full chain driven skill-by-skill (`/plan`, `/work`, `/work-review`, `/work`); asserts each artifact, both schema validity and `Skill()` markers | ~10 min |
+| `07-chain-smoke.test.sh`            | The full chain driven skill-by-skill (`/ixion:plan`, `/work`, `/work-review`, `/work`); asserts each artifact, both schema validity and `Skill()` markers | ~10 min |
 
 When a test fails, the cleanup trap captures the full pane scrollback to `/tmp/ixion-int-<session>-<timestamp>-<label>.pane.txt` and leaves the sandbox in place so you can inspect session state. `bash tests/cleanup.sh --apply` deletes them when you're done. See `CLAUDE.md` for monitoring and debugging recipes.
 
