@@ -27,7 +27,11 @@ Conduct comprehensive research using a two-phase locate-then-analyze approach th
 
 ## Input
 
-Research question via `$ARGUMENTS`. If empty, ask user.
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+
+Research question via `$ARGUMENTS`. If empty, ask what to research.
+
+**Why you:** Missing fact. Nothing in the repo says which corner of it you are trying to understand today.
 
 ---
 
@@ -41,10 +45,14 @@ find docs/research -name "*<topic-slug>*" -mtime -14 2>/dev/null | head -3
 
 If matches found, read the YAML frontmatter (`topic`, `tags`) to assess relevance. If a strong match exists:
 
-**AskUserQuestion:** "Found recent research: `[filename]` ([N] days old). Reuse, refresh, or start new?"
+**AskUserQuestion:** "Existing research: found `[filename]` ([N] days old). Reuse, refresh, or start new?"
+
+**Why you:** Preference. The file's age is all I can measure; whether it is still true depends on how fast this area has moved since, which you know and the mtime does not say.
+
 - **Reuse (Recommended)** — Read existing doc, skip to Phase 3 (summary)
 - **Refresh** — Use existing doc as starting point, re-run locate/analyze to update
 - **Start new** — Proceed normally
+- **"You pick what's best"** — Let me decide
 
 If no matches or no `docs/research/` directory, proceed to Phase 1.
 

@@ -16,6 +16,8 @@ allowed-tools:
 
 Iterative debug loop: gather problem, investigate, fix loop (max 10 iterations) with verification after each fix.
 
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+
 ---
 
 ## Phase 0: Goal Definition
@@ -23,16 +25,15 @@ Iterative debug loop: gather problem, investigate, fix loop (max 10 iterations) 
 Parse `$ARGUMENTS` for a problem description.
 
 **If `$ARGUMENTS` is empty:**
-- Use AskUserQuestion: "Describe the problem you're seeing. Include error messages, unexpected behavior, or what's broken."
+- Use AskUserQuestion: "Problem: describe what you're seeing. Include error messages, unexpected behavior, or what's broken."
+  - **Why you:** Missing fact. The error text, the environment it appeared in, and what you actually observed live in your terminal, not in the repo.
 
 **Check for active work session:**
-- Check `.ixion/plugin/sessions/*/session.json` for any session with `status: "active"` and a non-null `active_skill`. If one exists, warn the user:
-  - "Session <session_id> is mid-<active_skill>. Debugging may conflict with in-progress work."
-  - Use AskUserQuestion: "Continue debugging anyway? (yes/no)"
-  - If no, stop.
+- Check `.ixion/plugin/sessions/*/session.json` for any session with `status: "active"` and a non-null `active_skill`. If one exists, name it and continue: "Session <session_id> is mid-<active_skill>. Debugging may conflict with in-progress work." Debugging alongside it is reversible and you just ran `/debug`, so continuing is the decision rather than a question.
 
 **Get verification command:**
-- Use AskUserQuestion: "What command reproduces or shows the problem? (e.g., `cargo test`, `cargo test --test cli`, `curl ...`). Say 'none' for manual verification."
+- Use AskUserQuestion: "Verification: what command reproduces or shows the problem? (e.g., `cargo test`, `cargo test --test cli`, `curl ...`). Say 'none' for manual verification."
+  - **Why you:** Missing fact. The repo has many runnable targets and nothing in it records which one currently fails for you.
 
 **If command provided:**
 - Run the command to capture baseline output
@@ -76,8 +77,16 @@ Likelihood: High / Medium / Low
 
 ### Confirm Direction
 
-Present hypotheses to user using AskUserQuestion:
-- "Here are my hypotheses. Which should I pursue first? (number, or describe a different direction)"
+Present the hypotheses highest-likelihood first, so the recommended answer is option 1:
+
+```
+Question: "Direction: which hypothesis should I pursue first?"
+**Why you:** Preference. The evidence does not separate these cleanly, and which one earns the first three iterations turns on your read of the system rather than on anything further I can find in the repo.
+Options:
+1. Hypothesis 1 (Recommended) - [highest-likelihood summary]
+2. Hypothesis 2 - [summary]
+3. "You pick what's best" - Let me decide
+```
 
 ---
 
@@ -96,7 +105,7 @@ For each iteration (1 to 10):
 
   2. Verify:
      - Automated mode: run verification command, truncate to last 2000 chars
-     - Manual mode: AskUserQuestion "Did this fix the problem? (describe what you see)"
+     - Manual mode: ask the verification question below
 
   3. Evaluate:
      - If FIXED → go to Phase 3
@@ -107,8 +116,20 @@ For each iteration (1 to 10):
      - If STRIKES[CURRENT_HYPOTHESIS] >= 3 → move to next hypothesis
 
   5. If all hypotheses exhausted:
-     - AskUserQuestion "All hypotheses exhausted. Describe what you're seeing or suggest a new direction."
+     - Ask the new-direction question below
      - Form new hypotheses from user input
+```
+
+### Loop Questions
+
+```
+Question: "Verification: did this fix the problem? Describe what you see."
+**Why you:** Missing fact. In manual mode nothing I can run observes the result — you are the only instrument reading it.
+```
+
+```
+Question: "Direction: all hypotheses are exhausted. What are you seeing now, or where should I look next?"
+**Why you:** Missing fact. Every hypothesis the evidence supported has failed, so the next one has to come from behavior you have seen and I have not.
 ```
 
 ### Fix Loop Rules
@@ -142,7 +163,16 @@ Provide a clear summary:
 - **Fix applied**: What changed and why
 - **Verification**: Confirmation that the verification command passes
 
-If the root cause was non-obvious — a surprising interaction, a misleading symptom, a fix that future debuggers would want to know about — offer to run the `compound` skill to capture it while the details are fresh.
+If the root cause was non-obvious — a surprising interaction, a misleading symptom, a fix that future debuggers would want to know about — offer to capture it while the details are fresh:
+
+```
+Question: "Capture: document this root cause as a solution doc?"
+**Why you:** Scope. Writing the doc is work beyond the fix you asked for, and whether it pays back depends on how often your team expects to meet this again.
+Options:
+1. Run `/ixion:compound` now (Recommended) - Capture it while the details are fresh
+2. Skip - The fix stands on its own
+3. "You pick what's best" - Let me decide
+```
 
 ### Show Changes
 
@@ -152,18 +182,14 @@ git diff
 
 ### Offer Next Steps
 
-Use AskUserQuestion with exactly 2 options:
-
-1. **"Commit and compound (Recommended)"** — Commit changes via `/ixion:ship`, then offer `/ixion:compound` to document the debugging solution for future reference.
-2. **"Done for now"** — Exit without committing. Changes remain in the working tree.
-
-**If user picks option 1:**
-- Invoke `/ixion:ship` to commit and create PR
-- Then offer: "Want to run `/ixion:compound` to document this fix for future reference?"
-
-**If user picks option 2:**
-- Inform user that changes are uncommitted in the working tree
-- Exit
+```
+Question: "Next: commit the fix, or leave it in the working tree?"
+**Why you:** Irreversible. `/ixion:ship` pushes a branch and opens a PR, which puts the fix in front of reviewers and cannot be quietly taken back.
+Options:
+1. Commit (Recommended) - Invoke `/ixion:ship` to commit and open the PR
+2. Done for now - Exit; changes stay uncommitted in the working tree
+3. "You pick what's best" - Let me decide
+```
 
 ---
 

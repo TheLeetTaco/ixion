@@ -20,4 +20,14 @@ Detailed thresholds and actions for managing long brainstorm sessions.
 
 1. Write current state to design document
 2. Present: "We've explored a lot. Let me save progress and we can continue fresh."
-3. AskUserQuestion: Continue now / Clear context and resume / Stop here
+3. Ask:
+
+```
+Question: "Context: state is saved. Keep going in this session, or start fresh?"
+**Why you:** Preference. Continuing costs recall quality as context fills; clearing costs the conversational thread. Which one you'd rather lose is yours to weigh.
+Options:
+1. Clear context and resume (Recommended) - Reload from the design document
+2. Continue now - Keep the thread, accept the pressure
+3. Stop here - Pick it up later
+4. "You pick what's best" - Let me decide
+```

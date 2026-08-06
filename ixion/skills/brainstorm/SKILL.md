@@ -31,16 +31,19 @@ Transform ideas into validated designs through natural collaborative dialogue. O
 
 **Anti-patterns:**
 - Dumping research findings on user (present insights, not data)
-- Asking multiple questions at once (one at a time)
 - Skipping approach exploration (always present 2-3 options)
 - Presenting design without incremental validation
 - Writing full design then asking "does this look good?"
+
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding -- it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 ---
 
 ## Input
 
-Feature idea via `$ARGUMENTS`. If empty, ask: "What would you like to explore?"
+Feature idea via `$ARGUMENTS`. If empty, ask: "Topic: what would you like to explore?"
+
+**Why you:** Missing fact. The idea exists only in your head at this point -- there is nothing in the repo for me to read it off.
 
 ---
 
@@ -66,20 +69,15 @@ Present a concise research summary (scope, key files, patterns, concerns). AskUs
 
 ## Phase 3: Understand the Idea
 
-Ask questions **one at a time** to refine the idea.
+Refine the idea through a fixed sequence. Prefer multiple choice (2-4 options), and YAGNI ruthlessly -- challenge scope creep at every answer.
 
-**Rules:**
-1. One question per message
-2. Prefer multiple choice (AskUserQuestion with 2-4 options)
-3. Lead with recommendation
-4. YAGNI ruthlessly -- challenge scope creep
+**Question sequence**, each carrying its own reason:
 
-**Question sequence:**
-1. Clarify core problem
-2. Understand user/audience
-3. Define success criteria
-4. Identify constraints
-5. Scope check -- "Is X part of this?"
+1. Clarify core problem -- **Why you:** Missing fact. The symptom that made you want this built is not written down anywhere I can read.
+2. Understand user/audience -- **Why you:** Missing fact. Who is on the other end of this is a fact about your users, and the codebase names none of them.
+3. Define success criteria -- **Why you:** Preference. Several finish lines are defensible here; which one you'd call done turns on what you're optimizing for.
+4. Identify constraints -- **Why you:** Missing fact. Deadlines, platforms you must keep working, and teams you cannot break are outside the repo entirely.
+5. Scope check -- "Is X part of this?" -- **Why you:** Scope. Answering this one for you would enlarge or shrink the job you agreed to.
 
 **Continue until you understand:** core problem, who benefits, what success looks like, what's out of scope, key constraints.
 
@@ -105,7 +103,7 @@ Check `docs/solutions/` for relevant past solutions. If matches found, present t
 
 Read `references/approach-exploration.md` before proceeding -- contains the approach format template with tradeoffs table, selection process, and hybrid handling.
 
-Use best practices research to inform approaches. Present each with summary, tradeoffs table, when-to-choose guidance, and effort estimate. Ask user to select via AskUserQuestion.
+Use best practices research to inform approaches. Present each with summary, tradeoffs table, when-to-choose guidance, and effort estimate. Ask user to select via AskUserQuestion, recommended approach first.
 
 ---
 
@@ -114,20 +112,22 @@ Use best practices research to inform approaches. Present each with summary, tra
 Present design in **small chunks (200-300 words each)**.
 
 **Section order:**
-1. Overview
-2. User flows
-3. Architecture
+1. Overview (what, why)
+2. User flows (step-by-step from the user's perspective)
+3. Architecture (components, connections)
 4. Data model (if applicable)
-5. Error handling
-6. Success criteria
+5. Error handling (what can go wrong)
+6. Success criteria (how to verify)
 
 **After EACH section:** "Does this look right so far?" Handle feedback immediately before moving to next section.
+
+**Why you:** Preference. You are steering a design as it takes shape, and I cannot know mid-shape which of the many designs that satisfy the criteria is the one you have in mind. This checkpoint survives the gate for that reason -- catching a wrong turn one section in is the whole point of brainstorming out loud.
 
 ---
 
 ## Phase 7: Create Design Document
 
-Read `references/design-document-template.md` before proceeding -- contains the full document template, approach format, and validation sections.
+Read `references/design-document-template.md` before proceeding -- contains the full document template and approach format.
 
 Write to `.ixion/plugin/designs/<topic>-design.md` (run `mkdir -p .ixion/plugin/designs` first). Include ALL explored approaches (not just selected), validated sections, selection rationale, and open questions.
 
@@ -159,9 +159,7 @@ Brainstorm sessions can run long. Watch for warning signs (too many research cyc
 
 ## Key Principles
 
-- **One question at a time**
 - **Multiple choice preferred**
-- **Lead with recommendations**
 - **YAGNI ruthlessly**
 - **Incremental validation**
 - **Preserve all approaches**
@@ -179,6 +177,6 @@ Brainstorm sessions can run long. Watch for warning signs (too many research cyc
 
 - `references/research-dispatch.md` -- Research dispatch templates, review format, understanding confirmation, past solutions lookup
 - `references/approach-exploration.md` -- Approach format template with tradeoffs, selection process
-- `references/design-document-template.md` -- Output document template, approach format, validation sections, handoff format
+- `references/design-document-template.md` -- Output document template, approach format, handoff format
 - `references/design-iteration.md` -- 5-step design iteration procedure
 - `references/context-management.md` -- Warning thresholds, compaction actions, context recovery

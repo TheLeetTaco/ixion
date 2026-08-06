@@ -482,7 +482,7 @@ All chunks complete, verified, and committed on <branch>.
 
 What's next?
 **Why you:** Preference. Every chunk's verification already passed, so a review round is worth its cost only against how much scrutiny you want on this particular change.
-1. Review the work (recommended for substantive changes)
+1. Review the work (Recommended for substantive changes)
 2. Ship it — push the branch, open the PR, compound learnings
 ```
 

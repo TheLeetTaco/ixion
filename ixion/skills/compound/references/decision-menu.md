@@ -10,15 +10,16 @@ After successful documentation, present options and WAIT for user response.
 File created:
 - docs/solutions/[category]/[filename].md
 
-What's next?
-1. Continue workflow (recommended)
+Question: "Next: the solution is documented. What now?"
+**Why you:** Preference. Promoting this to Required Reading binds every future reader of the repo, and whether one debugging session is worth that weight is a call about your team, not about the doc.
+Options:
+1. Continue workflow (Recommended) - Documentation is complete
 2. Add to Required Reading - Promote to critical patterns
 3. Link related issues - Connect to similar problems
-4. Add to existing skill - Add to a learning skill
-5. Create new skill - Extract into new learning skill
-6. View documentation - See what was captured
-7. Other
+4. "You pick what's best" - Let me decide
 ```
+
+Three former options were dropped rather than converted. "View documentation" re-displayed a file whose path is printed one line above and then re-asked the same question, so it never decided anything. "Add to existing skill" and "Create new skill" wrote into `ixion/skills/` relative to the user's repo, which is not where the installed plugin is read from — the file they produced was inert.
 
 ---
 
@@ -48,29 +49,8 @@ User selects when:
 - Add cross-reference to both docs
 - Confirm: "✓ Cross-reference added"
 
-### Option 4: Add to existing skill
-
-**Action:**
-1. Prompt: "Which skill? (compound, work, etc.)"
-2. Determine reference file (resources.md, patterns.md, or examples.md)
-3. Add link and brief description
-4. Confirm: "✓ Added to [skill-name] in [file]"
-
-### Option 5: Create new skill
-
-**Action:**
-1. Prompt: "What should the new skill be called?"
-2. Create skill directory: `mkdir -p ixion/skills/[skill-name]`
-3. Create `SKILL.md` with skill template
-4. Create initial reference files with this solution
-5. Confirm: "✓ Created new [skill-name] skill"
-
-### Option 6: View documentation
-- Display the created documentation
-- Present decision menu again
-
-### Option 7: Other
-- Ask what they'd like to do
+### Option 4: "You pick what's best"
+- Apply the recommendation (Option 1) and record it as a delegated decision rather than a picked one
 
 ---
 

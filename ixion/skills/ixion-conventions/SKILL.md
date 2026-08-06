@@ -57,7 +57,7 @@ Bash is only for: git commands, `bun` commands, and system operations with no de
 
 **References**: Always `path/to/file.rs:42-67`, never "in the auth module."
 
-**Questions**: For the canonical shape of a question put to the user — recommended option first, mandatory `**Why you:**` slot, and the reason catalog that gates whether to ask at all — see `references/question-format.md`. It binds skills that address the user; subagents never ask.
+**Questions**: For the canonical shape of a question put to the user — recommended option first, mandatory `**Why you:**` slot, and the four reasons that gate whether to ask at all — see `references/question-format.md`. It binds skills that address the user; subagents never ask.
 
 ---
 

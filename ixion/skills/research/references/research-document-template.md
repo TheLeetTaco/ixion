@@ -97,15 +97,18 @@ Display summary to user (not the full document).
 **AskUserQuestion:**
 
 ```
-Question: "Research complete and saved to docs/research/[filename]. What next?"
+Question: "Next: research is saved to docs/research/[filename]. What now?"
+**Why you:** Scope. Turning the research into a plan starts building something, which is a bigger job than the question you asked me to answer.
 Options:
 1. Create plan from research (Recommended) - Invoke plan-creation with research path
 2. Continue researching - Ask follow-up question, append to document
 3. Done for now - Exit
+4. "You pick what's best" - Let me decide
 ```
 
 | Option | Action |
 |--------|--------|
-| Create plan | `Skill: plan-creation` with research document path |
+| Create plan (Recommended) | `Skill: plan-creation` with research document path |
 | Continue | Ask follow-up, re-run locate-then-analyze, append to document |
 | Done | Exit skill |
+| You pick what's best | Apply the recommendation, and record it as a delegated decision rather than a picked one |

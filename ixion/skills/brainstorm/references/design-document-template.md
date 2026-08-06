@@ -100,21 +100,6 @@ Present 2-3 approaches with explicit tradeoffs:
 
 ---
 
-## Validation Sections
-
-Present design in small chunks (200-300 words each). Order:
-
-1. Overview (what, why)
-2. User flows (step-by-step from user perspective)
-3. Architecture (components, connections)
-4. Data model (if applicable)
-5. Error handling (what can go wrong)
-6. Success criteria (how to verify)
-
-After EACH section: "Does this look right so far?"
-
----
-
 ## Completion Summary
 
 ```
@@ -130,7 +115,7 @@ Summary:
 
 ## Handoff Options
 
-Present explicit next steps:
+Present the summary, then ask:
 
 ```markdown
 Design complete: `.ixion/plugin/designs/[topic]-design.md`
@@ -139,29 +124,16 @@ The design documents:
 - **Problem:** [1 sentence summary]
 - **Selected approach:** [approach name]
 - **Key decisions:** [3-5 bullet points]
-
-**Next steps:**
-
-1. **Create implementation plan:** `/ixion:plan .ixion/plugin/designs/[topic]-design.md`
-   - Creates a phase-by-phase implementation plan from this design
-
-2. **Start implementing directly:** `/ixion:work`
-   - Only if design is simple enough (S effort)
-
-3. **Explore more:** Continue brainstorming
-   - If new questions emerged during design
-
-4. **Done for now:** Save and come back later
-
-Which would you like to do?
 ```
 
 **AskUserQuestion format:**
 ```
-Question: "Design validated and saved. What next?"
+Question: "Next: the design is validated and saved. What now?"
+**Why you:** Scope. Planning turns this design into committed work, and how much of it to build now is yours to size.
 Options:
-1. Create implementation plan (Recommended) - /ixion:plan
-2. Start implementing directly - /ixion:work (S effort only)
+1. Create implementation plan (Recommended) - `/ixion:plan .ixion/plugin/designs/[topic]-design.md`
+2. Start implementing directly - `/ixion:work`, only if the design is S effort
 3. Continue refining - Revisit specific sections
 4. Done for now - Save and come back later
+5. "You pick what's best" - Let me decide
 ```

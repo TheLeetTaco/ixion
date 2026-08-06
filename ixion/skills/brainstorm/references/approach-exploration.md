@@ -31,7 +31,16 @@ This forces thinking about failure modes, not just benefits.
 
 ## Selection Process
 
-Ask user to select using AskUserQuestion with approach names as options.
+Ask the user to select, recommended approach first:
+
+```
+Question: "Approach: which of these should the design follow?"
+**Why you:** Preference. The approaches trade against each other -- speed against flexibility, less code now against less rework later -- and which trade is right is taste no amount of reading the codebase settles.
+Options:
+1. [Recommended approach name] - [one-line summary]
+2. [Alternative name] - [one-line summary]
+3. "You pick what's best" - Let me decide
+```
 
 If user wants to combine approaches:
 1. Clarify which aspects from each

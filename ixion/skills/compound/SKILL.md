@@ -26,6 +26,8 @@ Document solved problems to build searchable institutional knowledge.
 
 **Organization:** Single-file per problem in category directory (e.g., `docs/solutions/performance-issues/n-plus-one-query.md`).
 
+Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+
 ---
 
 ## Step 1: Detect Confirmation
@@ -81,14 +83,15 @@ Extract from conversation history:
 
 Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the PR is the verification.
 
-**If critical context missing**, ask user:
+**If critical context missing**, ask user — one question per call, in this order:
 
 ```
-I need a few details to document this:
-1. Which module/component?
-2. What was the exact error?
-3. What environment?
+Question: "Module: which component had the problem?"
+Question: "Symptom: what was the exact error text?"
+Question: "Environment: where did it happen (OS, version, config)?"
 ```
+
+**Why you:** Missing fact. The conversation is my only record of this problem, and where it happened, what it printed and what it ran on are yours to supply when that record came up short.
 
 ---
 
@@ -98,8 +101,11 @@ On first compound creation in a repo, offer to add a one-line pointer to `docs/s
 
 Detection: `ls docs/solutions/ 2>/dev/null | wc -l` returns 0 AND neither AGENTS.md nor CLAUDE.md has a grep hit for `docs/solutions`.
 
-If detected, **AskUserQuestion:** "No existing solutions directory detected. Add a one-line pointer to `docs/solutions/` in AGENTS.md or CLAUDE.md so future agents find it?"
-- Options: `Add to AGENTS.md` / `Add to CLAUDE.md` / `Skip`
+If detected, **AskUserQuestion:** "Discoverability: add a one-line pointer to `docs/solutions/` so future agents find it?"
+
+**Why you:** Preference. Either file would work; which one your team actually keeps current is a habit the repo doesn't record, and the pointer is worthless in the file nobody reads.
+
+- Options: `Add to AGENTS.md (Recommended) - read by both Claude Code and OpenCode` / `Add to CLAUDE.md` / `Skip` / `"You pick what's best" - Let me decide`
 
 On yes, Edit the chosen file to append: `` Past solutions & compound learnings live in `docs/solutions/`. ``
 
@@ -111,7 +117,16 @@ On yes, Edit the chosen file to append: `` Past solutions & compound learnings l
 grep -r "exact error phrase" docs/solutions/
 ```
 
-**If similar found:** Ask whether to create new doc with cross-reference or update existing.
+**If similar found:**
+
+```
+Question: "Existing doc: `[path]` covers a similar problem. Extend it, or write a new one?"
+**Why you:** Preference. Whether these are two faces of one problem or two problems that happen to share an error string is a judgement about your system, and the grep hit alone doesn't settle it.
+Options:
+1. Update the existing doc (Recommended) - Keeps one place to look
+2. New doc with a cross-reference - Different root cause, same symptom
+3. "You pick what's best" - Let me decide
+```
 
 **If none:** Proceed.
 
@@ -164,9 +179,13 @@ grep -rl "<root-cause-keyword>" docs/solutions/ | head -5
 
 If 2+ solutions share the same root cause type or pattern (e.g., same type of fix in the same component area), suggest creating a standard:
 
-**AskUserQuestion:** "This pattern appears in [N] solutions ([list filenames]). Capture as a reusable standard?"
-- **Yes** — Draft standard from the shared pattern, write to `docs/standards/<pattern-name>.md` per the format in `docs/standards/README.md`, user confirms content
+**AskUserQuestion:** "Standard: this pattern appears in [N] solutions ([list filenames]). Capture it as a reusable standard?"
+
+**Why you:** Scope. A standard binds code nobody has written yet, so adopting one is a commitment well past documenting the fix you just made.
+
 - **Skip (Recommended)** — Continue without creating a standard
+- **Yes** — Draft standard from the shared pattern, write to `docs/standards/<pattern-name>.md` per the format in `docs/standards/README.md`, user confirms content
+- **"You pick what's best"** — Let me decide
 
 Only suggest when the pattern is clearly reusable, not when solutions happen to touch the same file.
 
@@ -174,20 +193,7 @@ Only suggest when the pattern is clearly reusable, not when solutions happen to 
 
 ## Step 6: Present Results
 
-Per `references/decision-menu.md`:
-
-```
-✓ Solution documented
-
-File: docs/solutions/[category]/[filename].md
-
-What's next?
-1. Continue workflow (recommended)
-2. Add to Required Reading
-3. Link related issues
-4. View documentation
-5. Other
-```
+Read `references/decision-menu.md` before proceeding — it contains the completion message, the menu and what each option does.
 
 ---
 

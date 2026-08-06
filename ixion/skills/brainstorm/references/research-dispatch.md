@@ -32,10 +32,17 @@ Patterns Discovered: [pattern: description]
 Potential Concerns: [risks]
 ```
 
-**AskUserQuestion options:**
-- Approve and proceed
-- Add focus area - Need more investigation
-- Redirect research - Wrong direction
+**AskUserQuestion:**
+
+```
+Question: "Research: does this cover the ground the design needs?"
+**Why you:** Scope. Redirecting the research changes which part of the system the design ends up being about, and I cannot tell "I looked in the wrong place" from "that area is genuinely thin".
+Options:
+1. Approve and proceed (Recommended) - The summary covers it
+2. Add focus area - Needs more investigation somewhere specific
+3. Redirect research - Wrong direction entirely
+4. "You pick what's best" - Let me decide
+```
 
 Maximum 2 re-research cycles.
 
@@ -55,6 +62,8 @@ I understand we're solving:
 
 Is this accurate?
 ```
+
+**Why you:** Missing fact. This is your description played back through my reading of the codebase, and only you can say whether it survived the round trip.
 
 ---
 
@@ -76,6 +85,15 @@ Relevant Past Solutions:
    - Why relevant: [connection to problem]
 ```
 
-Ask if learnings should inform approach selection.
+Then ask:
+
+```
+Question: "Past solutions: should these inform the approaches I present?"
+**Why you:** Preference. The keyword match says they touch the same area; whether the lesson still applies to what you're building is your judgement of the resemblance, not the grep's.
+Options:
+1. Yes, factor them in (Recommended) - Approaches account for what was learned
+2. No, start clean - The resemblance is superficial
+3. "You pick what's best" - Let me decide
+```
 
 **If no matches:** Proceed silently.
