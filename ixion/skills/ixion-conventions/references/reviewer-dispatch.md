@@ -28,6 +28,8 @@ Before assessing your domain, read the pasted reference excerpts and the project
 <paste the "Lead with the Failure" excerpt from ixion-conventions SKILL.md>
 
 If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
+
+Every finding you return carries all five of Title, Severity, Location, Failure and Fix, plus Evidence where your Output Format section's finding-format reference calls for it. Severity is a literal `P1`, `P2` or `P3`.
 ```
 
-The preamble deliberately says nothing about the shape of a finding — that contract lives in `ixion/skills/ixion-conventions/references/finding-format.md`, which every reviewer's Output Format section already points to. Don't restate it here: the restatement that used to occupy this block listed Failure, Evidence and Fix but not Severity, and reviewers took it as the authoritative element list and dropped Severity.
+That last line names the elements and elaborates on none of them, which is the only stable point between two observed failures. The restatement that used to occupy this block described Failure, Evidence and Fix at length and never mentioned Severity; reviewers read it as the authoritative element list and dropped Severity. Deleting the restatement left the list reachable only through `finding-format.md` — and four of six reviewers dropped Severity again, the one reviewer that complied being the only one whose own domain rules happen to name P-labels. A bare naming is too thin to compete with the contract and complete enough that no element can be inferred away. Expanding any single element here rebuilds the partial list; the shape, the four Failure slots and the Evidence condition stay in `finding-format.md`, which every reviewer's Output Format section points to.
