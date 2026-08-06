@@ -47,7 +47,15 @@ Before reviewing, load the `language-standards` skill. Focus on the Concurrency 
 - Architectural boundaries, coupling → reviewer-architecture
 - Migration safety, data integrity → reviewer-data-integrity
 
-For each finding, explain the current impact AND the projected impact at scale. Prioritize by impact.
+For each finding, explain the current impact AND the projected impact at scale.
+
+## Severity By The Scale That Breaks It
+
+You already project each finding to 10x and 100x — that projection is the severity. Rank it as you form the finding.
+
+- **P1** — degrades at the volume the code sees today or at 10x: an N+1 on a request path, an allocation that grows unbounded with user-controlled input, a blocking call on an async executor, a full scan of a table that's already large.
+- **P2** — holds today, breaks at 100x or only on a cold path: O(n²) over a collection that happens to be small now, a missing index on a table that will grow, repeated I/O worth caching.
+- **P3** — measurable in a benchmark, never felt in production: an avoidable clone or allocation outside a hot path.
 
 ---
 

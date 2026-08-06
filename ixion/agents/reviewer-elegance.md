@@ -128,6 +128,16 @@ Before reviewing, load the `language-standards` skill. Focus on the Ownership & 
 
 ---
 
+## Severity By Blast Radius Of The Shape
+
+Rank each finding as you name it — the severity follows from how much of the design inherits the inelegance.
+
+- **P1** — the shape itself is wrong and everything built on it inherits the flaw: a God Class that later phases keep extending, a Forwarding Chain every caller routes through, an abstraction whose contract the rest of the design already depends on. Fixing it after this lands means rewriting the consumers, so it has to be redesigned now.
+- **P2** — the inelegance is contained to what you're looking at: a Shallow Wrapper with a handful of callers, a value stored in two places, a parameter that's always the same. Every reader pays a tax, but the fix is local and nothing downstream is shaped around it.
+- **P3** — a more natural form exists and no reader is misled by the current one.
+
+---
+
 ## Review Process
 
 1. **Load project context** (Phase 0): Read architecture docs, ADRs, coding guidelines. Identify the tech stack and its grain. Note project-specific anti-patterns.

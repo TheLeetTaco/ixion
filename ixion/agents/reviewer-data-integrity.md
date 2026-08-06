@@ -108,6 +108,14 @@ When analyzing migrations:
 
 Remember: In production, data integrity issues can be catastrophic. Be thorough, be cautious, and always consider the worst-case scenario.
 
+## Severity By Recoverability
+
+You already ask "what breaks if this fails halfway through?" — the answer's recoverability is the severity. Rank each finding as you form it.
+
+- **P1** — data ends up lost or silently wrong with no way to reconstruct it: a swapped mapping between same-type fields, a migration past its point of no return with no verified backup, a multi-row write outside a transaction, PII crossing a boundary it can never be recalled from.
+- **P2** — the damage is detectable and repairable from another source: a missing constraint that lets bad rows in from now on, a race on a uniqueness check whose duplicates can be reconciled, a lock held long enough to cost availability but not data.
+- **P3** — an invariant left unenforced at this layer while another layer still holds it.
+
 ---
 
 ## Output Format
