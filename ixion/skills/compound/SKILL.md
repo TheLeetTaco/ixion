@@ -83,31 +83,34 @@ Extract from conversation history:
 
 Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the PR is the verification.
 
-**If critical context missing**, ask user — one question per call, in this order:
+**If critical context missing**, ask user — one question per call, in this order, each carrying its own reason:
 
-```
-Question: "Module: which component had the problem?"
-Question: "Symptom: what was the exact error text?"
-Question: "Environment: where did it happen (OS, version, config)?"
-```
-
-**Why you:** Missing fact. The conversation is my only record of this problem, and where it happened, what it printed and what it ran on are yours to supply when that record came up short.
+1. "Module: which component had the problem?" — **Why you:** Missing fact. The conversation is my only record of this session, and when it never named the component, nothing in the repo says which one you were standing in.
+2. "Symptom: what was the exact error text?" — **Why you:** Missing fact. The error printed in your terminal, and a doc filed under my paraphrase of it is a doc the next person's grep will miss.
+3. "Environment: where did it happen (OS, version, config)?" — **Why you:** Missing fact. The repo records the environments it supports, not the one you were actually running.
 
 ---
 
 ## Step 2.5: First-Use Discoverability Check
 
-On first compound creation in a repo, offer to add a one-line pointer to `docs/solutions/` in AGENTS.md or CLAUDE.md so future agents find the knowledge store.
+On first compound creation in a repo, add a one-line pointer to `docs/solutions/` so future agents find the knowledge store: `` Past solutions & compound learnings live in `docs/solutions/`. ``
 
 Detection: `ls docs/solutions/ 2>/dev/null | wc -l` returns 0 AND neither AGENTS.md nor CLAUDE.md has a grep hit for `docs/solutions`.
 
-If detected, **AskUserQuestion:** "Discoverability: add a one-line pointer to `docs/solutions/` so future agents find it?"
+That same grep already tells you which of the two files exist, which settles the destination in two of the three cases:
 
-**Why you:** Preference. Either file would work; which one your team actually keeps current is a habit the repo doesn't record, and the pointer is worthless in the file nobody reads.
+- **Neither exists** — create AGENTS.md and say so; both Claude Code and OpenCode read it, so there is no competing candidate.
+- **Exactly one exists** — append to it and say so; the alternative is a file that isn't there.
+- **Both exist** — the choice is genuinely yours, so ask:
 
-- Options: `Add to AGENTS.md (Recommended) - read by both Claude Code and OpenCode` / `Add to CLAUDE.md` / `Skip` / `"You pick what's best" - Let me decide`
-
-On yes, Edit the chosen file to append: `` Past solutions & compound learnings live in `docs/solutions/`. ``
+```
+Question: "Discoverability: put the `docs/solutions/` pointer in AGENTS.md or CLAUDE.md?"
+**Why you:** Preference. Both files are here and both get read; which one your team actually keeps current is a habit the repo doesn't record, and the pointer is worthless in the file nobody reads.
+Options:
+1. AGENTS.md (Recommended) - read by both Claude Code and OpenCode
+2. CLAUDE.md - read by Claude Code only
+3. "You pick what's best" - Let me decide
+```
 
 ---
 

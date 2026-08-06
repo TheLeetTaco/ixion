@@ -75,18 +75,9 @@ Evidence: <what points to this>
 Likelihood: High / Medium / Low
 ```
 
-### Confirm Direction
+### Set Direction
 
-Present the hypotheses highest-likelihood first, so the recommended answer is option 1:
-
-```
-Question: "Direction: which hypothesis should I pursue first?"
-**Why you:** Preference. The evidence does not separate these cleanly, and which one earns the first three iterations turns on your read of the system rather than on anything further I can find in the repo.
-Options:
-1. Hypothesis 1 (Recommended) - [highest-likelihood summary]
-2. Hypothesis 2 - [summary]
-3. "You pick what's best" - Let me decide
-```
+Present the hypotheses highest-likelihood first and take that one, saying so: "Starting with Hypothesis 1 — <summary>. Redirect me if you already know better." The loop below moves on after three failed iterations, so every hypothesis gets tried whatever the order; the ranking only decides which one gets the first three, and I ranked them, so this is my call to make and report rather than yours to answer.
 
 ---
 
@@ -95,7 +86,7 @@ Options:
 ```
 ITERATION = 0
 STRIKES = {}  # track failures per hypothesis
-CURRENT_HYPOTHESIS = <user-selected hypothesis>
+CURRENT_HYPOTHESIS = <highest-likelihood hypothesis>
 
 For each iteration (1 to 10):
 
