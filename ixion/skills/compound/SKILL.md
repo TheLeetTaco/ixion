@@ -97,7 +97,7 @@ On first compound creation in a repo, add a one-line pointer to `docs/solutions/
 
 Detection: `ls docs/solutions/ 2>/dev/null | wc -l` returns 0 AND neither AGENTS.md nor CLAUDE.md has a grep hit for `docs/solutions`.
 
-That same grep already tells you which of the two files exist, which settles the destination in two of the three cases:
+Destination: `test -f AGENTS.md` and `test -f CLAUDE.md`. Which of the two exist settles it in two of the three cases:
 
 - **Neither exists** — create AGENTS.md and say so; both Claude Code and OpenCode read it, so there is no competing candidate.
 - **Exactly one exists** — append to it and say so; the alternative is a file that isn't there.
@@ -182,13 +182,14 @@ grep -rl "<root-cause-keyword>" docs/solutions/ | head -5
 
 If 2+ solutions share the same root cause type or pattern (e.g., same type of fix in the same component area), suggest creating a standard:
 
-**AskUserQuestion:** "Standard: this pattern appears in [N] solutions ([list filenames]). Capture it as a reusable standard?"
-
+```
+Question: "Standard: this pattern appears in [N] solutions ([list filenames]). Capture it as a reusable standard?"
 **Why you:** Scope. A standard binds code nobody has written yet, so adopting one is a commitment well past documenting the fix you just made.
-
-- **Skip (Recommended)** — Continue without creating a standard
-- **Yes** — Draft standard from the shared pattern, write to `docs/standards/<pattern-name>.md` per the format in `docs/standards/README.md`, user confirms content
-- **"You pick what's best"** — Let me decide
+Options:
+1. Skip (Recommended) - Continue without creating a standard
+2. Yes - Draft the standard from the shared pattern into `docs/standards/<pattern-name>.md` per `docs/standards/README.md`, then confirm the content with you
+3. "You pick what's best" - Let me decide
+```
 
 Only suggest when the pattern is clearly reusable, not when solutions happen to touch the same file.
 
