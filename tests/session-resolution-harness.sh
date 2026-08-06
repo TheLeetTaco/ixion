@@ -22,6 +22,10 @@
 # `jq -r .key file` shim on PATH so the reference's text still runs unchanged.
 # With neither jq nor a working python, those assertions report `SKIPPED:` —
 # absence is never reported as a pass.
+#
+# git: the resume block asks git which checkout it is standing in, so its
+# fixtures are real repos rather than bare directories. Off PATH, git gets the
+# same `SKIPPED:` treatment for the same reason.
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -49,6 +53,7 @@ CLAIM_BLOCK=$(section "Claim a session id")
 RESOLVE_BLOCK=$(section "Resolve the session")
 NAMES_BLOCK=$(section "Does a token name a session?")
 VALIDATE_BLOCK=$(section "Validate the resolved session")
+RESUME_BLOCK=$(section "Resume command")
 
 check_section() {
   [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
@@ -57,6 +62,7 @@ check_section "Claim a session id" "$CLAIM_BLOCK"
 check_section "Resolve the session" "$RESOLVE_BLOCK"
 check_section "Does a token name a session?" "$NAMES_BLOCK"
 check_section "Validate the resolved session" "$VALIDATE_BLOCK"
+check_section "Resume command" "$RESUME_BLOCK"
 [ "$fail" = 0 ] || finalize
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-session-XXXXXX")
@@ -123,9 +129,14 @@ seed_session() {
 }
 
 # resolve <root> <remembered id> <locator>
+#
+# An empty remembered id leaves the block's own `REMEMBERED=` line untouched,
+# which is the shape all six callers paste: they bind LOCATOR and nothing else.
+# So every assertion below that passes "" is also asserting that an unbound
+# REMEMBERED cannot outrank the locator.
 resolve() {
-  local block
-  block=$(fill "$RESOLVE_BLOCK" '<session id already established in this conversation, or empty>' "$2")
+  local block=$RESOLVE_BLOCK
+  [ -n "$2" ] && block=$(fill "$block" '^REMEMBERED=$' "REMEMBERED=$2")
   block=$(fill "$block" '<the session locator the caller extracted from $ARGUMENTS, or empty>' "$3")
   run_block "$1" "$block"
 }
@@ -140,6 +151,15 @@ validate() {
   local block
   block=$(fill "$VALIDATE_BLOCK" '<session= from the resolution block>' "$2")
   block=$(fill "$block" '<via= from the resolution block>' "$3")
+  run_block "$1" "$block"
+}
+
+# resume <dir> <skills> <session-id>
+resume() {
+  local block
+  block=$(fill "$RESUME_BLOCK" \
+    '<the skills that can continue this session, space-separated: plan-review, plan-consolidation, work, work-review or ship>' "$2")
+  block=$(fill "$block" '<session= from the resolution block>' "$3")
   run_block "$1" "$block"
 }
 
@@ -182,9 +202,13 @@ expect "id this conversation established: outranks a pointer another session mov
   "$(field "$out" session)" feat-bar-2026-08-06
 expect "id this conversation established: reported as remembered" "$(field "$out" via)" remembered
 
+# Every caller pastes validation straight after resolution with nothing between,
+# so the first-contact state has to survive both blocks and not just the first.
 root=$(new_root none)
 out=$(resolve "$root" "" "")
-expect "no locator and no pointer: nothing resolved, nothing to validate" "$(field "$out" via)" none
+expect "no locator and no pointer: nothing resolved" "$(field "$out" via)" none
+expect "no locator and no pointer: validation says so too, rather than reading the sessions dir" \
+  "$(field "$(validate "$root" "$(field "$out" session)" none)" via)" none
 
 root=$(new_root missing)
 out=$(resolve "$root" "" feat-nope-2026-08-06)
@@ -193,6 +217,22 @@ expect "locator naming no directory: the raw locator survives so the error can n
 out=$(validate "$root" feat-nope-2026-08-06 prefix)
 expect "locator naming no directory: reported missing, not silently usable" \
   "$(field "$out" state)" missing
+
+# A repo before its first session is claimed has no .ixion at all — the one tree
+# new_root cannot build, and the only one where the prefix scan searches a
+# directory that isn't there.
+root="$WORK/unclaimed"
+mkdir -p "$root"
+out=$(resolve "$root" "" feata 2>&1)
+expect "no sessions directory yet: the raw locator survives for the error to name" \
+  "$(field "$out" session)" feata
+if printf '%s\n' "$out" | grep -qi 'no such file'; then
+  note_fail "no sessions directory yet: the scan narrated a miss it recovered from"
+else
+  note_pass "no sessions directory yet: the scan falls back silently"
+fi
+expect "no sessions directory yet: nothing resolved, so validation says so" \
+  "$(field "$(validate "$root" "" prefix)" via)" none
 
 # --- asking whether a token names a session at all ---------------------------
 
@@ -245,6 +285,48 @@ else
   else
     note_pass "missing session the pointer named: stale pointer cleared"
   fi
+fi
+
+# --- the resume command every closing block prints ---------------------------
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "SKIPPED: the resume command's worktree probe is a git question, and git is not on PATH"
+else
+  # The worktree probe is the intricate half: an earlier version compared
+  # `--git-dir` against `--git-common-dir`, which differ textually from any
+  # subdirectory of a plain checkout, so it printed a cd nobody asked for. The
+  # probe answers per checkout rather than per directory, so both checkouts are
+  # exercised from their root and from a nested subdirectory — the four
+  # positions that tell the shipped probe from the one it replaced. Nothing
+  # reads a file here, so the seed commit is empty.
+  id=add-timeout-flag-2026-04-23
+  main="$WORK/plain"
+  mkdir -p "$main/nested"
+  git -C "$main" init -q
+  git -C "$main" config user.email test@ixion.local
+  git -C "$main" config user.name "Ixion Harness"
+  git -C "$main" config commit.gpgsign false
+  git -C "$main" commit -q --allow-empty -m init
+  expect "plain checkout, from its root: the resume line stands alone" \
+    "$(resume "$main" work "$id")" "/ixion:work $id"
+  expect "plain checkout, from a nested subdirectory: still no cd line" \
+    "$(resume "$main/nested" work "$id")" "/ixion:work $id"
+
+  wt="$WORK/linked"
+  git -C "$main" worktree add -q "$wt" -b linked
+  mkdir -p "$wt/nested"
+  wt_top=$(git -C "$wt" rev-parse --show-toplevel)
+  expect "linked worktree, from its root: the cd line leads the paste" \
+    "$(resume "$wt" work "$id")" "cd $wt_top
+/ixion:work $id"
+  expect "linked worktree, from a nested subdirectory: the cd line still leads" \
+    "$(resume "$wt/nested" work "$id")" "cd $wt_top
+/ixion:work $id"
+
+  expect "a closing block offering two skills: one cd probe, one command each" \
+    "$(resume "$wt" 'work-review ship' "$id")" "cd $wt_top
+/ixion:work-review $id
+/ixion:ship $id"
 fi
 
 # --- lint: the /ixion: spelling install_opencode.py matches on ---------------

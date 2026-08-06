@@ -181,7 +181,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 6. Print the command that starts it, so "done for now" and a `/clear` cost nothing:
 
    ```bash
-   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    ```
 
 ---

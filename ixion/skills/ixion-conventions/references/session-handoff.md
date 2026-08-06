@@ -52,7 +52,7 @@ Precedence, highest first: a session id this conversation already established, a
 ```bash
 SESSIONS=.ixion/plugin/sessions
 POINTER=.ixion/plugin/active.json
-REMEMBERED='<session id already established in this conversation, or empty>'
+REMEMBERED=
 LOCATOR='<the session locator the caller extracted from $ARGUMENTS, or empty>'
 SESSION_ID=
 
@@ -61,7 +61,7 @@ if [ -n "$REMEMBERED" ]; then
 elif [ -n "$LOCATOR" ] && [ -d "$SESSIONS/$LOCATOR" ]; then
   SESSION_ID="$LOCATOR"; VIA=exact
 elif [ -n "$LOCATOR" ]; then
-  MATCH=$(find "$SESSIONS" -maxdepth 1 -type d -name "$LOCATOR-*" | sort -r | head -1)
+  MATCH=$(find "$SESSIONS" -maxdepth 1 -type d -name "$LOCATOR-*" 2>/dev/null | sort -r | head -1)
   SESSION_ID="${MATCH##*/}"; VIA=prefix
   [ -n "$MATCH" ] || SESSION_ID="$LOCATOR"
 elif [ -f "$POINTER" ]; then
@@ -75,7 +75,9 @@ printf 'session=%s\nvia=%s\n' "$SESSION_ID" "$VIA"
 
 **Identity check before writing anything:** if this conversation already established a session id (plan-creation ran earlier, or an orchestrator passed one), that remembered id is authoritative — not active.json. If active.json names a different session, another Claude Code session claimed the pointer since this run started; use the remembered id directly and don't touch active.json.
 
-The exact-match rung is what makes a full session id mean the session it names. Without it, a locator that is a *prefix of its own collision sibling* resolves to the sibling: with `feat-foo-2026-08-06` and `feat-foo-2026-08-06-2` both on disk, `-name "feat-foo-2026-08-06-*"` matches only the `-2` directory, so passing the base id silently lands on the wrong session — and passing it in a repo with no sibling matches nothing at all. The scan stays underneath it, because a bare slug (`feata`) matches no directory and must still resolve to the most recent dated session sharing it. The ISO-date suffix sorts lexically, so `sort -r | head -1` is the most-recent tiebreak. When the scan matches nothing, `SESSION_ID` falls back to the raw locator, because `${MATCH##*/}` of an empty match is empty and the `Session <session-id> not found.` message would have nothing to name. `via=` stays `prefix` through that fallback: the error table keys on `state=`, and the only branch that reads `via=` at all asks whether it is `pointer`.
+`REMEMBERED` therefore ships empty rather than as a fill-in placeholder, and a caller binds it only when it genuinely holds an id. It is the highest rung, so an unsubstituted placeholder there would be a non-empty string that outranks the id the user actually typed, resolving the session to the placeholder text itself — a wrong answer that reads like a right one. Empty is the state every caller is in unless it says otherwise, so the safe case needs no action and only the rare one does.
+
+The exact-match rung is what makes a full session id mean the session it names. Without it, a locator that is a *prefix of its own collision sibling* resolves to the sibling: with `feat-foo-2026-08-06` and `feat-foo-2026-08-06-2` both on disk, `-name "feat-foo-2026-08-06-*"` matches only the `-2` directory, so passing the base id silently lands on the wrong session — and passing it in a repo with no sibling matches nothing at all. The scan stays underneath it, because a bare slug (`feata`) matches no directory and must still resolve to the most recent dated session sharing it. The ISO-date suffix sorts lexically, so `sort -r | head -1` is the most-recent tiebreak. When the scan matches nothing, `SESSION_ID` falls back to the raw locator, because `${MATCH##*/}` of an empty match is empty and the `Session <session-id> not found.` message would have nothing to name. `via=` stays `prefix` through that fallback: the error table keys on `state=`, and the only branch that reads `via=` at all asks whether it is `pointer`. The scan discards `find`'s stderr for the same reason the token probe below does: until a repo's first session is claimed there is no sessions directory, and a `No such file or directory` line printed at the user while resolution falls back correctly reads as a fault in the tool.
 
 `LOCATOR` is a token the caller supplies, not `$ARGUMENTS` itself. Most callers take the whole argument string; `ship` also carries a commit-message hint in `$ARGUMENTS` and passes only the leading token.
 
@@ -113,7 +115,7 @@ Four conditions decided here so no caller re-decides them, each with exactly one
 
 Commands named in these messages are plugin-qualified. `/plan` alone is shadowed by a Claude Code built-in and does not reach this plugin, so an error that instructs it strands the user it was written to help.
 
-`via=none` is read straight off the resolution block's output and needs no probe of its own — nothing exists to inspect. The other three do, and share one:
+`via=none` needs nothing inspected — no id was resolved, so there is nothing on disk to look at. The other three do, and share one probe, which reports `via=none` itself rather than making the caller decide whether to run it:
 
 ### Validate the resolved session
 
@@ -124,7 +126,9 @@ SESSION_ID='<session= from the resolution block>'
 VIA='<via= from the resolution block>'
 SDIR="$SESSIONS/$SESSION_ID"
 
-if [ ! -d "$SDIR" ]; then
+if [ -z "$SESSION_ID" ]; then
+  printf 'via=none\n'
+elif [ ! -d "$SDIR" ]; then
   [ "$VIA" = pointer ] && rm -f "$POINTER"
   printf 'state=missing\n'
 else
@@ -140,7 +144,7 @@ else
 fi
 ```
 
-Run this only when `via=` is not `none`; with no id resolved, `$SDIR` is the sessions directory itself and every check below reads the wrong file.
+The empty-id rung is first because callers paste this block straight after the resolution block with nothing in between, and every caller does. Without it, `$SDIR` is the sessions directory itself: the directory exists, so the lookup runs against `<sessions>/session.json`, and the most ordinary first-contact state there is — a repo with no session and no pointer — surfaces as `Unsupported schema version .` instead of the message written for it. Re-printing `via=none` keys the same table row the resolution block's own `via=none` keys, so the two routes to "nothing resolved" land on one message: the second route is an `active.json` too corrupt for `jq` to read, which leaves `SESSION_ID` empty at `via=pointer` and which a caller-side `via=none` guard would not have caught.
 
 The stale pointer is cleared only when the pointer is what produced the id. An id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it.
 
@@ -151,15 +155,17 @@ The stale pointer is cleared only when the pointer is what produced the id. An i
 Every terminal closing block ends by printing this, so the user can `/clear` and paste one line to land back in this exact session.
 
 ```bash
-SKILL='<the skill that continues this session: work, work-review, plan-consolidation or ship>'
+SKILLS='<the skills that can continue this session, space-separated: plan-review, plan-consolidation, work, work-review or ship>'
 SESSION_ID='<session= from the resolution block>'
 
 [ -f "$(git rev-parse --git-path gitdir)" ] \
   && printf 'cd %s\n' "$(git rev-parse --show-toplevel)"
-printf '/ixion:%s %s\n' "$SKILL" "$SESSION_ID"
+for skill in $SKILLS; do
+  printf '/ixion:%s %s\n' "$skill" "$SESSION_ID"
+done
 ```
 
-In the main checkout that prints one line:
+In the main checkout a single-skill closing block prints one line:
 
 ```
 /ixion:work add-timeout-flag-2026-04-23
@@ -171,6 +177,8 @@ Inside a git worktree it prints two, and both are part of the paste:
 cd /home/you/src/ixion-add-timeout-flag
 /ixion:work add-timeout-flag-2026-04-23-2
 ```
+
+`SKILLS` is a list because a closing block that offers the user a choice has to print every branch of it, and the `cd` belongs to the checkout rather than to any one command — issuing the block once per skill would probe and print it twice. One list under one probe is what keeps that format from being hand-written at the call sites that need two.
 
 The `cd` line is what a session id alone cannot carry. `work` may move a session into a worktree, which copies the session directory across and leaves the main checkout's copy stale from that moment; a command pasted without the `cd` resolves the id against the stale copy and works on the wrong tree. Git writes a `gitdir` file inside a linked worktree's git dir and nowhere else, so testing for it answers which checkout you are standing in, from any directory within it. Resist the shorter-looking probe of comparing `--git-dir` against `--git-common-dir`: from a subdirectory `--git-dir` answers absolute while `--git-common-dir` stays relative, so the two differ textually in a plain main checkout and the `cd` line prints a path the user does not need and did not expect. Skills run from wherever the user invoked them, which makes that the ordinary case rather than the corner one — a probe of this kind is only believable once it has been run from a nested directory of both checkouts.
 

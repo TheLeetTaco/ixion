@@ -339,11 +339,8 @@ What's next?
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
-printf '/ixion:ship %s\n' "$SESSION_ID"
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work ship'>
 ```
-
-One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
 

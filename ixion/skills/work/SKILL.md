@@ -409,7 +409,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
 
    ```bash
-   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    printf 'waves: %s done, %s remaining\n' "<waves checkpointed so far>" "<chunks not in completed[], grouped by 2.0a>"
    ```
 
@@ -484,11 +484,8 @@ What's next?
 Print both onward commands under it, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work-review'>
-printf '/ixion:ship %s\n' "$SESSION_ID"
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work-review ship'>
 ```
-
-One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
 
 After the user's choice:
 

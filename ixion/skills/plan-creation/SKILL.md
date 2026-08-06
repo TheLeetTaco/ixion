@@ -307,11 +307,8 @@ Print the spec's `summary` field + next-steps hint.
 Print both onward commands under the prompt, so "done for now" and a `/clear` cost nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='plan-review'>
-printf '/ixion:work %s\n' "$SESSION_ID"
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-review work'>
 ```
-
-One `cd` line covers both, which is why the second command is appended here rather than by issuing the block twice.
 
 ---
 

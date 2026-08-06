@@ -105,7 +105,7 @@ Two parts, in this order. The metrics first, then the overview — and the overv
 **1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open. Close it with the command that resumes this session — this is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='work'>
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
 ```
 
 **2. The high-level overview.** Write this every time, unprompted. I shouldn't have to ask "so what does this plan actually do?" after reading a findings count — by the time you're printing the receipt you already know the answer, and asking me to request it wastes a round trip. Prose and short tables, not JSON, and no restating the spec field by field:

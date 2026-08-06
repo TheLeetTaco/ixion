@@ -232,7 +232,7 @@ Findings written to: .ixion/plugin/sessions/<session_id>/review.findings.json
 Then the command that continues this session, so a `/clear` here costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILL='plan-consolidation'>
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-consolidation'>
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
