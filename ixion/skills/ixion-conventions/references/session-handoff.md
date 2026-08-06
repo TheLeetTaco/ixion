@@ -126,10 +126,11 @@ SESSION_ID='<session= from the resolution block>'
 VIA='<via= from the resolution block>'
 SDIR="$SESSIONS/$SESSION_ID"
 
+[ "$VIA" = pointer ] && { [ -z "$SESSION_ID" ] || [ ! -d "$SDIR" ]; } && rm -f "$POINTER"
+
 if [ -z "$SESSION_ID" ]; then
   printf 'via=none\n'
 elif [ ! -d "$SDIR" ]; then
-  [ "$VIA" = pointer ] && rm -f "$POINTER"
   printf 'state=missing\n'
 else
   SCHEMA=$(jq -r .schema_version "$SDIR/session.json")
@@ -146,7 +147,7 @@ fi
 
 The empty-id rung is first because callers paste this block straight after the resolution block with nothing in between, and every caller does. Without it, `$SDIR` is the sessions directory itself: the directory exists, so the lookup runs against `<sessions>/session.json`, and the most ordinary first-contact state there is — a repo with no session and no pointer — surfaces as `Unsupported schema version .` instead of the message written for it. Re-printing `via=none` keys the same table row the resolution block's own `via=none` keys, so the two routes to "nothing resolved" land on one message: the second route is an `active.json` too corrupt for `jq` to read, which leaves `SESSION_ID` empty at `via=pointer` and which a caller-side `via=none` guard would not have caught.
 
-The stale pointer is cleared only when the pointer is what produced the id. An id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it.
+The stale pointer is cleared above the rungs rather than inside one, because both reports can be the pointer's fault and the two would otherwise differ only in whether they clear it: `state=missing` when the id it named has no directory, `via=none` when it was too corrupt to yield an id at all. Neither of those is reachable from the other's branch, so a single guarded statement covers both and each rung is left doing nothing but reporting. The scoping to `via=pointer` is the same in both cases: an id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it.
 
 `state=complete` is the rung that keeps a resume command from re-entering a finished pipeline. `status` reaches `completed` when the session ships; resuming past that point re-runs verification against merged work and re-offers "Ship it" on a branch that no longer needs it, which reads as a bug in the tool rather than a finished session. `active` and `paused` both continue normally.
 

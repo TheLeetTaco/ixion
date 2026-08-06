@@ -285,6 +285,23 @@ else
   else
     note_pass "missing session the pointer named: stale pointer cleared"
   fi
+
+  # The other route to an unresolved session: an active.json too corrupt for jq
+  # to read yields no id at all, so validation cannot reach it by looking the id
+  # up on disk — the empty-id rung reports first. The pointer is still the thing
+  # that failed, and is still the caller's to clear.
+  root=$(new_root corrupt-pointer)
+  printf '{ not valid json\n' > "$root/.ixion/plugin/active.json"
+  out=$(resolve "$root" "" "" 2>/dev/null)
+  expect "unparseable active.json: resolution takes the pointer route and gets no id" \
+    "$(field "$out" via)-$(field "$out" session)" pointer-
+  expect "unparseable active.json: validation reports nothing resolved" \
+    "$(field "$(validate "$root" "$(field "$out" session)" pointer)" via)" none
+  if [ -f "$root/.ixion/plugin/active.json" ]; then
+    note_fail "unparseable active.json: the pointer that produced no id survives"
+  else
+    note_pass "unparseable active.json: the pointer that produced no id is cleared"
+  fi
 fi
 
 # --- the resume command every closing block prints ---------------------------
