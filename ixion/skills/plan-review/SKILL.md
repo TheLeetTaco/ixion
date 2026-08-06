@@ -197,11 +197,11 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 
 Validate the structured JSON against `ixion/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry. Reviewers are not at fault for synthesizer bugs.
 
-Atomic write to `.ixion/plugin/sessions/<session_id>/review.findings.json`:
+Atomic write to `.ixion/plugin/sessions/<session= from Phase 0>/review.findings.json`:
 
 ```bash
-tmp=".ixion/plugin/sessions/<session_id>/review.findings.json.tmp"
-final=".ixion/plugin/sessions/<session_id>/review.findings.json"
+tmp=".ixion/plugin/sessions/<session= from Phase 0>/review.findings.json.tmp"
+final=".ixion/plugin/sessions/<session= from Phase 0>/review.findings.json"
 # write JSON to $tmp
 mv "$tmp" "$final"
 ```
@@ -226,7 +226,7 @@ Top findings:
 - <title> (P1)
 - <title> (P2)
 
-Findings written to: .ixion/plugin/sessions/<session_id>/review.findings.json
+Findings written to: .ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
 ```
 
 Then the command that continues this session, so a `/clear` here costs nothing:

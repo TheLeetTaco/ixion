@@ -113,7 +113,7 @@ Four conditions decided here so no caller re-decides them, each with exactly one
 | `state=schema-mismatch` | `Unsupported schema version <N>. Re-run the producing skill to regenerate.` |
 | `state=complete` | `Session <session-id> is already complete. Run /ixion:plan to start a new one.` |
 
-Commands named in these messages are plugin-qualified. `/plan` alone is shadowed by a Claude Code built-in and does not reach this plugin, so an error that instructs it strands the user it was written to help.
+Commands named in these messages are spelled the way the installer for this tree installs them. `install_claude_code.sh` qualifies them with the plugin namespace, and `plan` is why: a bare `/plan` on that host is a built-in and never reaches this plugin, so an error message instructing it would strand the user it was written to help.
 
 `via=none` needs nothing inspected — no id was resolved, so there is nothing on disk to look at. The other three do, and share one probe, which reports `via=none` itself rather than making the caller decide whether to run it:
 
@@ -182,6 +182,8 @@ cd /home/you/src/ixion-add-timeout-flag
 
 The `cd` line is what a session id alone cannot carry. `work` may move a session into a worktree, which copies the session directory across and leaves the main checkout's copy stale from that moment; a command pasted without the `cd` resolves the id against the stale copy and works on the wrong tree. Git writes a `gitdir` file inside a linked worktree's git dir and nowhere else, so testing for it answers which checkout you are standing in, from any directory within it. Resist the shorter-looking probe of comparing `--git-dir` against `--git-common-dir`: from a subdirectory `--git-dir` answers absolute while `--git-common-dir` stays relative, so the two differ textually in a plain main checkout and the `cd` line prints a path the user does not need and did not expect. Skills run from wherever the user invoked them, which makes that the ordinary case rather than the corner one — a probe of this kind is only believable once it has been run from a nested directory of both checkouts.
 
+What the `cd` line closes is the pasted path, and only that. A bare `/ixion:work` typed in the main checkout still resolves against the stale copy and writes progress there until `ship` copies the worktree's session dir back. That residual is accepted, not overlooked: marking the stale copy would take a sentinel file plus a fifth `state=` rung to read it, which is machinery for the one window the printed command already covers.
+
 Print the **full session id**, never the bare slug. The slug goes back through the prefix scan and its most-recent tiebreak, which is exactly the resolution a resume command exists to bypass — and a `-2` session resumed by slug lands on whichever sibling sorts first, not the one that was just worked.
 
-The `/ixion:` prefix is what Claude Code accepts, and `plan` needs it: the bare `/plan` is a built-in. It appears once per printed command, so `install_opencode.py` has one unambiguous match target when it rewrites commands for OpenCode.
+The prefix on that printed command is the plugin namespace `install_claude_code.sh` installs these skills under, and `plan` is why it is not optional: that host ships a built-in `/plan` which would shadow this skill. `install_opencode.py` rewrites the prefix away for a host that installs skills bare, and every occurrence of it in this file sits inside a command a user types or pastes, so that rewrite has one unambiguous match target.

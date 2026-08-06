@@ -186,7 +186,7 @@ fi
 
 ### Step 6: Write `spec.json`
 
-Path: `.ixion/plugin/sessions/<session-id>/spec.json`
+Path: `.ixion/plugin/sessions/<session= from the claim block>/spec.json`
 
 Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `ixion/schemas/spec.schema.json` for the authoritative shape.
 
@@ -276,14 +276,14 @@ On the phases where language-standards places the feature-combination checks —
 
 ### Step 7: Write `session.json`
 
-Path: `.ixion/plugin/sessions/<session-id>/session.json`
+Path: `.ixion/plugin/sessions/<session= from the claim block>/session.json`
 
 Fields: `schema_version: 1`, `session_id`, `slug`, `status: "active"`, `started_at` (ISO 8601), `last_checkpoint_at: null`, `active_skill: "plan-creation"`. On exit, set `active_skill: null`.
 
 ### Step 8: Update `.ixion/plugin/active.json`
 
 ```json
-{ "schema_version": 1, "session_id": "<session-id>" }
+{ "schema_version": 1, "session_id": "<session= from the claim block>" }
 ```
 
 Write via a PID-suffixed temp (`active.json.tmp.$$` → `mv`) so a concurrent session's in-flight write is never clobbered mid-rename.

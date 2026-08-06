@@ -82,7 +82,7 @@ Procedure:
 
    ```bash
    cleanup_active_skill() {
-     SDIR=".ixion/plugin/sessions/<session-id>"
+     SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
      jq '.active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp"
      mv "$SDIR/session.json.tmp" "$SDIR/session.json"
    }
@@ -114,8 +114,8 @@ Procedure:
    ```bash
    git worktree add -b <slug> ../<repo>-<slug> '<integration= from the resolution block>'
    mkdir -p ../<repo>-<slug>/.ixion/plugin/sessions
-   cp -r .ixion/plugin/sessions/<session-id> ../<repo>-<slug>/.ixion/plugin/sessions/
-   printf '{ "schema_version": 1, "session_id": "%s" }\n' "<session-id>" > ../<repo>-<slug>/.ixion/plugin/active.json
+   cp -r .ixion/plugin/sessions/<session= from Phase 0> ../<repo>-<slug>/.ixion/plugin/sessions/
+   printf '{ "schema_version": 1, "session_id": "%s" }\n' "<session= from Phase 0>" > ../<repo>-<slug>/.ixion/plugin/active.json
    ```
 
    Passing the start point is what lets this path check nothing out in the primary working tree — leaving that tree untouched is the reason the worktree flow exists, so it neither switches nor probes for dirt.
@@ -143,7 +143,7 @@ Procedure:
 6. **Record the base ref and the integration branch.**
 
    ```bash
-   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
+   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
    [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
    ```
 
@@ -156,7 +156,7 @@ Procedure:
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
    ```bash
-   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
+   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
    git log --format=%H --grep="^Ixion-Chunk: <chunk id>$" "$BASE_REF"..HEAD
    ```
 
@@ -433,7 +433,7 @@ Run the plan's `success_criteria` checks (plan mode) or full test suite + typech
 Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading the session's cumulative diff:
 
 ```bash
-git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)"..HEAD
+git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)"..HEAD
 ```
 
 Phase 1 step 6 wrote that field before the first chunk ran, so it is a commit id by the time you get here.
@@ -457,7 +457,7 @@ Criteria you resolved from the cumulative diff ran no command and get no entry �
 
 After `success_criteria` passes, the orchestrator runs the diff self-check at the *whole-session* level — the dispatched subagent only sees its own chunk; this catches cross-phase drift that no chunk-level review can.
 
-1. Run `git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)"..HEAD`. Read the full output. Every chunk is committed by now, so this spans the whole session.
+1. Run `git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)"..HEAD`. Read the full output. Every chunk is committed by now, so this spans the whole session.
 2. Answer each question with concrete evidence. Cite file:line:
 
    - Is there any line whose removal would NOT change behavior across the whole change? Name one or confirm none exists.

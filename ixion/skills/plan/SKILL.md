@@ -149,7 +149,7 @@ Scale it to the spec: a two-phase spec gets a shorter version of the same shape,
 - `/ixion:plan feat-user-auth` — Review mode if a session `feat-user-auth-*` already exists (skips creation, starts at review)
 - `/ixion:plan feat-user-auth-2026-08-06` — the same, pinned to one session rather than the most recent one sharing the slug
 
-The `/ixion:` prefix is not decoration here: Claude Code ships a built-in `/plan`, which shadows this skill entirely.
+`install_claude_code.sh` installs these commands under the plugin namespace because its host ships a built-in `/plan` that would otherwise shadow this skill entirely; `install_opencode.py` rewrites them bare for a host that has no such built-in.
 
 ---
 

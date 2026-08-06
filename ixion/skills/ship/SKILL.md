@@ -50,7 +50,7 @@ Then the shared resolution:
 
 `via=none` is the signal that does not halt. Nothing named a session, which is an ad-hoc ship: `/ixion:ship tighten the error copy` in a repo that never ran `/ixion:plan` is a supported way to use this skill, and halting there would answer it by naming two skills the user didn't ask for. Continue to Phase 1.
 
-An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it — Phase 1's base, Phase 4's PR base and terminal write, and Phase 5a's harvest each interpolate `SESSION_ID='<session= from the resolution block>'` and branch on `[ -n "$SESSION_ID" ]`. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
+An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it — Phase 1's base, Phase 4's PR base and terminal write, and Phase 5a's harvest each interpolate `SESSION_ID='<session= from Phase 0>'` and branch on `[ -n "$SESSION_ID" ]`. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
 
 ---
 
@@ -244,7 +244,7 @@ Hand it both sources: the conversation, and the harvest from 5a stated plainly (
 
 ## Edge Cases
 
-- **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session-id> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split. Do the copy-back before Phase 5 so the harvest reads the merged record, and before any `git worktree remove` takes the artifacts with it.
+- **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session= from Phase 0> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split. Do the copy-back before Phase 5 so the harvest reads the merged record, and before any `git worktree remove` takes the artifacts with it.
 - **No remote configured**: Inform the user and stop
 - **Branch already has a PR**: Show the existing PR URL, ask if they want to update it
 - **Push fails**: Check if branch exists on remote, suggest force-push only with user confirmation

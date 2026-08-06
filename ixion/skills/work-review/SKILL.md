@@ -122,7 +122,7 @@ Determine the diff size before dispatching:
 ```
 
 ```bash
-BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session-id>/session.json)
+BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
 [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
@@ -297,7 +297,7 @@ Validate against `ixion/schemas/findings.schema.json`. If validation fails, the 
 Write into the session Phase 0 resolved:
 
 ```
-.ixion/plugin/sessions/<session= from the resolution block>/review.findings.json
+.ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
 ```
 
 Write atomically: write to `review.findings.json.tmp` then rename.
@@ -323,7 +323,7 @@ Top findings:
 - <title> (P1)
 - <title> (P2)
 
-Review written to: .ixion/plugin/sessions/<session-id>/review.findings.json
+Review written to: .ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
