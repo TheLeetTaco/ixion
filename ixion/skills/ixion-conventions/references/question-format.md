@@ -13,7 +13,9 @@ Options:
 3. "You pick what's best" - Let me decide
 ```
 
-The recommended option is listed first because the default answer should be the one worth accepting unread. Option 3 is always present and always last; when the user takes it, apply the recommendation and record the outcome as a delegated decision rather than a picked one, because a later reader treats "they chose this" and "they let me choose" differently.
+The Options list is for questions that enumerate alternatives. A confirmation or an inline edge-case question — a generated branch name to accept or edit, a push that just failed — carries the Question and Why-you slots alone, with nothing to recommend or delegate.
+
+The recommended option is listed first because the default answer should be the one worth accepting unread. Option 3 is always present and always last; when the user takes it, apply the recommendation, and where the skill already records the decision in an artifact, record it there as delegated rather than picked, because a later reader treats "they chose this" and "they let me choose" differently.
 
 Two fields from earlier question templates are dropped. `Context:` and `My recommendation:` are both subsumed by the slots above — Why-you already carries the only context that changes the user's answer, and the recommendation now shows as option 1 instead of as prose the reader has to match back to the list.
 
