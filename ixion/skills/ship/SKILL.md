@@ -233,7 +233,7 @@ Otherwise read the artifacts and extract the durable signal. Each comparison ans
 |---|---|
 | `spec.json.pre-consolidation` vs `spec.json` | What did plan review reshape? A phase deleted or restructured is a design we'd have built wrong — the most valuable thing in the session. |
 | `review.findings.json` | Which anti-patterns did six reviewers actually find in the code? A principle name appearing here that also appears in a past `docs/solutions/` entry is a recurring habit, not an incident. |
-| Surviving vs dropped P1s in `review.findings.json` | Whether the empirical gate (`work-review` 2.3c) killed runtime claims. A round where nothing was killed says something about the reviewers, not the code. |
+| Surviving vs dropped runtime claims in `review.findings.json` | What the empirical gate (`work-review` 2.3c) killed. A round where nothing was killed says something about the reviewers, not the code. |
 | `progress.json.plan-mode` vs `progress.json` | What the fix pass had to undo. Fixes that fought the original structure point at a planning miss. |
 
 Most sessions yield nothing here, and that's the expected outcome — a plan that survived review intact and a fix pass that changed little is a session with no lesson in it. Distill only what a future reader would change their behavior over.
