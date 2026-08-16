@@ -155,48 +155,15 @@ The synthesizer reads each reviewer's prose output and structures it into `ixion
 
 ### 2.1 Read each reviewer's prose output
 
-For each reviewer response:
-
-- Extract per-finding: Title, Severity, Location, Failure (paragraph), Fix.
-- If a reviewer returned "No findings" or equivalent, record zero findings from this reviewer.
-- If a reviewer's output is incomplete (missing one of the required elements on any finding), construct a synthetic P1 against that reviewer's agent file noting the gap, AND retain the partial finding for the user's visibility.
-
-Synthetic P1 shape (constructed by the synthesizer, in schema):
-
-```json
-{
-  "title": "Reviewer output incomplete: <reviewer-name>",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> returned a finding missing one of the required elements (Title/Severity/Location/Failure/Fix). The structuring step couldn't fully ingest it; the synthesizer's review may be incomplete for this reviewer's domain. Without complete fields, downstream consumers can't reliably act on the finding.",
-  "fix": "Investigate the reviewer's prompt or retry that reviewer. Check whether the agent file or dispatch text needs tightening."
-}
-```
+Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-This is work-review context, so location must be code-scope (`<repo-relative-path>` or `<repo-relative-path>:<line>`). If a reviewer emitted a plan-scope location like `phase-2/t1`, that's a disambiguation failure. Construct a synthetic P1 against the reviewer:
-
-```json
-{
-  "title": "Wrong location tier: <reviewer-name> emitted plan-scope location in work-review",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> emitted location '<bad-location>' in a work-review context. Code reviews require code-scope locations like 'src/auth.rs' or 'src/auth.rs:42', not plan-scope phase ids. The reviewer must honor the location format the dispatch specified, otherwise findings can't be matched to actual files for fixes.",
-  "fix": "Update the reviewer prompt or agent file so the location format always matches the invoker's tier."
-}
-```
-
-Retain the original (mistargeted) finding alongside so the user can see what was flagged.
+Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Walk the findings and group those describing the same issue — reviewers may phrase a shared concern differently (e.g., "missing type hints on handlers" vs "handlers lack return annotations" — same problem). Group by meaning, not by string match.
-
-For each group:
-- Take max severity (P1 > P2 > P3). Severity is not promoted by corroboration; a P3 that three reviewers flagged is still a P3.
-- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning. Preserve the leading principle name from the four-slot format — do not paraphrase the first token.
-- Pick the strongest Fix or merge them into a single coherent proposal.
+Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Drift arbitration (files outside spec scope)
 
@@ -226,38 +193,7 @@ The synthesizer applies this judgment once at merge time.
 
 ### 2.3b Tag contradictions with the verbatim prompt; scale findings to the change's actual surface
 
-Two judgment calls I make as the synthesizer, in this order, before P3 triage. Both apply to findings of every severity.
-
-**Tag — don't drop — contradictions with the verbatim user prompt.**
-
-Reviewers review from a best-practices lens; they don't read the user's exact prompt. So when a reviewer pushes back on a user choice (e.g., suggests `smol` where the user said `tokio`, or suggests caching where the user explicitly scoped to "MVP — no caching"), the pushback is real information — users sometimes deviate from best practice out of laziness, not principle, and the reviewer's "you should be using X" deserves to surface so the user can confirm or revisit the decision.
-
-I keep contradicting findings in the published list, but I tag them so downstream stages know they're advisory:
-
-- Prefix the `title` with `[Contradicts user] `
-- Append one sentence to `failure`: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-apply.`
-
-The contradiction shapes I tag:
-
-- a different tool than the user named ("user said `axum`, finding says switch to `actix-web`")
-- a different shape than the user specified ("user said handlers as plain functions, finding says wrap them in a service class")
-- a different scope than the user asked for ("user said `read-only API for the MVP`, finding says add `POST` and `DELETE` endpoints")
-
-Findings that fill in *underspecified* hows — robustness, security, type hints, error handling the user didn't speak to — pass through untagged. That's good scope growth.
-
-The point of tagging instead of dropping: reviewer pushback is the value, not the noise. The tag preserves the record; downstream skills treat `[Contradicts user]`-tagged findings as advisory, not actionable.
-
-**Scale findings to the change's actual size.**
-
-If reviewers surface 30+ findings on a 300-line program, they're working the universal anti-pattern catalog rather than the specific code. I trust my judgment to drop the over-eager ones:
-
-- Generic critiques the code doesn't earn ("method exceeds 50 lines" on a clearly readable handler)
-- Style preferences with no behavioral consequence (`Path.replace` vs `os.replace`, `int` status codes vs `HTTPStatus`)
-- Theoretical scaling concerns far below the code's actual demands ("fsync blocks single-threaded server" on a tiny app the user described as small)
-
-The published count should reflect the change's real surface area. A small program rarely earns more than a handful of meaningful findings; if my output is much larger than the change deserves, I trim.
-
-I apply both treatments (tag, then trim) after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
 
 ### 2.3c Empirical gate on runtime claims
 
