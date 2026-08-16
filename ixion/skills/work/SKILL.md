@@ -181,7 +181,7 @@ The chunk unit depends on mode. In both modes, a chunk is a **phase + bullets** 
 - **Fix-findings mode**: chunk = **theme group** of findings — a logical cluster (e.g. one design refactor, one shared-helper simplification, one polish pass) that one subagent can address in a single dispatch. ID = `theme-<slug>` (e.g. `theme-scaffolding-redesign`, `theme-polish`). Bullets = the findings in that theme. **Every finding gets fixed** — P1 through P3 — with one exception: findings whose title starts with `[Contradicts user]` are advisory pushback against the user's explicit choice; skip them and list them in `outcomes` so the user sees the pushback without it being auto-applied.
 
   **Theme grouping (the synthesizer's job):**
-  - Cluster findings whose suggested fixes share a structural change (same file or same coordinated cross-file edit).
+  - Cluster findings whose suggested fixes share a structural change (same file or same coordinated cross-file edit). A `[Pattern cluster]`-prefixed group is one such change already — the members carry one shared Fix across scattered locations, so keep them in one theme rather than splitting them by file.
   - Group all small unrelated polish (1-line comment fixes, import merges, single-finding files) into one `theme-polish` chunk; do NOT dispatch one subagent per single-finding file.
   - Aim for 1-5 themes regardless of finding count. 17 findings → ~4 themes is right; 17 findings → 17 themes is wrong.
   - Themes don't have to be balanced. A scaffolding redesign with 3 findings is a theme; a polish pass with 9 P3s is also a theme.
