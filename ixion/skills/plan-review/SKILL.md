@@ -157,7 +157,7 @@ Two judgment calls I make as the synthesizer, in this order, before structuring 
 I keep contradicting findings in the published list, but I tag them so plan-consolidation knows they're advisory:
 
 - Prefix the `title` with `[Contradicts user] `
-- Append one sentence to `failure`: `Deferred: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.`
+- Append one sentence to `failure`: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.`
 
 The contradiction shapes I tag:
 

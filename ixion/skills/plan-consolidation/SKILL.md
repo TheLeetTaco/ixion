@@ -163,7 +163,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
    ```
    Spec refined — <id>
    Integrated: N P1, N P2, N P3
-   Deferred: N
+   Rejected: N
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
    **Why you:** Preference. Nothing is left unresolved in the artifact; whether to start the run now is about your appetite for it, not about the spec.
