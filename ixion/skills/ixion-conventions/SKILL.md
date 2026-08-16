@@ -103,7 +103,7 @@ If you can't lead with a principle name, the finding is observational only — m
 
 ### Runtime claims carry Evidence
 
-When the Failure asserts the code misbehaves *when it runs* — wrong output, panic, hang, race, N+1, leak — add an **Evidence** slot naming the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose the command; they never run it. In code review the synthesizer runs it for P1s and drops findings that don't reproduce (`work-review` 2.3c).
+When the Failure asserts the code misbehaves *when it runs* — wrong output, panic, hang, race, N+1, leak — add an **Evidence** slot naming the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose the command; they never run it. Read `ixion/skills/ixion-conventions/references/finding-format.md` and extract the "Why Evidence exists" section for what the synthesizer then does with it.
 
 Structural findings need no Evidence — a God Class is visible in the source. Plan review has no code to run, so the slot doesn't apply there at all.
 

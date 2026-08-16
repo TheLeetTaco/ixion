@@ -259,28 +259,32 @@ The published count should reflect the change's real surface area. A small progr
 
 I apply both treatments (tag, then trim) after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
 
-### 2.3c Empirical gate on P1 runtime claims
+### 2.3c Empirical gate on runtime claims
 
-Reviewers can't run anything. I can. Before a P1 goes out claiming the code misbehaves at runtime, I run the command its **Evidence** slot names and see for myself.
+Reviewers can't run anything. I can. Before a finding goes out claiming the code misbehaves at runtime, I run the command its **Evidence** slot names and see for myself.
 
-This applies only to P1 findings whose Failure asserts runtime misbehavior — wrong output, panic, hang, race, N+1, leak, resource exhaustion. Structural P1s are exempt (God Class, Layering Violation, and their kin), as is everything at P2 and P3, and anything tagged `[Contradicts user]`. Reviewing a plan? Skip this stage — there's no code to run.
+This applies at every severity — P1, P2 and P3 alike — to any finding whose Failure asserts runtime misbehavior (wrong output, panic, hang, race, N+1, leak, resource exhaustion) and whose Evidence slot names a command. What stays outside the gate: structural findings at any severity (God Class, Layering Violation, and their kin), anything tagged `[Contradicts user]`, and plan review, which has no code to run.
 
-For each qualifying P1:
+For each qualifying finding:
 
 | What the command does | What I do with the finding |
 |---|---|
-| Demonstrates the failure | Keep P1. Append the command and the salient output line to `failure`. |
+| Demonstrates the failure | Keep it at its severity. Append the command and the salient output line to `failure`. |
 | Runs clean — the claimed misbehavior doesn't happen | **Drop it.** Note the refutation in the summary. |
-| Won't run (missing fixture, needs network, no such path) | Keep, downgrade to P2, append `unproven: <what blocked the check>`. |
-| Evidence says `unproven:` already | Downgrade to P2. No command to run. |
+| Won't run (missing fixture, needs network, no such path) | Keep, downgrade exactly one tier — P1 to P2, P2 to P3, and a P3 stays P3 because there is no lower tier — and append `unproven: <what blocked the check>`. |
+| Evidence says `unproven:` already | Downgrade one tier on that same scale. No command to run. |
 
-The asymmetry is deliberate: reproducing keeps the P1, but failing to reproduce *deletes* the finding rather than demoting it. A defect report that got an honest attempt and didn't hold up is noise, and noise in a P1 list is what teaches the next reader to skim past the real findings. Expect to drop a real fraction of them — and treat a round where nothing dies as a sign the commands were too weak to falsify anything, not as a clean bill of health.
+The asymmetry is deliberate: reproducing keeps the finding where it is, but failing to reproduce *deletes* it rather than demoting it, at P3 as much as at P1. A defect report that got an honest attempt and didn't hold up is noise, and noise in a findings list is what teaches the next reader to skim past the real ones. Expect to drop a real fraction of them — and treat a round where nothing dies as a sign the commands were too weak to falsify anything, not as a clean bill of health.
+
+Dropping is the one outcome that leaves nothing behind: the finding's body is gone and the console summary scrolls away. So before I delete a refuted finding I append a line to `open_questions[]` — `Refuted and dropped: <title> (<location>) — <command> gave <the output line that refuted it>`. That array takes freeform strings, and it's the only place a later session can read what I deleted and why.
+
+I spend at most **12 commands per round**, highest severity first and in appearance order within a severity. Every command's output lands in my context as well as on the clock, and the gate now reaches findings a large review produces by the dozen. A finding I never reach keeps the severity its reviewer proposed and gets `unproven: gate budget exhausted` appended to `failure` — I don't attempt it, and I don't downgrade it for a check I chose not to run.
 
 Two guardrails. Run only what the Evidence slot names — this is a review, so no editing files, no fixing anything, no `git` mutations. And if a command hangs or wants input, kill it and treat that as "won't run" rather than burning the round on it.
 
 ### 2.4 Structure into schema and write
 
-All deduped findings persist — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding, and contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
+Every finding that survived 2.3c persists — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding it receives, which now means every finding whose runtime claim wasn't refuted. Contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
 
 Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 
@@ -314,7 +318,7 @@ Work Review — <target>
 Reviewers: N ran (<list>)
 Findings: M total → K dedup groups
 Severity: P1=<count>, P2=<count>, P3=<count>
-P1 runtime claims: <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven
+Gated runtime claims (all severities): <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven
 Wrong-location-tier violations: <count>
 Incomplete reviewer outputs: <count>
 

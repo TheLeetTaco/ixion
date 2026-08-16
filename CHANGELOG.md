@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The empirical Evidence gate applies at every severity.** 3.0.0 ran the Evidence command only for P1s, so an unreproducible P1 was deleted while an unreproducible P2 went straight to `work`'s fix pass, which fixes P1 through P3 without triage. `work-review` 2.3c now gates any finding whose Failure claims runtime misbehavior and whose Evidence names a command; structural findings and `[Contradicts user]` findings are still exempt, and plan review still skips the stage. Refuted findings are dropped at every severity; ones whose command won't run drop exactly one tier (a P3 stays P3). The gate spends at most 12 commands a round, and writes each refuted finding's title, location and refuting output into `open_questions[]` before deleting it, so a deletion is auditable after the summary scrolls away.
+- **The gate's scope is stated once.** `ixion-conventions/SKILL.md` cited its own copy of the rule; it now cites `references/finding-format.md`, which is the single home.
+- **The deferral tier is gone from the review skills' prose.** 2.0.0 removed the tier itself; the restatements that outlived it in plan review and consolidation are removed, leaving integrate-or-reject as the only model described.
+
 ## 3.0.0 — 2026-07-27
 
 ### Breaking
