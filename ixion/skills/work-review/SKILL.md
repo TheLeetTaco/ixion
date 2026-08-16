@@ -280,6 +280,8 @@ What's next?
 3. "You pick what's best" - Let me decide
 ```
 
+If a finding this round repeats one from a previous review of the same codebase, that's knowledge worth keeping — offer to run the `compound` skill to capture the recurring pattern.
+
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
@@ -287,8 +289,6 @@ Option 1 is `work` again — it detects fix-findings mode from the completed pla
 ```
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
-
-If a finding this round repeats one from a previous review of the same codebase, that's knowledge worth keeping — offer to run the `compound` skill to capture the recurring pattern.
 
 ---
 

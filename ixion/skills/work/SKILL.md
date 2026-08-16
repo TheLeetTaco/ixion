@@ -414,8 +414,8 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
 
    ```bash
-   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    printf 'waves: %s done, %s remaining\n' "<waves checkpointed so far>" "<chunks not in completed[], grouped by 2.0a>"
+   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    ```
 
    Here rather than after step 5: step 5 appends every verified member to `completed[]` before this loop has attempted a single commit, and step 6 pulls an id back out when its commit is rejected — so a line printed at step 5 advertises work that may not be in history and a count that may be wrong by the time the wave ends.

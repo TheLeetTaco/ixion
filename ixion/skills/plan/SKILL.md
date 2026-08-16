@@ -98,15 +98,11 @@ Pass the captured session id to both — they accept a slug/id argument. Bare in
 
 ### Phase 4: Present Results
 
-Two parts, in this order. The metrics first, then the overview — and the overview is the part I actually read.
+Three parts, in this order. The metrics first, then the overview — and the overview is the part I actually read — then the resume command.
 
 `plan-consolidation` signs off with its own short summary and a "what next?" prompt. That is not this. It's the last child skill closing out, and when it returns you still owe me the overview below before the run is finished — answering the next-step prompt is not the end of the pipeline.
 
-**1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open. Close it with the command that resumes this session — this is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
-
-```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
-```
+**1. The receipt.** Session id, session dir path, phases completed, findings count by severity, and anything rejected or left open.
 
 **2. The high-level overview.** Write this every time, unprompted. I shouldn't have to ask "so what does this plan actually do?" after reading a findings count — by the time you're printing the receipt you already know the answer, and asking me to request it wastes a round trip. Prose and short tables, not JSON, and no restating the spec field by field:
 
@@ -131,6 +127,12 @@ a finding or the user's decision overrode one, say so here.
 ```
 
 Scale it to the spec: a two-phase spec gets a shorter version of the same shape, never a longer one. If a section has nothing honest to put in it, drop the section rather than padding it — an empty "things I'd flag" on a genuinely low-risk plan is fine to omit, but reaching for filler to fill it is not.
+
+**3. The command that resumes this session.** This is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
+
+```bash
+<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
+```
 
 ---
 
