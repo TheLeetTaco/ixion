@@ -121,6 +121,8 @@ Example — finding leads `Forwarding Chain. ...`:
 
 The "Maximize elegance over minimizing churn" rule applies: pick the cleaner shape even when reshaping deletes tasks the original spec prescribed.
 
+**A `[Pattern cluster]` group is one redesign, not N phase patches.** Members of a `[Pattern cluster]`-prefixed group carry one shared Fix across scattered locations because they share one cause: the spec prescribed a shape that reproduced itself across phases. Redesign the `context.patterns[]` entry that produced the shape and reshape the affected phases to follow the replacement. Reshaping each member's phase against the rule above and leaving `patterns[]` alone would keep the generator of the findings in the spec, ready to regenerate them at implementation time.
+
 When reshaping deletes or renames a phase, keep `depends_on[]` edges consistent: drop edges pointing at deleted phase ids (a dangling edge makes `work` wait forever on a phase that no longer exists) and re-point edges from renamed ids.
 
 ### Consistency check (run before integrating any finding)
@@ -163,7 +165,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
    ```
    Spec refined — <id>
    Integrated: N P1, N P2, N P3
-   Deferred: N
+   Rejected: N
    ```
 5. **AskUserQuestion:** "Spec consolidated and ready. What next?"
    **Why you:** Preference. Nothing is left unresolved in the artifact; whether to start the run now is about your appetite for it, not about the spec.

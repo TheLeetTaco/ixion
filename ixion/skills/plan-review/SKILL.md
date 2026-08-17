@@ -101,85 +101,19 @@ The synthesizer reads each reviewer's prose output and structures it into `ixion
 
 ### 2.1 Read each reviewer's prose output
 
-For each reviewer response:
-
-- Extract per-finding: Title, Severity, Location, Failure (paragraph), Fix.
-- If a reviewer returned "No findings" or equivalent, record zero findings from this reviewer.
-- If a reviewer's output is incomplete (missing one of the required elements on any finding), construct a synthetic P1 against that reviewer's agent file noting the gap, AND retain the partial finding for the user's visibility.
-
-Synthetic P1 shape (constructed by the synthesizer, in schema):
-
-```json
-{
-  "title": "Reviewer output incomplete: <reviewer-name>",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> returned a finding missing one of the required elements (Title/Severity/Location/Failure/Fix). The structuring step couldn't fully ingest it; the synthesizer's review may be incomplete for this reviewer's domain. Without complete fields, downstream consolidation can't reliably integrate the finding.",
-  "fix": "Investigate the reviewer's prompt or retry that reviewer. Check whether the agent file or dispatch text needs tightening."
-}
-```
+Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-This is plan-review context, so location must be plan-scope (`<phase_id>` or `<phase_id>/<task_id>`). If a reviewer emitted a code-scope location like `src/auth.rs:42`, that's a disambiguation failure. Construct a synthetic P1 against the reviewer:
-
-```json
-{
-  "title": "Wrong location tier: <reviewer-name> emitted code-scope location in plan-review",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> emitted location '<bad-location>' in a plan-review context. Plan reviews require plan-scope locations like 'phase-2' or 'phase-2/t1', not code-scope paths. The reviewer must honor the location format the dispatch specified, otherwise findings can't be matched to spec.json structure during consolidation.",
-  "fix": "Update the reviewer prompt or agent file so the location format always matches the invoker's tier."
-}
-```
-
-Retain the original (mistargeted) finding alongside so the user can see what was flagged.
+Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is plan-review context, so plan-scope is the required tier and a code-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Walk the findings and group those describing the same issue — reviewers may phrase a shared concern differently (e.g., "phase-2 missing fallback" and "phase-2 lacks retry logic" — same gap). Group by meaning, not by string match.
-
-For each group:
-- Take max severity (P1 > P2 > P3). Severity is not promoted by corroboration; a P3 that three reviewers flagged is still a P3.
-- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning. Preserve the leading principle name from the four-slot format — do not paraphrase the first token.
-- Pick the strongest Fix or merge them into a single coherent proposal.
-
-**Cross-finding pattern detection:** count findings by leading principle name. If the same name appears in 3+ distinct findings (e.g., three independent "Shallow Wrapper" findings across phases), tag the cluster as a spec-pattern issue. Plan-consolidation handles a tagged cluster as a single redesign of the relevant `context.patterns[]` entry, not N phase patches — the pattern was the source.
+Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Tag contradictions with the verbatim prompt; scale findings to the spec's actual size
 
-Two judgment calls I make as the synthesizer, in this order, before structuring the output. Both apply to findings of every severity. Both also reduce the surface plan-consolidation has to evaluate downstream — fewer findings ⇒ less consolidation reasoning ⇒ less drift risk and faster pipeline.
-
-**Tag — don't drop — contradictions with the verbatim user prompt.**
-
-`spec.context.constraints[0]` carries the user's exact feature description, prefixed `User feature description (verbatim, authoritative):`. Reviewers review the spec from a best-practices lens; they don't read the user's exact prompt. So when a reviewer pushes back on a user choice (e.g., suggests `uvicorn` where the user said `gunicorn`, or proposes splitting a monolithic deploy into microservices), the pushback is real information — users sometimes deviate from best practice out of laziness, not principle, and the reviewer's "you should be using X" deserves to surface so the user can confirm or revisit the decision.
-
-I keep contradicting findings in the published list, but I tag them so plan-consolidation knows they're advisory:
-
-- Prefix the `title` with `[Contradicts user] `
-- Append one sentence to `failure`: `Deferred: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.`
-
-The contradiction shapes I tag:
-
-- a different tool than the user named ("user said `gunicorn`, finding says switch to `uvicorn`")
-- a different shape than the user specified ("user said `monolithic deploy`, finding says split into microservices")
-- a different scope than the user asked for ("user said `no observability for v0`, finding says add tracing and metrics")
-
-Findings that fill in *underspecified* hows — robustness, security, type hints, error handling, validation the user didn't speak to — pass through untagged. That's good scope growth and the reviewer's primary value.
-
-The point of tagging instead of dropping: reviewer pushback is the value, not the noise. The tag preserves the record; plan-consolidation treats `[Contradicts user]`-tagged findings as advisory and won't rewrite the spec to accommodate them.
-
-**Scale findings to the spec's actual size.**
-
-If reviewers surface 20+ findings on a 3-phase 60-line spec, they're working the universal anti-pattern catalog rather than this specific plan. I trust my judgment to drop the over-eager ones:
-
-- Generic critiques the spec doesn't earn ("phase-1 lacks rollback procedure" on a stateless transformation)
-- Style preferences the schema already permits ("`test_scenarios` should be objects, not strings" — the schema accepts strings)
-- Theoretical scaling concerns far below the spec's actual scope ("consider DDD bounded contexts" on a 60-line CRUD MVP; "warn about lock contention" on a single-user spec)
-
-The published count should reflect the spec's real surface area. A small spec rarely earns more than a handful of meaningful findings; if my output is much larger than the spec's complexity warrants, I trim.
-
-I apply both treatments (tag, then trim) after 2.3 (dedup), before 2.4 (structure into schema).
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and before 2.4 (structure into schema).
 
 ### 2.4 Structure into schema
 

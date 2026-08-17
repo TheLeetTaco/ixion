@@ -145,11 +145,11 @@ Reviewers have `Read, Grep, Glob, Skill` and no Bash. Everything they assert abo
 
 Consensus does not fix this. External work on adversarial review pipelines reports that the large majority of LLM-generated defect candidates do not survive scrutiny, and — more pointedly — records a case where ten reviewers unanimously backed a vulnerability that did not exist and only empirical testing eliminated it. Adding reviewers, or adding critics who argue about the finding, buys agreement rather than truth.
 
-So the finding contract gains a fifth slot, **Evidence**, on findings that claim runtime misbehavior: the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose; they still don't run. The synthesizer — which does have Bash — runs the command for P1s and *drops* findings that don't reproduce (`work-review` 2.3c). Structural findings are exempt: a God Class is visible in the source, and demanding a command for it would be ceremony.
+So the finding contract gains a fifth slot, **Evidence**, on findings that claim runtime misbehavior: the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose; they still don't run. The synthesizer — which does have Bash — runs that command at every severity and *drops* findings that don't reproduce (`work-review` 2.3c). Structural findings are exempt: a God Class is visible in the source, and demanding a command for it would be ceremony.
 
 This is coaxing, not a validator, and it reuses vocabulary `work/references/verification-gates.md` already established for the implementer ("a claim without a fresh command output is a guess"). That discipline had simply never been pointed at the reviewer's claims. Plan review is exempt by nature — there is no code to run yet.
 
-The kill is asymmetric on purpose: reproducing keeps the P1, failing to reproduce deletes the finding rather than demoting it. A P1 list that accumulates plausible-but-unreproducible entries trains the reader to skim, which costs more than the missed finding would have.
+The kill is asymmetric on purpose: reproducing keeps the finding at the severity its reviewer gave it, failing to reproduce deletes it rather than demoting it. A findings list that accumulates plausible-but-unreproducible entries trains the reader to skim, which costs more than the missed finding would have.
 
 ### Principle 14: A question to the user needs a stated reason, and the reasons are the gate
 
@@ -231,7 +231,7 @@ When a coaxing fix doesn't work after two iterations, consider:
 - `ixion/skills/work/SKILL.md` Phase 1 — the "declare you've started before doing any work" reframing of `progress.json` (Principle 5).
 - `ixion/skills/plan-consolidation/SKILL.md` Phase 5 — the contradiction-vs-addition framing for finding integration (Principle 2).
 - `ixion/skills/plan/SKILL.md` — the surviving orchestrator, and the current worked example for Principles 1 and 11. The techniques both principles describe (first-person voice, specific anticipation, permission framing) were originally found by iterating `ixion/skills/yolo/SKILL.md` through six failed test runs; that file was removed when `/yolo` was retired, but the prose patterns it established live on in the skills it used to drive. Recoverable from git history if the original wording is ever needed.
-- `ixion/skills/ixion-conventions/references/finding-format.md` and `ixion/skills/work-review/SKILL.md` 2.3c — the Evidence slot and the empirical P1 gate (Principle 13).
+- `ixion/skills/ixion-conventions/references/finding-format.md` and `ixion/skills/work-review/SKILL.md` 2.3c — the Evidence slot and the empirical gate on runtime claims at every severity (Principle 13).
 - `ixion/skills/ixion-conventions/references/question-format.md` — the shape of every question put to the user, the `**Why you:**` slot, and the four reasons that gate whether to ask at all (Principle 14).
 - `tests/integration/lib/tmux.sh::pane_has_skill_invocation` — checks the TUI scrollback for `Skill(<name>)` markers. The empirical evidence layer of Principle 12.
 - `tests/integration/lib/tmux.sh::pane_save_history` — auto-captures full pane scrollback on test exit, so failures (including SIGKILL and silent stops) are post-mortem-debuggable.

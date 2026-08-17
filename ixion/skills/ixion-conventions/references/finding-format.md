@@ -22,8 +22,10 @@ Format per finding:
 **Fix:** <proposed change>
 ```
 
-Why Evidence exists: a runtime claim that nobody ran is a guess, and confident agreement between reviewers is not proof — reviewers have unanimously backed defects that turned out not to exist. The synthesizer runs the command you name for P1 runtime claims and drops the finding if it doesn't reproduce, so a precise command is what keeps a real finding alive. `unproven:` is an honest answer and costs the finding nothing but its P1 slot.
-
 Multiple findings: separate with a blank line. No findings: say "No findings." A check that came out clean is not a finding — report it as a sentence of prose above the list, never as an entry under an invented severity.
 
 Do not write to any files — return prose in your response only. The synthesizer owns all file writes.
+
+## Why Evidence exists
+
+A runtime claim that nobody ran is a guess, and confident agreement between reviewers is not proof — reviewers have unanimously backed defects that turned out not to exist. In code review the synthesizer runs the command you name — at every severity, not P1 alone — and drops the finding if it doesn't reproduce, so a precise command is what keeps a real finding alive. `unproven:` is an honest answer and costs the finding one severity tier, or nothing at all at P3, where there is no lower tier to fall to.

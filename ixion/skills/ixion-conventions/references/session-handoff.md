@@ -155,6 +155,10 @@ The stale pointer is cleared above the rungs rather than inside one, because bot
 
 Every terminal closing block ends by printing this, so the user can `/clear` and paste one line to land back in this exact session.
 
+It is the last thing the block prints: nothing printed to the user may follow it. A command with prose under it has to be scrolled back to, and the whole point of the block is that a user about to `/clear` copies the last line without reading upward.
+
+Agent-facing instructions may still follow the citation in the skill file — an Error Handling section below it is not a violation, because nothing there reaches the user. The rule is about the printed output, not about where the citation sits in the markdown.
+
 ```bash
 SKILLS='<the skills that can continue this session, space-separated: plan-review, plan-consolidation, work, work-review or ship>'
 SESSION_ID='<session= from the resolution block>'

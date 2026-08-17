@@ -155,48 +155,15 @@ The synthesizer reads each reviewer's prose output and structures it into `ixion
 
 ### 2.1 Read each reviewer's prose output
 
-For each reviewer response:
-
-- Extract per-finding: Title, Severity, Location, Failure (paragraph), Fix.
-- If a reviewer returned "No findings" or equivalent, record zero findings from this reviewer.
-- If a reviewer's output is incomplete (missing one of the required elements on any finding), construct a synthetic P1 against that reviewer's agent file noting the gap, AND retain the partial finding for the user's visibility.
-
-Synthetic P1 shape (constructed by the synthesizer, in schema):
-
-```json
-{
-  "title": "Reviewer output incomplete: <reviewer-name>",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> returned a finding missing one of the required elements (Title/Severity/Location/Failure/Fix). The structuring step couldn't fully ingest it; the synthesizer's review may be incomplete for this reviewer's domain. Without complete fields, downstream consumers can't reliably act on the finding.",
-  "fix": "Investigate the reviewer's prompt or retry that reviewer. Check whether the agent file or dispatch text needs tightening."
-}
-```
+Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-This is work-review context, so location must be code-scope (`<repo-relative-path>` or `<repo-relative-path>:<line>`). If a reviewer emitted a plan-scope location like `phase-2/t1`, that's a disambiguation failure. Construct a synthetic P1 against the reviewer:
-
-```json
-{
-  "title": "Wrong location tier: <reviewer-name> emitted plan-scope location in work-review",
-  "severity": "P1",
-  "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> emitted location '<bad-location>' in a work-review context. Code reviews require code-scope locations like 'src/auth.rs' or 'src/auth.rs:42', not plan-scope phase ids. The reviewer must honor the location format the dispatch specified, otherwise findings can't be matched to actual files for fixes.",
-  "fix": "Update the reviewer prompt or agent file so the location format always matches the invoker's tier."
-}
-```
-
-Retain the original (mistargeted) finding alongside so the user can see what was flagged.
+Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Walk the findings and group those describing the same issue — reviewers may phrase a shared concern differently (e.g., "missing type hints on handlers" vs "handlers lack return annotations" — same problem). Group by meaning, not by string match.
-
-For each group:
-- Take max severity (P1 > P2 > P3). Severity is not promoted by corroboration; a P3 that three reviewers flagged is still a P3.
-- Merge the Failure paragraphs into a single rich paragraph that captures the union of intent + observation + reasoning. Preserve the leading principle name from the four-slot format — do not paraphrase the first token.
-- Pick the strongest Fix or merge them into a single coherent proposal.
+Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Drift arbitration (files outside spec scope)
 
@@ -226,61 +193,36 @@ The synthesizer applies this judgment once at merge time.
 
 ### 2.3b Tag contradictions with the verbatim prompt; scale findings to the change's actual surface
 
-Two judgment calls I make as the synthesizer, in this order, before P3 triage. Both apply to findings of every severity.
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
 
-**Tag — don't drop — contradictions with the verbatim user prompt.**
+### 2.3c Empirical gate on runtime claims
 
-Reviewers review from a best-practices lens; they don't read the user's exact prompt. So when a reviewer pushes back on a user choice (e.g., suggests `smol` where the user said `tokio`, or suggests caching where the user explicitly scoped to "MVP — no caching"), the pushback is real information — users sometimes deviate from best practice out of laziness, not principle, and the reviewer's "you should be using X" deserves to surface so the user can confirm or revisit the decision.
+Reviewers can't run anything. I can. Before a finding goes out claiming the code misbehaves at runtime, I run the command its **Evidence** slot names and see for myself.
 
-I keep contradicting findings in the published list, but I tag them so downstream stages know they're advisory:
+This applies at every severity — P1, P2 and P3 alike — to any finding whose Failure asserts runtime misbehavior (wrong output, panic, hang, race, N+1, leak, resource exhaustion) and whose Evidence slot names a command. What stays outside the gate: structural findings at any severity (God Class, Layering Violation, and their kin), anything tagged `[Contradicts user]`, and plan review, which has no code to run.
 
-- Prefix the `title` with `[Contradicts user] `
-- Append one sentence to `failure`: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-apply.`
-
-The contradiction shapes I tag:
-
-- a different tool than the user named ("user said `axum`, finding says switch to `actix-web`")
-- a different shape than the user specified ("user said handlers as plain functions, finding says wrap them in a service class")
-- a different scope than the user asked for ("user said `read-only API for the MVP`, finding says add `POST` and `DELETE` endpoints")
-
-Findings that fill in *underspecified* hows — robustness, security, type hints, error handling the user didn't speak to — pass through untagged. That's good scope growth.
-
-The point of tagging instead of dropping: reviewer pushback is the value, not the noise. The tag preserves the record; downstream skills treat `[Contradicts user]`-tagged findings as advisory, not actionable.
-
-**Scale findings to the change's actual size.**
-
-If reviewers surface 30+ findings on a 300-line program, they're working the universal anti-pattern catalog rather than the specific code. I trust my judgment to drop the over-eager ones:
-
-- Generic critiques the code doesn't earn ("method exceeds 50 lines" on a clearly readable handler)
-- Style preferences with no behavioral consequence (`Path.replace` vs `os.replace`, `int` status codes vs `HTTPStatus`)
-- Theoretical scaling concerns far below the code's actual demands ("fsync blocks single-threaded server" on a tiny app the user described as small)
-
-The published count should reflect the change's real surface area. A small program rarely earns more than a handful of meaningful findings; if my output is much larger than the change deserves, I trim.
-
-I apply both treatments (tag, then trim) after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
-
-### 2.3c Empirical gate on P1 runtime claims
-
-Reviewers can't run anything. I can. Before a P1 goes out claiming the code misbehaves at runtime, I run the command its **Evidence** slot names and see for myself.
-
-This applies only to P1 findings whose Failure asserts runtime misbehavior — wrong output, panic, hang, race, N+1, leak, resource exhaustion. Structural P1s are exempt (God Class, Layering Violation, and their kin), as is everything at P2 and P3, and anything tagged `[Contradicts user]`. Reviewing a plan? Skip this stage — there's no code to run.
-
-For each qualifying P1:
+For each qualifying finding:
 
 | What the command does | What I do with the finding |
 |---|---|
-| Demonstrates the failure | Keep P1. Append the command and the salient output line to `failure`. |
+| Demonstrates the failure | Keep it at its severity. Append the command and the salient output line to `failure`. |
 | Runs clean — the claimed misbehavior doesn't happen | **Drop it.** Note the refutation in the summary. |
-| Won't run (missing fixture, needs network, no such path) | Keep, downgrade to P2, append `unproven: <what blocked the check>`. |
-| Evidence says `unproven:` already | Downgrade to P2. No command to run. |
+| Won't run (missing fixture, needs network, no such path) | Keep, downgrade exactly one tier — P1 to P2, P2 to P3, and a P3 stays P3 because there is no lower tier — and append `unproven: <what blocked the check>`. |
+| Evidence says `unproven:` already | Downgrade one tier on that same scale. No command to run. |
 
-The asymmetry is deliberate: reproducing keeps the P1, but failing to reproduce *deletes* the finding rather than demoting it. A defect report that got an honest attempt and didn't hold up is noise, and noise in a P1 list is what teaches the next reader to skim past the real findings. Expect to drop a real fraction of them — and treat a round where nothing dies as a sign the commands were too weak to falsify anything, not as a clean bill of health.
+The asymmetry is deliberate: reproducing keeps the finding where it is, but failing to reproduce *deletes* it rather than demoting it, at P3 as much as at P1. A defect report that got an honest attempt and didn't hold up is noise, and noise in a findings list is what teaches the next reader to skim past the real ones. Expect to drop a real fraction of them — and treat a round where nothing dies as a sign the commands were too weak to falsify anything, not as a clean bill of health.
+
+Dropping is the one outcome that leaves nothing behind: the finding's body is gone and the console summary scrolls away. So before I delete a refuted finding I append a line to `open_questions[]` — `Refuted and dropped: <title> (<location>) — <command> gave <the output line that refuted it>`. That array takes freeform strings, and it's the only place a later session can read what I deleted and why. The `Refuted and dropped:` prefix is what keeps the array readable now that it carries two things: everything else in it is a question still waiting on an answer, and an entry wearing this prefix is a settled record that needs none — the same marker-in-the-text convention `[Contradicts user]` uses on a finding title.
+
+I spend at most **12 commands per round**, and I spend them a pass at a time: one P1, one P2, one P3, then the next of each, taking appearance order within a severity. Cycling rather than draining P1 first is what keeps the budget from re-creating the defect this gate was widened to close — a round whose P1 list alone reaches 12 would otherwise pass every P2 and P3 runtime claim through unchecked into a fix pass that fixes all three tiers. Every command's output lands in my context as well as on the clock, and the gate now reaches findings a large review produces by the dozen. A finding I never reach keeps the severity its reviewer proposed and gets `unproven: gate budget exhausted` appended to `failure` — I don't attempt it, and I don't downgrade it for a check I chose not to run.
+
+The 12 is a starting value, not a measurement: no round has been counted yet. The Phase 3 summary reports how many qualifying findings I left unattempted alongside how many I checked, so the next person to touch this number sets it from a round that actually ran, and a starved round reads differently from a clean one.
 
 Two guardrails. Run only what the Evidence slot names — this is a review, so no editing files, no fixing anything, no `git` mutations. And if a command hangs or wants input, kill it and treat that as "won't run" rather than burning the round on it.
 
 ### 2.4 Structure into schema and write
 
-All deduped findings persist — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding, and contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
+Every finding that survived 2.3c persists — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding it receives, which now means every finding whose runtime claim wasn't refuted. Contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
 
 Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 
@@ -288,7 +230,7 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 {
   "schema_version": 1,
   "findings": [ /* ALL deduped findings, plus synthetic P1s for incomplete reviewers and wrong-location-tier */ ],
-  "open_questions": [ /* union across reviewers */ ]
+  "open_questions": [ /* union across reviewers, plus one "Refuted and dropped:" record per finding the gate killed */ ]
 }
 ```
 
@@ -314,7 +256,7 @@ Work Review — <target>
 Reviewers: N ran (<list>)
 Findings: M total → K dedup groups
 Severity: P1=<count>, P2=<count>, P3=<count>
-P1 runtime claims: <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven
+Gated runtime claims (all severities): <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven; <unattempted> unattempted at the budget
 Wrong-location-tier violations: <count>
 Incomplete reviewer outputs: <count>
 
@@ -340,6 +282,8 @@ What's next?
 3. "You pick what's best" - Let me decide
 ```
 
+If a finding this round repeats one from a previous review of the same codebase, that's knowledge worth keeping — offer to run the `compound` skill to capture the recurring pattern.
+
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
@@ -347,8 +291,6 @@ Option 1 is `work` again — it detects fix-findings mode from the completed pla
 ```
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
-
-If a finding this round repeats one from a previous review of the same codebase, that's knowledge worth keeping — offer to run the `compound` skill to capture the recurring pattern.
 
 ---
 
