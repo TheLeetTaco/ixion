@@ -214,7 +214,9 @@ The asymmetry is deliberate: reproducing keeps the finding where it is, but fail
 
 Dropping is the one outcome that leaves nothing behind: the finding's body is gone and the console summary scrolls away. So before I delete a refuted finding I append a line to `open_questions[]` — `Refuted and dropped: <title> (<location>) — <command> gave <the output line that refuted it>`. That array takes freeform strings, and it's the only place a later session can read what I deleted and why.
 
-I spend at most **12 commands per round**, highest severity first and in appearance order within a severity. Every command's output lands in my context as well as on the clock, and the gate now reaches findings a large review produces by the dozen. A finding I never reach keeps the severity its reviewer proposed and gets `unproven: gate budget exhausted` appended to `failure` — I don't attempt it, and I don't downgrade it for a check I chose not to run.
+I spend at most **12 commands per round**, and I spend them a pass at a time: one P1, one P2, one P3, then the next of each, taking appearance order within a severity. Cycling rather than draining P1 first is what keeps the budget from re-creating the defect this gate was widened to close — a round whose P1 list alone reaches 12 would otherwise pass every P2 and P3 runtime claim through unchecked into a fix pass that fixes all three tiers. Every command's output lands in my context as well as on the clock, and the gate now reaches findings a large review produces by the dozen. A finding I never reach keeps the severity its reviewer proposed and gets `unproven: gate budget exhausted` appended to `failure` — I don't attempt it, and I don't downgrade it for a check I chose not to run.
+
+The 12 is a starting value, not a measurement: no round has been counted yet. The Phase 3 summary reports how many qualifying findings I left unattempted alongside how many I checked, so the next person to touch this number sets it from a round that actually ran, and a starved round reads differently from a clean one.
 
 Two guardrails. Run only what the Evidence slot names — this is a review, so no editing files, no fixing anything, no `git` mutations. And if a command hangs or wants input, kill it and treat that as "won't run" rather than burning the round on it.
 
@@ -254,7 +256,7 @@ Work Review — <target>
 Reviewers: N ran (<list>)
 Findings: M total → K dedup groups
 Severity: P1=<count>, P2=<count>, P3=<count>
-Gated runtime claims (all severities): <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven
+Gated runtime claims (all severities): <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven; <unattempted> unattempted at the budget
 Wrong-location-tier violations: <count>
 Incomplete reviewer outputs: <count>
 
