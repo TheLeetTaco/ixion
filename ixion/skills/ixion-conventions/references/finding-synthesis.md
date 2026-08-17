@@ -30,15 +30,15 @@ The dispatch told every reviewer which tier of location to emit. Code review: `<
 
 ```json
 {
-  "title": "Wrong location tier: <reviewer-name> emitted plan-scope location in work-review",
+  "title": "Wrong location tier: <reviewer-name> emitted '<bad-location>'",
   "severity": "P1",
   "location": "ixion/agents/<reviewer-name>.md",
-  "failure": "<reviewer-name> emitted location '<bad-location>' in a work-review context. Code reviews require code-scope locations like 'src/auth.rs' or 'src/auth.rs:42', not plan-scope phase ids. The reviewer must honor the location format the dispatch specified, otherwise the finding names nothing this review can act on.",
+  "failure": "<reviewer-name> emitted location '<bad-location>', from the other tier than the one its dispatch specified. A cross-tier location names nothing this review can open, so whatever the finding flagged cannot be acted on.",
   "fix": "Update the reviewer prompt or agent file so the location format always matches the invoker's tier."
 }
 ```
 
-The template above is filled for work review. Plan review fills the same slots with its own tier: the title ends `emitted code-scope location in plan-review`, the failure opens `<reviewer-name> emitted location '<bad-location>' in a plan-review context.`, and its second sentence reads `Plan reviews require plan-scope locations like 'phase-2' or 'phase-2/t1', not code-scope paths.` The closing sentence and the fix are the same either way.
+The template names no tier, and filling one in would be the mistake: each caller's citation of this step already says which tier it requires and which is the violation, so a tier spelled here is a second copy of a fact the caller holds — and the copy for the other caller would then have to be derived from it.
 
 ## Semantic dedup
 
@@ -63,7 +63,9 @@ Two judgment calls I make as the synthesizer, in this order. Both apply to findi
 I keep contradicting findings in the published list and tag them advisory:
 
 - Prefix the `title` with `[Contradicts user] `
-- Append one sentence to `failure`: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.` Work review ends that sentence `do not auto-apply.` instead — a plan is integrated, a change is applied.
+- Append one sentence to `failure`, closing on the verb its target takes — a plan is integrated, a change is applied:
+  - Code review: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-apply.`
+  - Plan review: `Rejected: contradicts constraints[0] ('<user words>'); record the pushback, do not auto-integrate.`
 
 The contradiction shapes I tag:
 
