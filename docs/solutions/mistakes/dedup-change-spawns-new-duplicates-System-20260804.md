@@ -7,6 +7,7 @@ symptoms:
   - "A change that consolidates duplicated text introduces fresh duplicates of its own"
   - "Two callers carry the same explanatory sentence, already differing by punctuation"
   - "Two test files implement the same four-command recipe with different flags"
+  - "An extraction moves a mechanism and deletes the sentence naming its consumer, leaving an inert tag"
 root_cause: missing_workflow_step
 resolution_type: workflow_improvement
 severity: medium
@@ -100,6 +101,21 @@ What this recurrence adds to the entry above:
 - **The canonical home existing does not stop the next copy — it changes what the copy looks like.** The earlier instances duplicated *text that had no home yet*. Here the home was being built in the same commit, and the duplicate still appeared, wearing the new home's own vocabulary (`**Why you:**`, the delegation option). A partially-adopted template reads as compliance and passes a skim; item 1 was three reviewers' work to catch.
 - **"Did every site adopt the shape?" is a different question from "does every site cite the reference?"** The session's Phase 3 verification checked that every reason came from the four-entry catalog and that no file stated the catalog inline. Both passed while item 1 sat there, because neither asks whether the *rendering* matches. The check that would have caught it is comparing sibling sites in one file against each other — the same "diff the callers against each other" prevention this entry already prescribes, applied to shape rather than to text.
 - ADR-001's Principle 14 paragraph records `brainstorm/SKILL.md` having restated the one-question-per-call rule in three separate places before extraction. Item 2 is that same rule, restated a fourth time, *after* extraction — so the extraction did not end it either.
+
+## Recurrence — 2026-08-16, the extraction deleted a capability instead of duplicating one
+
+Session `review-pipeline-synthesis` is the fifth instance and the first that inverts the symptom. Its change extracted the drifted synthesis half of `plan-review/SKILL.md` and `work-review/SKILL.md` into `references/finding-synthesis.md` — and, per the user's explicit instruction, carried cross-finding pattern detection into the shared home so `work-review` would gain it. The detection half moved correctly. The sentence that gave the result its meaning did not: `plan-review/SKILL.md:147` had ended *"Plan-consolidation handles a tagged cluster as a single redesign of the relevant `context.patterns[]` entry, not N phase patches — the pattern was the source,"* and that sentence was deleted rather than relocated.
+
+The result was a `[Pattern cluster]` title prefix that occurred exactly once in the whole tree — in the reference that mints it — with no consumer anywhere. `plan-consolidation` routes structural findings by string-matching the *Failure paragraph's* leading catalog word and never inspects the title; `work` clusters fix themes by shared structural change on its own. A grep confirmed the loss was total: `context.patterns[]` appears nowhere in `plan-consolidation/SKILL.md`, so the redesign the deleted sentence prescribed had no other home in the pipeline.
+
+What this recurrence adds:
+
+- **The failure mode inverts while the root cause holds.** The four instances above all *added* a copy. This one *removed* a behavior. Both come from the same place — attention is on the old duplicates, so whatever else the edit does to the surrounding text goes unwatched. An entry titled "spawns new duplicates" will not be grepped by someone who deleted something, which is why the symptom line above was widened rather than a second file started.
+- **The guard built from this very doc was structurally blind to it.** The same session added `tests/finding-synthesis-harness.sh` specifically to catch this doc's failure — a fingerprint-uniqueness check for a leftover copy in one caller, and an advisory caller-to-caller diff for a sentence grown in both. Both passed. Neither can fire on a deletion, because nothing was duplicated. **A duplication guard proves nothing about what the extraction removed**, and the prevention list above — "diff the callers against each other" — inherits that blindness exactly.
+- **A correct principle applied to half the move is what caused it.** The spec had already recorded the right constraint: *"Layering Violation: the shared reference must not describe plan-consolidation's behavior."* That is why the sentence was kept out of the reference, and it was right. Nothing then put it into `plan-consolidation`, where its own reader would meet it. Deciding where text may **not** live is only half of relocating it; the other half needs its own step, and neither the constraint nor the review that produced it named one.
+- **Detection required asking what consumes the thing, not what copies it.** `reviewer-architecture` found it by tracing the tag to its consumers and finding none. That is the inverse of the question every check in this doc's prevention list asks.
+
+Add to the prevention list, in the same spirit as "extract the unit that drifted": **when an extraction moves a mechanism, list what consumed it before the move and name where each consumer's rule now lives.** A mechanism with a producer and no consumer is the deletion shape; a grep for the marker returning exactly one hit — the site that mints it — is the cheapest tell.
 
 ## Related Issues
 
