@@ -212,7 +212,7 @@ For each qualifying finding:
 
 The asymmetry is deliberate: reproducing keeps the finding where it is, but failing to reproduce *deletes* it rather than demoting it, at P3 as much as at P1. A defect report that got an honest attempt and didn't hold up is noise, and noise in a findings list is what teaches the next reader to skim past the real ones. Expect to drop a real fraction of them — and treat a round where nothing dies as a sign the commands were too weak to falsify anything, not as a clean bill of health.
 
-Dropping is the one outcome that leaves nothing behind: the finding's body is gone and the console summary scrolls away. So before I delete a refuted finding I append a line to `open_questions[]` — `Refuted and dropped: <title> (<location>) — <command> gave <the output line that refuted it>`. That array takes freeform strings, and it's the only place a later session can read what I deleted and why.
+Dropping is the one outcome that leaves nothing behind: the finding's body is gone and the console summary scrolls away. So before I delete a refuted finding I append a line to `open_questions[]` — `Refuted and dropped: <title> (<location>) — <command> gave <the output line that refuted it>`. That array takes freeform strings, and it's the only place a later session can read what I deleted and why. The `Refuted and dropped:` prefix is what keeps the array readable now that it carries two things: everything else in it is a question still waiting on an answer, and an entry wearing this prefix is a settled record that needs none — the same marker-in-the-text convention `[Contradicts user]` uses on a finding title.
 
 I spend at most **12 commands per round**, and I spend them a pass at a time: one P1, one P2, one P3, then the next of each, taking appearance order within a severity. Cycling rather than draining P1 first is what keeps the budget from re-creating the defect this gate was widened to close — a round whose P1 list alone reaches 12 would otherwise pass every P2 and P3 runtime claim through unchecked into a fix pass that fixes all three tiers. Every command's output lands in my context as well as on the clock, and the gate now reaches findings a large review produces by the dozen. A finding I never reach keeps the severity its reviewer proposed and gets `unproven: gate budget exhausted` appended to `failure` — I don't attempt it, and I don't downgrade it for a check I chose not to run.
 
@@ -230,7 +230,7 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 {
   "schema_version": 1,
   "findings": [ /* ALL deduped findings, plus synthetic P1s for incomplete reviewers and wrong-location-tier */ ],
-  "open_questions": [ /* union across reviewers */ ]
+  "open_questions": [ /* union across reviewers, plus one "Refuted and dropped:" record per finding the gate killed */ ]
 }
 ```
 
