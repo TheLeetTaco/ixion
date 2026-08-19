@@ -111,7 +111,15 @@ Why the dual signal: an AskUserQuestion-pattern monitor alone misses silent stop
 
 The monitor catches *failure shapes* (PASS/FAIL/INFO, deadlock, silent stop). It does not tell you whether the artifacts are any good. **That's your job.** Each `PASS:` milestone is a ping to read the artifact that just landed and audit it against the bar — surface concerns immediately, don't wait for the test to finish. A spec missing an elegance criterion, or a findings.json missing the 4-slot Failure format, is a real signal about the prompt tuning, and the earliest place to catch it is the milestone where it lands.
 
-Find the active session: `find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git'`, then `<sbox>/.ixion/plugin/sessions/<session_id>/`. The exclusion skips the bare origin `make_sandbox` parks beside each sandbox — it matches the same glob and holds no session state.
+Find the session directory itself rather than the sandbox, because the sandbox is no longer the only directory matching its own name:
+
+```bash
+SDIR=$(find ${TMPDIR:-/tmp} -maxdepth 5 -type d -path '*/.ixion/plugin/sessions/*' | head -1)
+SBOX="${SDIR%/.ixion/plugin/sessions/*}"   # the sandbox — the repository root
+ls -d "$SBOX"-*/                            # the session worktrees beside it
+```
+
+The sessions tree hangs off the repository root shared by every checkout, so it stays in the sandbox. `work` runs each session in a worktree named `<sandbox>-<slug>` beside it, so **the code under audit is in the worktree, not the sandbox** — that is where the diff, the source files and the build output are. The bare origin `make_sandbox` parks alongside is `<sandbox>.git`, which the hyphen in `"$SBOX"-*/` already excludes. `active.json` is per-checkout, so the sandbox and each worktree carry their own; the session directories they all point into are shared.
 
 | Milestone | Artifact to read | What to audit |
 |---|---|---|
@@ -131,18 +139,22 @@ The audit is *evidence-based*: cite file paths, line numbers, or specific JSON p
 After a failed run:
 
 ```bash
-# Find the sandbox the failed test left behind
-SBOX=$(find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git' | head -1)
-SDIR="$SBOX/.ixion/plugin/sessions/<session-id>"
+# Find the session the failed test left behind, and the sandbox holding it
+SDIR=$(find ${TMPDIR:-/tmp} -maxdepth 5 -type d -path '*/.ixion/plugin/sessions/*' | head -1)
+SBOX="${SDIR%/.ixion/plugin/sessions/*}"
+
+# Pick an interpreter before using one — Windows' python3 is often a stub
+# that resolves on PATH and executes nothing. Same probe the skills use.
+for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
 
 # Session artifacts
 ls -la "$SDIR"
-python3 -m json.tool "$SDIR/spec.json"
-python3 -m json.tool "$SDIR/progress.json"
-python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["findings"]))' "$SDIR/review.findings.json"
+"$PY" -m json.tool "$SDIR/spec.json"
+"$PY" -m json.tool "$SDIR/progress.json"
+"$PY" -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["findings"]))' "$SDIR/review.findings.json"
 
-# Implementation files
-find "$SBOX" -name "*.py" -not -path "*/.git/*" -not -path "*/.ixion/*"
+# Implementation files — in the session's worktree, not the sandbox
+find "$SBOX"-* -type f \( -name '*.rs' -o -name '*.py' \) -not -path '*/target/*'
 
 # Pane history (auto-saved on test exit)
 ls -la /tmp/ixion-int-*.pane.txt | tail -1
