@@ -46,8 +46,6 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 
 An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is the rung that matters most here: `/work` is the command a resume prints, so it is the one most likely to be pasted after the session already shipped, and continuing would re-run verification against merged work and re-offer "Ship it" on a branch that no longer needs it. Only `state=usable` continues.
 
-Stale-tmp cleanup: if `progress.json.tmp` or `session.json.tmp` exist from an interrupted prior write, delete them. The authoritative file is the un-suffixed one; partial writes never persist past a crash because `.tmp` → `mv` is atomic on local POSIX.
-
 ---
 
 ## Phase 1: Mode Detection & Load
@@ -97,7 +95,7 @@ Procedure:
    trap cleanup_active_skill EXIT
    ```
 
-   That block renames only on a successful write, which is what makes this atomic rather than merely two-step — the shape it replaced truncated its temp *before* the write ran, so an unconditional rename over it turned a 75-byte `session.json` into 0 bytes. The stale temp a failed write leaves behind is exactly what Phase 0's stale-tmp cleanup above already deletes.
+   That block renames only on a successful write, which is what makes this atomic rather than merely two-step — the shape it replaced truncated its temp *before* the write ran, so an unconditional rename over it turned a 75-byte `session.json` into 0 bytes. A write that raises now never opens its temp at all, and a temp orphaned by a crash mid-write is named for the pid that made it and read by nobody, so there is nothing here to sweep up.
 
 5. **Resolve the branch roles, then put the session in a worktree of its own.** Every chunk gets committed at its checkpoint (2.3), so the branch those commits land on is settled here, before any of them run.
 

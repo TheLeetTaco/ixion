@@ -411,20 +411,23 @@ else
   expect "write: the failed write left the original byte-identical, not truncated" \
     "$(cksum < "$sj")" "$before"
 
-  # os.replace is atomic only within one filesystem, so the temp is pinned beside
-  # its target rather than left to TMPDIR. Occupying `<target>.tmp` with a
-  # directory is what makes that observable: the write can only fail here if that
-  # is the path it opens.
+  # The temp is `<target>.tmp.<pid>`: beside its target because os.replace is
+  # atomic only within one filesystem, and per-process because the sessions tree
+  # is shared by every checkout, so two skills can be writing one session.json at
+  # once and a shared temp name loses one of them. The pid is not knowable from
+  # the shell, so each half is proved by taking a wrong home away -- TMPDIR is
+  # made unusable and the shared `<target>.tmp` is occupied by a directory. A
+  # write that still succeeds used neither.
   seed_fields
-  before=$(cksum < "$sj")
   mkdir "$sj.tmp"
-  if set_fields "$root" "$rel" "status '\"completed\"'" >/dev/null 2>&1; then
-    note_fail "write: the temp file is not <target>.tmp beside the target"
+  if TMPDIR=/nonexistent-tmpdir TMP=/nonexistent-tmpdir \
+     set_fields "$root" "$rel" "status '\"completed\"'" >/dev/null 2>&1; then
+    note_pass "write: the temp is per-process and beside the target"
   else
-    note_pass "write: the temp file is <target>.tmp beside the target"
+    note_fail "write: the write went to TMPDIR or to a shared <target>.tmp"
   fi
-  expect "write: blocking the temp path left the original byte-identical" \
-    "$(cksum < "$sj")" "$before"
+  expect "write: the field landed with both wrong temp homes blocked" \
+    "$(read_field "$root" "$rel" status)" "status=completed"
   rmdir "$sj.tmp"
 fi
 
