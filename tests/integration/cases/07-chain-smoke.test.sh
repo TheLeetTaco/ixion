@@ -34,6 +34,7 @@ SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 SESSION="ixion-int-chain"
 SBOX=""
@@ -59,16 +60,16 @@ CHUNK_GATE_FLAGS=(--locked)
 # Session-tier gates run once from work Phase 3, never per phase.
 SESSION_GATE_RE="cargo (audit|machete)"
 
-# unflagged_gates <jq-filter> <file> <flag>... — prints the flags that no
-# command string produced by <jq-filter> carries; empty output means every
-# flag reached the artifact. Both gated artifacts reduce to a list of command
+# unflagged_gates <expression> <file> <flag>... — prints the flags that no
+# command string <expression> yields carries; empty output means every flag
+# reached the artifact. Both gated artifacts reduce to a list of command
 # strings, so one check serves both once the caller names its tier's flags.
 unflagged_gates() {
-  local jq_filter=$1 file=$2 flag hits
+  local expression=$1 file=$2 flag commands
   shift 2
+  commands=$(json_lines "$file" "$expression")
   for flag in "$@"; do
-    hits=$(jq --arg f "$flag" "$jq_filter | map(select(test(\$f))) | length" "$file" 2>/dev/null || echo 0)
-    [ "$hits" -gt 0 ] || printf '%s ' "$flag"
+    printf '%s\n' "$commands" | grep -q -e "$flag" || printf '%s ' "$flag"
   done
 }
 
@@ -96,7 +97,7 @@ dump_pane() {
 
 dump_commands_run() {
   echo "----- commands_run -----"
-  jq -r '.artifacts.commands_run' "$SDIR/progress.json" 2>/dev/null || echo "(unreadable)"
+  json_lines "$SDIR/progress.json" 'doc["artifacts"]["commands_run"]' || echo "(unreadable)"
   echo "----- end -----"
 }
 
@@ -149,7 +150,7 @@ if ! wait_for_file_with_autopilot "$SESSION" "$ACTIVE" 300; then
   note_fail "active.json never appeared (plan-creation stalled)"
   dump_pane; finalize
 fi
-SESSION_ID=$(jq -r .session_id "$ACTIVE" 2>/dev/null || echo "")
+SESSION_ID=$(json_field "$ACTIVE" session_id)
 SDIR="$SESSIONS_DIR/$SESSION_ID"
 if wait_for_file_with_autopilot "$SESSION" "$SDIR/spec.json" 180; then
   note_pass "plan-creation wrote spec.json"
@@ -186,13 +187,13 @@ validate_artifact spec.schema.json "$SDIR/spec.json" "consolidated spec.json"
 # Gates list and chained it into the phases it wrote flags and all — not
 # settled for the bare `cargo test` a schema check would accept just as
 # happily, nor for the under-flagged forms the fix replaced.
-UNFLAGGED=$(unflagged_gates '[.phases[].verification]' "$SDIR/spec.json" "${PHASE_GATE_FLAGS[@]}")
+UNFLAGGED=$(unflagged_gates '[p["verification"] for p in doc["phases"]]' "$SDIR/spec.json" "${PHASE_GATE_FLAGS[@]}")
 if [ -z "$UNFLAGGED" ]; then
   note_pass "spec composed fully-flagged per-phase gates into phase verifications"
 else
   note_fail "no phase verification carries: $UNFLAGGED"
   echo "----- phase verifications -----"
-  jq -r '.phases[].verification' "$SDIR/spec.json" 2>/dev/null || echo "(unreadable)"
+  json_lines "$SDIR/spec.json" '[p["verification"] for p in doc["phases"]]' || echo "(unreadable)"
   echo "----- end -----"
 fi
 
@@ -208,7 +209,7 @@ fi
 # Making this a real gate needs a fixture with at least one dependency, which
 # costs the offline property the fixture was built around. Until someone decides
 # that trade, the line below reports what happened without pretending to judge it.
-SESSION_CRITERIA=$(jq --arg re "$SESSION_GATE_RE" '[.success_criteria[] | select(test($re))] | length' "$SDIR/spec.json" 2>/dev/null || echo 0)
+SESSION_CRITERIA=$(json_lines "$SDIR/spec.json" 'doc["success_criteria"]' | grep -cE "$SESSION_GATE_RE")
 echo "INFO: session-tier gates in success_criteria: $SESSION_CRITERIA (0 is expected for this dependency-free fixture)"
 
 # ---- Step 2: /work in plan mode -------------------------------------------
@@ -216,11 +217,9 @@ tmux_send_line "$SESSION" "/work"
 
 i=0; plan_done=false; last_fire=0
 while [ "$i" -lt 900 ]; do
-  if [ -f "$SDIR/progress.json" ]; then
-    status=$(jq -r '.status // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
-    mode=$(jq -r '.mode // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
-    [ "$status" = "completed" ] && [ "$mode" = "plan" ] && { plan_done=true; break; }
-  fi
+  status=$(json_field "$SDIR/progress.json" status)
+  mode=$(json_field "$SDIR/progress.json" mode)
+  [ "$status" = "completed" ] && [ "$mode" = "plan" ] && { plan_done=true; break; }
   now=$(date +%s)
   if [ $((now - last_fire)) -ge "$AUTOPILOT_COOLDOWN" ]; then
     if autopilot_respond "$SESSION"; then last_fire="$now"; fi
@@ -243,8 +242,8 @@ validate_artifact progress.schema.json "$SDIR/progress.json" "plan-mode progress
 # Composing a gate is not running one. A subagent that loaded the per-chunk
 # gate as written leaves its flagged command text here; one that settled for a
 # bare `cargo check` does not. Entries are ceremony and may be objects or bare
-# strings, hence tostring before matching.
-UNFLAGGED=$(unflagged_gates '[.artifacts.commands_run[]? | tostring]' "$SDIR/progress.json" "${CHUNK_GATE_FLAGS[@]}")
+# strings, so the flag is matched against whichever one the entry renders as.
+UNFLAGGED=$(unflagged_gates 'doc["artifacts"]["commands_run"]' "$SDIR/progress.json" "${CHUNK_GATE_FLAGS[@]}")
 if [ -z "$UNFLAGGED" ]; then
   note_pass "work ran the per-chunk gate with its flags"
 else
@@ -255,7 +254,7 @@ fi
 # Downstream of the criteria above, so it inherits their limitation: with no
 # session-tier gate in success_criteria there is nothing for Phase 3 to run, and
 # an empty result here is correct rather than a defect. INFO for the same reason.
-SESSION_RUNS=$(jq --arg re "$SESSION_GATE_RE" '[.artifacts.commands_run[]? | tostring | select(test($re))] | length' "$SDIR/progress.json" 2>/dev/null || echo 0)
+SESSION_RUNS=$(json_lines "$SDIR/progress.json" 'doc["artifacts"]["commands_run"]' | grep -cE "$SESSION_GATE_RE")
 echo "INFO: session-tier gate results in commands_run: $SESSION_RUNS"
 
 # ---- Step 3: /work-review -------------------------------------------------
@@ -272,7 +271,7 @@ fi
 # anywhere in the suite (CI validates only the static example).
 validate_artifact findings.schema.json "$SDIR/review.findings.json" "work-review findings"
 
-FINDING_COUNT=$(jq '.findings | length' "$SDIR/review.findings.json" 2>/dev/null || echo 0)
+FINDING_COUNT=$(json_lines "$SDIR/review.findings.json" 'doc["findings"]' | wc -l)
 echo "INFO: work-review surfaced $FINDING_COUNT findings"
 
 # ---- Step 4: /work again -> fix-findings mode, auto-detected --------------
@@ -282,10 +281,8 @@ tmux_send_line "$SESSION" "/work"
 
 i=0; fix_mode=false; last_fire=0
 while [ "$i" -lt 900 ]; do
-  if [ -f "$SDIR/progress.json" ]; then
-    mode=$(jq -r '.mode // ""' "$SDIR/progress.json" 2>/dev/null || echo "")
-    [ "$mode" = "fix-findings" ] && { fix_mode=true; break; }
-  fi
+  mode=$(json_field "$SDIR/progress.json" mode)
+  [ "$mode" = "fix-findings" ] && { fix_mode=true; break; }
   now=$(date +%s)
   if [ $((now - last_fire)) -ge "$AUTOPILOT_COOLDOWN" ]; then
     if autopilot_respond "$SESSION"; then last_fire="$now"; fi

@@ -20,9 +20,7 @@
 # python: the reference reads and writes session fields with a single-line
 # python program, so every assertion over those blocks needs an interpreter the
 # same two-candidate probe would trust. Without one they report `SKIPPED:` —
-# absence is never reported as a pass. The jq shim below no longer stands in for
-# anything the reference asks for; the phase that clears the last `jq` out of
-# tests/ removes it.
+# absence is never reported as a pass.
 #
 # git: the resume block asks git which checkout it is standing in, so its
 # fixtures are real repos rather than bare directories. Off PATH, git gets the
@@ -77,37 +75,6 @@ check_section "Resume command" "$RESUME_BLOCK"
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-session-XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-
-# --- jq, or a stand-in for it ------------------------------------------------
-
-JQ=absent
-if command -v jq >/dev/null 2>&1; then
-  JQ=present
-else
-  # `python3` on Windows is often the Microsoft Store stub, which resolves on
-  # PATH and then refuses to run anything — so each candidate is asked to
-  # execute an empty program before it is trusted.
-  for py in python3 python; do
-    command -v "$py" >/dev/null 2>&1 && "$py" -c '' 2>/dev/null || continue
-    mkdir -p "$WORK/bin"
-    cat > "$WORK/bin/jq" <<SHIM
-#!/usr/bin/env bash
-# Stands in for \`jq -r .key file\`, the whole of what session-handoff.md asks of jq.
-exec "$(command -v "$py")" -c '
-import json, re, sys
-argv = sys.argv[1:]
-if len(argv) != 3 or argv[0] != "-r" or not re.fullmatch(r"\.\w+", argv[1]):
-    sys.exit("jq shim: expected -r .key file, got: " + " ".join(argv))
-value = json.load(open(argv[2])).get(argv[1][1:])
-print("null" if value is None else value)
-' "\$@"
-SHIM
-    chmod +x "$WORK/bin/jq"
-    PATH="$WORK/bin:$PATH"
-    JQ=present
-    break
-  done
-fi
 
 # --- the interpreter the reference's field idioms probe for ------------------
 
@@ -387,8 +354,8 @@ else
     note_pass "missing session the pointer named: stale pointer cleared"
   fi
 
-  # The other route to an unresolved session: an active.json too corrupt for jq
-  # to read yields no id at all, so validation cannot reach it by looking the id
+  # The other route to an unresolved session: an active.json too corrupt to
+  # parse yields no id at all, so validation cannot reach it by looking the id
   # up on disk — the empty-id rung reports first. The pointer is still the thing
   # that failed, and is still the caller's to clear.
   root=$(new_root corrupt-pointer)

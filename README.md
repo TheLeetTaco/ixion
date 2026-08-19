@@ -271,7 +271,7 @@ bash tests/integration/run.sh plugin-loads    # filter by name
 IXION_TEST_JOBS=2 bash tests/integration/run.sh   # run 2 cases concurrently
 ```
 
-Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
+Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `python3`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
 
 Two env vars tune a run: `IXION_TEST_MODEL` overrides the model (cases default to haiku; the runner's default is `claude-sonnet-4-6`), and `IXION_TEST_JOBS` runs N cases concurrently — 2–3 is a sensible ceiling, since parallel cases multiply concurrent API spend and rate-limit pressure.
 

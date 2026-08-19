@@ -36,8 +36,8 @@ fi
 if ! command -v claude >/dev/null 2>&1; then
   echo "ERROR: claude not found in PATH" >&2; fail_pre=1
 fi
-if ! command -v jq >/dev/null 2>&1; then
-  echo "ERROR: jq not found in PATH (used by schema-validating cases)" >&2; fail_pre=1
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 not found in PATH (used to read session artifacts)" >&2; fail_pre=1
 fi
 if ! command -v bunx >/dev/null 2>&1; then
   echo "ERROR: bunx not found in PATH (used to run ajv-cli)" >&2; fail_pre=1

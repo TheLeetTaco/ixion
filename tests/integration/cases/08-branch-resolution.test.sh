@@ -36,6 +36,7 @@ LIB="$REPO_ROOT/tests/integration/lib"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 SESSION_ID="branchcheck-2026-08-04"
 INTEGRATION="develop"
@@ -131,7 +132,7 @@ EOF
 
   local i=0 last_fire=0 now
   while [ "$i" -lt 420 ]; do
-    if jq -e '.integration_branch // empty' "$sdir/session.json" >/dev/null 2>&1; then
+    if [ "$(json_field "$sdir/session.json" integration_branch)" != null ]; then
       return 0
     fi
     now=$(date +%s)
@@ -188,7 +189,7 @@ else
   echo "----- end -----"
 fi
 
-RECORDED=$(jq -r '.integration_branch // ""' "$TWO_SDIR/session.json" 2>/dev/null || echo "")
+RECORDED=$(json_field "$TWO_SDIR/session.json" integration_branch)
 if [ "$RECORDED" = "$INTEGRATION" ]; then
   note_pass "session.json records integration_branch=$INTEGRATION"
 else
@@ -198,7 +199,7 @@ fi
 # base_ref and integration_branch have to describe one branch point, so the
 # check is equality with develop's tip rather than mere resolvability — that
 # also rules out the literal string "null" reaching the field.
-BASE_REF=$(jq -r '.base_ref // ""' "$TWO_SDIR/session.json" 2>/dev/null || echo "")
+BASE_REF=$(json_field "$TWO_SDIR/session.json" base_ref)
 if [ "$BASE_REF" = "$INTEGRATION_TIP" ]; then
   note_pass "base_ref is $INTEGRATION's tip"
 else
@@ -227,7 +228,7 @@ if ! run_work "$ONE_SESSION" "$ONE_SBOX"; then
   finalize
 fi
 
-RECORDED=$(jq -r '.integration_branch // ""' "$ONE_SDIR/session.json" 2>/dev/null || echo "")
+RECORDED=$(json_field "$ONE_SDIR/session.json" integration_branch)
 if [ "$RECORDED" = "$ONE_PRODUCTION" ]; then
   note_pass "single-branch repo records integration_branch=$ONE_PRODUCTION (collapses to production)"
 else

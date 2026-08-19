@@ -21,6 +21,7 @@ SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 pass=0
 fail=0
@@ -79,8 +80,8 @@ else
   finalize
 fi
 
-SESSION_ID=$(jq -r .session_id "$ACTIVE" 2>/dev/null || echo "")
-if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" = "null" ]; then
+SESSION_ID=$(json_field "$ACTIVE" session_id)
+if [ "$SESSION_ID" = null ]; then
   note_fail "active.json has no session_id"
   finalize
 else
@@ -116,7 +117,8 @@ fi
 
 # summary should fall within the schema-enforced 100-5000 char range
 # (a quick smoke check beyond raw schema validation).
-if jq -re '(.summary | length) >= 100 and (.summary | length) <= 5000' "$SDIR/spec.json" >/dev/null 2>&1; then
+SUMMARY=$(json_field "$SDIR/spec.json" summary)
+if [ "${#SUMMARY}" -ge 100 ] && [ "${#SUMMARY}" -le 5000 ]; then
   note_pass "spec.summary length is within schema bounds"
 else
   note_fail "spec.summary length is out of schema bounds"

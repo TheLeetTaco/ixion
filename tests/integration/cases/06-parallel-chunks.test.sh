@@ -23,6 +23,7 @@ SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 pass=0
 fail=0
@@ -151,11 +152,9 @@ elapsed=0
 last_fire=0
 done_flag=0
 while [ "$elapsed" -lt "$deadline" ]; do
-  if [ -f "$SDIR/progress.json" ] \
-     && jq -e '.status == "completed"
-               and (.completed | index("phase-1"))
-               and (.completed | index("phase-2"))
-               and (.completed | index("phase-3"))' "$SDIR/progress.json" >/dev/null 2>&1; then
+  if [ "$(json_field "$SDIR/progress.json" status)" = completed ] \
+     && [ "$(json_lines "$SDIR/progress.json" \
+               'set(doc["completed"]) & {"phase-1", "phase-2", "phase-3"}' | wc -l)" -eq 3 ]; then
     done_flag=1
     break
   fi

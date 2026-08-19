@@ -37,14 +37,16 @@ jobs:
 
       - name: plugin/marketplace version parity
         run: |
-          p=$(jq -r .version ixion/.claude-plugin/plugin.json)
-          m=$(jq -r .version .claude-plugin/marketplace.json)
-          e=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
-          if [ "$p" != "$m" ] || [ "$p" != "$e" ]; then
-            echo "Version mismatch: plugin.json=$p marketplace.json=$m marketplace entry=$e" >&2
-            exit 1
-          fi
-          echo "Versions in sync: $p"
+          python3 -c '
+          import json, sys
+          marketplace = json.load(open(".claude-plugin/marketplace.json"))
+          plugin = json.load(open("ixion/.claude-plugin/plugin.json"))["version"]
+          catalog = marketplace["version"]
+          entry = marketplace["plugins"][0]["version"]
+          if len({plugin, catalog, entry}) > 1:
+              sys.exit(f"Version mismatch: plugin.json={plugin} marketplace.json={catalog} marketplace entry={entry}")
+          print(f"Versions in sync: {plugin}")
+          '
 
       - name: frontmatter sanity (every agent/skill has name + description)
         run: |
