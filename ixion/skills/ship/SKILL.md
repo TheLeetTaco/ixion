@@ -79,12 +79,15 @@ Then the base — the commit `work` recorded when it created the branch:
 ```bash
 SESSION_ID='<session= from Phase 0>'
 BASE_REF=
-[ -n "$SESSION_ID" ] && BASE_REF=$(jq -r .base_ref ".ixion/plugin/sessions/$SESSION_ID/session.json")
+if [ -n "$SESSION_ID" ]; then
+  <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to ".ixion/plugin/sessions/$SESSION_ID/session.json" and FIELD set to base_ref>
+  BASE_REF=$VALUE
+fi
 [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git log "$BASE_REF"..HEAD --oneline
 ```
 
-`<integration branch>` is the `integration=` line the first block printed. An ad-hoc ship never reads a session file at all, and a session from before `work` recorded the field has it absent (`jq -r` prints the four-character string `null`) — both leave `BASE_REF` unusable and fall back to the merge-base against the integration branch.
+`<integration branch>` is the `integration=` line the first block printed. An ad-hoc ship never reads a session file at all, and a session from before `work` recorded the field has it absent (the read block prints the four-character string `null`) — both leave `BASE_REF` unusable and fall back to the merge-base against the integration branch.
 
 Determine:
 - **Current branch**: did the resolution print `on_protected=yes`?
@@ -152,8 +155,10 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
    BASE_REF=; RECORDED_INTEGRATION=
    if [ -n "$SESSION_ID" ]; then
      SDIR=".ixion/plugin/sessions/$SESSION_ID"
-     BASE_REF=$(jq -r .base_ref "$SDIR/session.json")
-     RECORDED_INTEGRATION=$(jq -r .integration_branch "$SDIR/session.json")
+     <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to base_ref>
+     BASE_REF=$VALUE
+     <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to integration_branch>
+     RECORDED_INTEGRATION=$VALUE
    fi
    printf 'base_ref=%s\nrecorded_integration=%s\n' "$BASE_REF" "$RECORDED_INTEGRATION"
    [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
@@ -163,7 +168,7 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
    The checkpoint commits are only visible from the base `work` actually branched at.
 
-4. Pick the PR base. `jq -r` prints the four-character string `null` for an absent key, and the guard above leaves both variables empty when there is no session, so `recorded_integration=` distinguishes three cases:
+4. Pick the PR base. The read block prints the four-character string `null` for an absent key, and the guard above leaves both variables empty when there is no session, so `recorded_integration=` distinguishes three cases:
 
    - **A branch name** — `work` resolved it, but it is a mutable ref and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome, so `git show-ref` it before use:
 
@@ -202,13 +207,11 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
    ```bash
    SESSION_ID='<session= from Phase 0>'
    if [ -n "$SESSION_ID" ]; then
-     SDIR=".ixion/plugin/sessions/$SESSION_ID"
-     jq '.status = "completed" | .active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp" \
-       && mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to ".ixion/plugin/sessions/$SESSION_ID/session.json" and the field/value pairs set to status '"completed"' active_skill null>
    fi
    ```
 
-   The `&&` carries the same weight as the guard around it. Redirection truncates the temp before `jq` runs, so a failing `jq` plus an unconditional `mv` renames an empty file over the session record — the one this skill is here to mark terminal. Rename only on success; `work`'s Phase 0 deletes the stale temp a failure leaves.
+   That block renames only on a successful write, which carries the same weight as the guard around it: the shape it replaced truncated its temp before the write ran, so a failure plus an unconditional rename put an empty file over the session record — the one this skill is here to mark terminal. `work`'s Phase 0 deletes the stale temp a failure leaves.
 
    This is the write every skill's Phase 0 reads as `state=complete`. Without it a resume command pasted after the PR opened re-enters the pipeline, re-runs verification against merged work, and offers to ship a branch that is already shipped.
 

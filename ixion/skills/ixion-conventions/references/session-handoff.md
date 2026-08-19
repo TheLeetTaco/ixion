@@ -1,6 +1,6 @@
 # Session handoff (shared by plan, plan-creation, plan-review, plan-consolidation, work, work-review and ship)
 
-What a session id looks like, where its directory lives, how any skill turns an argument into one session, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
+What a session id looks like, where its directory lives, how any skill reads or writes one field of a session artifact, how any skill turns an argument into one session, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -45,6 +45,40 @@ printf 'session=%s\n' "$SESSION_ID"
 
 Creation *is* the probe: plain `mkdir` (no `-p`) fails atomically when the slot is taken, so two sessions planning the same slug on the same day can never both land in one directory — a `test -d` probe followed by a separate create would race. An empty `session=` means all ten slots are taken; that is ten sessions for one slug on one day, so stop and ask the user to clean up rather than widening the suffix range.
 
+## Read a session field
+
+```bash
+for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+FILE="<the JSON file to read>"
+FIELD="<the top-level key to read>"
+VALUE=$("$PY" -c 'import json, sys; value = json.load(open(sys.argv[1])).get(sys.argv[2]); print("null" if value is None else value)' "$FILE" "$FIELD")
+printf '%s=%s\n' "$FIELD" "$VALUE"
+```
+
+An absent key and a key whose value is JSON `null` both print the four-character string `null`. That is the spelling every reader in the plugin compares against — a reader that printed `None` or an empty string would send `work` down the recorded-value branch on a session that has no recorded value, and `git diff` would be handed the word `None` as a ref.
+
+The interpreter is probed, not pinned, because Windows' `python3` is frequently the Microsoft Store stub: it resolves on PATH and then executes nothing. Asking each candidate to run an empty program is the whole test — a candidate that is not installed at all fails it too, so a `command -v` in front of it would rule out nothing this does not. When neither candidate runs, `PY` is left as `python` and the next line fails loudly with a command-not-found, which is the failure a reader can act on rather than an empty value that looks like an absent field.
+
+The program is one line because the alternative is a heredoc, and `docs/solutions/mistakes/markdown-embedded-shell-fails-silently-System-20260729.md` records that markdown indentation silently alters heredoc semantics while nothing executes these blocks at authoring time. A single-line `-c` program has no indentation surface at all.
+
+## Set session fields
+
+```bash
+for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+FILE="<the JSON file to update>"
+"$PY" -c 'import json, os, sys; path = sys.argv[1]; data = json.load(open(path)); data.update(zip(sys.argv[2::2], map(json.loads, sys.argv[3::2]))); print(json.dumps(data, indent=2), file=open(path + ".tmp", "w")); os.replace(path + ".tmp", path)' \
+  "$FILE" <field> '<JSON value>' \
+  && printf 'wrote=%s\n' "$FILE"
+```
+
+Field and value are an argv pair, repeated for as many fields as the write sets: `status '"completed"' active_skill null`. The value is the JSON literal that should appear in the file, so a string carries its own quotes and `null` is written bare. Every field the file already holds and the call does not name comes back out unchanged.
+
+The write is atomic in the same sense the filter-into-a-temp-then-rename shape it replaces was, and by the same reasoning: an unparseable file, or a value that is not JSON, raises before the temp is ever opened, so a failed write leaves the original exactly as it was rather than truncating it. The temp is pinned beside its target as `<path>.tmp` rather than left to `tempfile`, because `os.replace` is atomic only within one filesystem and raises across one — and `TMPDIR` is a different filesystem from the repo on a great many hosts. `&& printf` carries the weight the old `&&` carried: a write that did not happen reports nothing.
+
+Both blocks are cited rather than restated. Nine call sites across `work`, `work-review` and `ship` were each authoring their own copy of these two operations, which is how the plugin ended up with two spellings of the same read and a temp-file convention nobody could point at. One home means the interpreter probe, the `null` spelling and the temp path are decided once.
+
+The two blocks below this one are the exception: they carry the read inline rather than citing it. A caller pastes each of them as a single self-contained unit, and a citation nested inside a pasted block would make every caller's paste two levels deep and interleave the inner block's own printed line into the outer block's `session=` / `state=` output, which is the whole of what the next call reads.
+
 ## Resolve the session
 
 Precedence, highest first: a session id this conversation already established, an exact directory match on the caller's locator token, a prefix scan of that token, then `active.json`.
@@ -65,7 +99,8 @@ elif [ -n "$LOCATOR" ]; then
   SESSION_ID="${MATCH##*/}"; VIA=prefix
   [ -n "$MATCH" ] || SESSION_ID="$LOCATOR"
 elif [ -f "$POINTER" ]; then
-  SESSION_ID=$(jq -r .session_id "$POINTER"); VIA=pointer
+  for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+  SESSION_ID=$("$PY" -c 'import json, sys; value = json.load(open(sys.argv[1])).get(sys.argv[2]); print("null" if value is None else value)' "$POINTER" session_id); VIA=pointer
 else
   VIA=none
 fi
@@ -133,8 +168,9 @@ if [ -z "$SESSION_ID" ]; then
 elif [ ! -d "$SDIR" ]; then
   printf 'state=missing\n'
 else
-  SCHEMA=$(jq -r .schema_version "$SDIR/session.json")
-  STATUS=$(jq -r .status "$SDIR/session.json")
+  for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+  SCHEMA=$("$PY" -c 'import json, sys; value = json.load(open(sys.argv[1])).get(sys.argv[2]); print("null" if value is None else value)' "$SDIR/session.json" schema_version)
+  STATUS=$("$PY" -c 'import json, sys; value = json.load(open(sys.argv[1])).get(sys.argv[2]); print("null" if value is None else value)' "$SDIR/session.json" status)
   if [ "$SCHEMA" != 1 ]; then
     printf 'state=schema-mismatch\nschema_version=%s\n' "$SCHEMA"
   elif [ "$STATUS" = completed ]; then
@@ -145,7 +181,7 @@ else
 fi
 ```
 
-The empty-id rung is first because callers paste this block straight after the resolution block with nothing in between, and every caller does. Without it, `$SDIR` is the sessions directory itself: the directory exists, so the lookup runs against `<sessions>/session.json`, and the most ordinary first-contact state there is — a repo with no session and no pointer — surfaces as `Unsupported schema version .` instead of the message written for it. Re-printing `via=none` keys the same table row the resolution block's own `via=none` keys, so the two routes to "nothing resolved" land on one message: the second route is an `active.json` too corrupt for `jq` to read, which leaves `SESSION_ID` empty at `via=pointer` and which a caller-side `via=none` guard would not have caught.
+The empty-id rung is first because callers paste this block straight after the resolution block with nothing in between, and every caller does. Without it, `$SDIR` is the sessions directory itself: the directory exists, so the lookup runs against `<sessions>/session.json`, and the most ordinary first-contact state there is — a repo with no session and no pointer — surfaces as `Unsupported schema version .` instead of the message written for it. Re-printing `via=none` keys the same table row the resolution block's own `via=none` keys, so the two routes to "nothing resolved" land on one message: the second route is an `active.json` too corrupt to parse, which leaves `SESSION_ID` empty at `via=pointer` and which a caller-side `via=none` guard would not have caught.
 
 The stale pointer is cleared above the rungs rather than inside one, because both reports can be the pointer's fault and the two would otherwise differ only in whether they clear it: `state=missing` when the id it named has no directory, `via=none` when it was too corrupt to yield an id at all. Neither of those is reachable from the other's branch, so a single guarded statement covers both and each rung is left doing nothing but reporting. The scoping to `via=pointer` is the same in both cases: an id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it.
 

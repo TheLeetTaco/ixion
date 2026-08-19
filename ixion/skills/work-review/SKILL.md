@@ -122,7 +122,8 @@ Determine the diff size before dispatching:
 ```
 
 ```bash
-BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
+<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+BASE_REF=$VALUE
 [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
@@ -132,7 +133,7 @@ git diff "$BASE_REF"..HEAD --shortstat
 
 `work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against production, sizes the reviewer set off the wrong number.
 
-The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and `jq -r` prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the integration branch is the same base `work` would have recorded.
+The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and the read block prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the integration branch is the same base `work` would have recorded.
 
 Choose the set:
 

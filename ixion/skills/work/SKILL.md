@@ -76,20 +76,22 @@ Procedure:
 
    Atomic write (`.tmp` → `mv`). Same shape for both modes — only `mode` differs. Resume path skips this step (file already exists).
 
-3. **Session update**: `active_skill = "work"`, `last_checkpoint_at = <now>`. Atomic write.
+3. **Session update** — `active_skill` and `last_checkpoint_at`, in one write:
+
+   ```bash
+   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pairs set to active_skill '"work"' last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   ```
 
 4. **Skill-exit trap** to clear `active_skill`:
 
    ```bash
    cleanup_active_skill() {
-     SDIR=".ixion/plugin/sessions/<session= from Phase 0>"
-     jq '.active_skill = null' "$SDIR/session.json" > "$SDIR/session.json.tmp" \
-       && mv "$SDIR/session.json.tmp" "$SDIR/session.json"
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pair set to active_skill null>
    }
    trap cleanup_active_skill EXIT
    ```
 
-   The `&&` is what makes this atomic rather than merely two-step. The redirection truncates the temp file *before* `jq` runs, so a `jq` that fails — unparseable `session.json`, a filter typo, `jq` missing from the host — leaves an empty temp that an unconditional `mv` then renames over the real record. Reproduced: a 75-byte `session.json` became 0 bytes. Renaming only on success leaves the original untouched and a stale empty temp behind, which is exactly what Phase 0's stale-tmp cleanup above already deletes.
+   That block renames only on a successful write, which is what makes this atomic rather than merely two-step — the shape it replaced truncated its temp *before* the write ran, so an unconditional rename over it turned a 75-byte `session.json` into 0 bytes. The stale temp a failed write leaves behind is exactly what Phase 0's stale-tmp cleanup above already deletes.
 
 5. **Resolve the branch roles, then decide where commits land.** Every chunk gets committed at its checkpoint (2.3), so this decision precedes all of them. Resolve once, here — the worktree path and the in-place path both consume the same answer.
 
@@ -148,21 +150,25 @@ Procedure:
 6. **Record the base ref and the integration branch.**
 
    ```bash
-   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
-   [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   BASE_REF=$VALUE
+   if [ "$BASE_REF" = null ]; then
+     BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pairs set to base_ref "\"$BASE_REF\"" integration_branch '"<integration= from step 5>"'>
+   fi
    ```
 
-   `base_ref` is optional in `session.schema.json`, and `jq -r` prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
+   `base_ref` is optional in `session.schema.json`, and the read block prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
 
-   Write `BASE_REF` into `session.json.base_ref` and step 5's `integration=` into `session.json.integration_branch` in one atomic write (same pattern as step 3) — but only when the fallback above fired. A resume leaves both fields exactly as recorded: where `integration_branch` is absent there, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its PR base from `base_ref` instead.
+   The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its PR base from `base_ref` instead.
 
    `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one PR target.
 
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
    ```bash
-   BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
-   git log --format=%H --grep="^Ixion-Chunk: <chunk id>$" "$BASE_REF"..HEAD
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   git log --format=%H --grep="^Ixion-Chunk: <chunk id>$" "$VALUE"..HEAD
    ```
 
    Step 6 wrote that field a moment ago, so it is a commit id here and needs no fallback of its own. The range still earns its place: chunk ids are phase ids, so an earlier session on this same branch can have committed a `Ixion-Chunk: phase-1` trailer of its own, and an unbounded `--grep` would hand back that stranger's sha to record as this chunk's work.
@@ -388,7 +394,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 2. **Manual verification** — if `phase.manual_verification` is non-empty (plan mode), **you (the orchestrating agent) perform these checks yourself.** Do not surface them to the user. Do not call `AskUserQuestion`. You have full tool access — run the commands via Bash, start servers in tmux, curl endpoints, verify TUI output by capturing tmux panes, read output, inspect the browser. The `manual_verification` field describes what to check and how; execute those steps, read the results, and judge pass/fail yourself. If the check fails, treat it the same as a failed automated verification: do not checkpoint that member, diagnose and fix.
 3. Append every **verified** member's ID to `progress.completed[]` in one write. Set `in_progress: null`. If all chunks are now complete set `status: "completed"`, otherwise `status: "in_progress"`. Do NOT append an ID whose verification failed.
 4. Append `files_modified[]` (de-duped) and `commands_run[]` to `progress.artifacts`.
-5. Atomic write `progress.json` via `.tmp` → `mv`. Same pattern for `session.json` updates.
+5. Atomic write `progress.json` via `.tmp` → `mv`.
 6. **Commit and record each verified member, one member at a time.** A session that stays uncommitted until `ship` puts a whole multi-phase feature one destructive command away from gone; per-chunk grain means a revert costs one phase rather than a whole wave.
 
    A member's commit and its record are one unit. Run this to completion for one member before starting the next, so an interruption costs only the member in flight:
@@ -410,7 +416,12 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
    **If a commit fails** — a rejecting pre-commit hook, `index.lock` contention, a full disk — the chunk is not done. Its work is sitting uncommitted and, left in `completed[]`, nothing would ever re-dispatch it. Remove its id from `completed[]` in that member's write, unstage its paths (`git reset -- <those paths>`, which moves the index only and leaves the work in the tree), and hand it to the 3-strike protocol alongside step 1's failures. **Then carry the loop on through the remaining members.** Each member owns its commit and its write, so one rejection neither strands a sibling in `completed[]` uncommitted nor leaks its staged paths into the next member's commit.
 
    The invariant, holding after every one of these writes rather than only at the end of the wave: each id in `completed[]` has a `checkpoint_commits[]` entry naming the commit that holds its work, and a chunk whose commit failed is in neither array.
-7. Update `session.json.last_checkpoint_at` to current UTC ISO-8601.
+7. Update the session's checkpoint time:
+
+   ```bash
+   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pair set to last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   ```
+
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
 
    ```bash
@@ -438,7 +449,8 @@ Run the plan's `success_criteria` checks (plan mode) or full test suite + typech
 Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading the session's cumulative diff:
 
 ```bash
-git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)"..HEAD
+<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+git diff "$VALUE"..HEAD
 ```
 
 Phase 1 step 6 wrote that field before the first chunk ran, so it is a commit id by the time you get here.
@@ -462,7 +474,14 @@ Criteria you resolved from the cumulative diff ran no command and get no entry �
 
 After `success_criteria` passes, the orchestrator runs the diff self-check at the *whole-session* level — the dispatched subagent only sees its own chunk; this catches cross-phase drift that no chunk-level review can.
 
-1. Run `git diff "$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)"..HEAD`. Read the full output. Every chunk is committed by now, so this spans the whole session.
+1. Run the same two lines Phase 3 ran:
+
+   ```bash
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   git diff "$VALUE"..HEAD
+   ```
+
+   Read the full output. Every chunk is committed by now, so this spans the whole session.
 2. Answer each question with concrete evidence. Cite file:line:
 
    - Is there any line whose removal would NOT change behavior across the whole change? Name one or confirm none exists.

@@ -17,11 +17,12 @@
 # nothing else in the suite would notice. It is scoped to that one string on
 # purpose and is not a template checker.
 #
-# jq: the reference's pointer and validation blocks call `jq -r`. Rather than
-# skip them on a host without jq, this harness puts a python-backed
-# `jq -r .key file` shim on PATH so the reference's text still runs unchanged.
-# With neither jq nor a working python, those assertions report `SKIPPED:` —
-# absence is never reported as a pass.
+# python: the reference reads and writes session fields with a single-line
+# python program, so every assertion over those blocks needs an interpreter the
+# same two-candidate probe would trust. Without one they report `SKIPPED:` —
+# absence is never reported as a pass. The jq shim below no longer stands in for
+# anything the reference asks for; the phase that clears the last `jq` out of
+# tests/ removes it.
 #
 # git: the resume block asks git which checkout it is standing in, so its
 # fixtures are real repos rather than bare directories. Off PATH, git gets the
@@ -55,6 +56,8 @@ section() {
 }
 
 CLAIM_BLOCK=$(section "Claim a session id")
+READ_BLOCK=$(section "Read a session field")
+WRITE_BLOCK=$(section "Set session fields")
 RESOLVE_BLOCK=$(section "Resolve the session")
 NAMES_BLOCK=$(section "Does a token name a session?")
 VALIDATE_BLOCK=$(section "Validate the resolved session")
@@ -64,6 +67,8 @@ check_section() {
   [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
 }
 check_section "Claim a session id" "$CLAIM_BLOCK"
+check_section "Read a session field" "$READ_BLOCK"
+check_section "Set session fields" "$WRITE_BLOCK"
 check_section "Resolve the session" "$RESOLVE_BLOCK"
 check_section "Does a token name a session?" "$NAMES_BLOCK"
 check_section "Validate the resolved session" "$VALIDATE_BLOCK"
@@ -103,6 +108,16 @@ SHIM
     break
   done
 fi
+
+# --- the interpreter the reference's field idioms probe for ------------------
+
+# The same two-candidate probe the "Read a session field" block runs, asked here
+# so the assertions that depend on it report SKIPPED rather than failing on a
+# host with no python at all. `-c ''` is the whole test: a candidate that is not
+# installed fails it too, and the Microsoft Store stub is the reason a candidate
+# that resolves on PATH is not yet trusted.
+PY=
+for py in python3 python; do "$py" -c '' 2>/dev/null && { PY=$py; break; }; done
 
 # --- fixtures and block plumbing ---------------------------------------------
 
@@ -156,6 +171,23 @@ validate() {
   local block
   block=$(fill "$VALIDATE_BLOCK" '<session= from the resolution block>' "$2")
   block=$(fill "$block" '<via= from the resolution block>' "$3")
+  run_block "$1" "$block"
+}
+
+# read_field <root> <file> <field>
+read_field() {
+  local block
+  block=$(fill "$READ_BLOCK" '<the JSON file to read>' "$2")
+  block=$(fill "$block" '<the top-level key to read>' "$3")
+  run_block "$1" "$block"
+}
+
+# set_fields <root> <file> <pairs>, where <pairs> is the literal argv tail the
+# block's placeholder stands for: `status '"completed"' active_skill null`.
+set_fields() {
+  local block
+  block=$(fill "$WRITE_BLOCK" '<the JSON file to update>' "$2")
+  block=$(fill "$block" "<field> '<JSON value>'" "$3")
   run_block "$1" "$block"
 }
 
@@ -250,10 +282,74 @@ expect "token that is a bare slug: names a session" \
 expect "token that is the first word of a commit-message hint: names no session" \
   "$(field "$(names_session "$root" tighten)" names_session)" no
 
-# --- pointer fallback and session validation (the jq-dependent blocks) -------
+# --- the two field idioms every JSON access in the plugin cites --------------
 
-if [ "$JQ" = absent ]; then
-  echo "SKIPPED: pointer fallback and session validation need jq, or a python interpreter to stand one in"
+if [ -z "$PY" ]; then
+  echo "SKIPPED: the field idioms are a python program, and no python interpreter on PATH runs one"
+else
+  root=$(new_root fields)
+  id=$(claim "$root" feat-fields-2026-08-06)
+  sj="$root/.ixion/plugin/sessions/$id/session.json"
+  rel=".ixion/plugin/sessions/$id/session.json"
+  seed_fields() {
+    printf '{"schema_version": 1, "session_id": "%s", "status": "active", "base_ref": "abc123", "active_skill": null}\n' \
+      "$id" > "$sj"
+  }
+  seed_fields
+
+  expect "read: a present field prints that field and nothing else" \
+    "$(read_field "$root" "$rel" base_ref)" "base_ref=abc123"
+
+  # The spelling every reader in the plugin compares against: four characters,
+  # `null`, for a key that is absent. A reader that printed `None` or an empty
+  # string would take the recorded-value branch on a session that has no
+  # recorded value.
+  expect "read: an absent key prints the four characters null" \
+    "$(read_field "$root" "$rel" integration_branch)" "integration_branch=null"
+  expect "read: a JSON null value prints null too, not None" \
+    "$(read_field "$root" "$rel" active_skill)" "active_skill=null"
+
+  expect "write: two fields land in one invocation" \
+    "$(set_fields "$root" "$rel" "status '\"completed\"' active_skill '\"work\"'")" "wrote=$rel"
+  expect "write: the named fields hold their new values" \
+    "$(read_field "$root" "$rel" status)-$(read_field "$root" "$rel" active_skill)" \
+    "status=completed-active_skill=work"
+  expect "write: a field the call did not name is untouched" \
+    "$(read_field "$root" "$rel" base_ref)" "base_ref=abc123"
+
+  # The property the old filter-into-a-temp-then-rename shape got from `&&`.
+  seed_fields
+  printf '{ not valid json\n' > "$sj"
+  before=$(cksum < "$sj")
+  if set_fields "$root" "$rel" "status '\"completed\"'" >/dev/null 2>&1; then
+    note_fail "write: a file that is not JSON was reported written anyway"
+  else
+    note_pass "write: a file that is not JSON fails the write"
+  fi
+  expect "write: the failed write left the original byte-identical, not truncated" \
+    "$(cksum < "$sj")" "$before"
+
+  # os.replace is atomic only within one filesystem, so the temp is pinned beside
+  # its target rather than left to TMPDIR. Occupying `<target>.tmp` with a
+  # directory is what makes that observable: the write can only fail here if that
+  # is the path it opens.
+  seed_fields
+  before=$(cksum < "$sj")
+  mkdir "$sj.tmp"
+  if set_fields "$root" "$rel" "status '\"completed\"'" >/dev/null 2>&1; then
+    note_fail "write: the temp file is not <target>.tmp beside the target"
+  else
+    note_pass "write: the temp file is <target>.tmp beside the target"
+  fi
+  expect "write: blocking the temp path left the original byte-identical" \
+    "$(cksum < "$sj")" "$before"
+  rmdir "$sj.tmp"
+fi
+
+# --- pointer fallback and session validation ---------------------------------
+
+if [ -z "$PY" ]; then
+  echo "SKIPPED: pointer fallback and session validation read their fields with the python idiom"
 else
   root=$(new_root pointer)
   id=$(claim "$root" feat-baz-2026-08-06)
