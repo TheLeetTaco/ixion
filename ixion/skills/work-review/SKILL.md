@@ -1,6 +1,6 @@
 ---
 name: work-review
-description: Perform exhaustive code reviews using multi-agent analysis. Reviews PRs, branches, or current changes. Writes review.findings.json to the active session. Triggers on "review", "code review", "check PR".
+description: Perform exhaustive code reviews using multi-agent analysis. Reviews a session's work, a branch, or the current changes. Writes review.findings.json to the active session. Triggers on "review", "code review", "check the diff".
 allowed-tools:
   - Read
   - Write
@@ -22,8 +22,6 @@ Perform exhaustive code reviews using multi-agent analysis. Collect each reviewe
 
 The review target is provided via `$ARGUMENTS`. Can be:
 
-- PR number (numeric): `123`
-- GitHub URL: `https://github.com/org/repo/pull/123`
 - Branch name: `feature/my-branch`
 - Session locator: a full session id or a bare slug
 - Empty: review the current branch's changes against the active session
@@ -46,7 +44,7 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 <paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
 ```
 
-`names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a PR number, a URL, or a branch this repo has no session for.
+`names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a branch this repo has no session for.
 
 ```bash
 <paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
@@ -60,11 +58,18 @@ An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and 
 
 ### Determine review target
 
+Phase 0 already settled this. `names_session=yes`, or an empty `$ARGUMENTS`, makes the target the resolved session's own work — the pipeline case, and the diff Phase 1 measures from that session's `base_ref`.
+
+Otherwise the argument is a branch, and it has to actually be one:
+
 ```bash
-git branch --show-current
-# If PR number:
-gh pr view <PR_NUM> --json title,body,files
+TARGET='<the whole of $ARGUMENTS>'
+KIND=unknown
+if git show-ref --verify --quiet "refs/heads/$TARGET" || git show-ref --verify --quiet "refs/remotes/origin/$TARGET"; then KIND=branch; fi
+printf 'target=%s\nkind=%s\n' "$TARGET" "$KIND"
 ```
+
+`kind=unknown` — stop and say the argument names neither a session on disk nor a ref in this repo. A bare number lands here rather than in a lookup of its own.
 
 ### Stand where the work is
 
@@ -78,7 +83,7 @@ A session under review has its own worktree — `work` gives every session one �
 
 `present=no` — say which path was expected and stop. A session that reached review has a worktree; its absence means `ship` already retired it, and the checkout you are standing in holds a different branch's work that no reviewer should be handed as this session's.
 
-This applies when the review target is the resolved session's own work, which is the pipeline case. A PR number or URL names a target that came from GitHub rather than from this session; review that one where you stand.
+This applies when the review target is the resolved session's own work, which is the pipeline case. A `kind=branch` argument names a target that is not this session's; review that one where you stand.
 
 ### Discover project context
 
@@ -90,7 +95,7 @@ Run the "Project context discovery" step from `ixion/skills/ixion-conventions/re
 
 Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST include:
 
-1. The diff / PR content inline (or a reference the reviewer can read)
+1. The diff inline (or a path the reviewer can read)
 2. Code-scope location format: `<repo-relative-path>` or `<repo-relative-path>:<line>`
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
 4. The active session's spec rationale (inlined from `spec.context`) — reviewers must distinguish *implementer error* from *plan-prescribed shape*
@@ -105,7 +110,7 @@ Read the active session's `spec.json` before composing the dispatch. Extract `sp
 Review this change.
 
 CHANGE:
-[diff or PR content, or path the reviewer should Read]
+[diff, or the path the reviewer should Read]
 
 PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
 [list of paths from the Discover-project-context step in Phase 0, or "none" if no docs exist]
@@ -288,7 +293,7 @@ Read `ixion/skills/ixion-conventions/references/question-format.md` before proce
 
 ```
 What's next?
-**Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the PR is a judgment about this change's risk, not about the findings.
+**Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the merge is a judgment about this change's risk, not about the findings.
 1. Implement review findings (Recommended)
 2. Ship as-is
 3. "You pick what's best" - Let me decide
@@ -319,7 +324,7 @@ Option 1 is `work` again — it detects fix-findings mode from the completed pla
 
 - **Session resolution failures**: Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Reviewer failures**: emit synthetic P1 against that reviewer, continue with others. Minimum 50% reviewer success before proceeding.
-- **Git/GitHub failures**: if PR not found, verify number. If gh CLI not authenticated, surface setup instructions.
+- **Unresolvable target**: `kind=unknown` halts before dispatch, naming the argument and the two things it failed to be.
 - **File write failure**: retry once with the `.tmp` pattern; if still failing, include full findings in the chat summary rather than losing them.
 
 ---

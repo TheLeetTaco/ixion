@@ -1,6 +1,6 @@
 # Branch roles (shared by work, work-review and ship)
 
-One resolution block, two error states, and the two commands that make and unmake a session's worktree — all used by `work`, `work-review` and `ship`. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a PR targets).
+One resolution block, three error states, and the two commands that make and unmake a session's worktree — all used by `work`, `work-review` and `ship`. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a ship merges into).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -8,7 +8,7 @@ Callers cite several sections apiece; read this file once per invocation and hol
 
 ## The two roles
 
-The **protected set** is the branches a session must never commit onto — production and integration together. The **integration branch** is the single branch to create the session branch from, measure `base_ref` against, and target with a PR.
+The **protected set** is the branches a session must never commit onto — production and integration together. The **integration branch** is the single branch to create the session branch from, measure `base_ref` against, and merge back into.
 
 One value cannot serve both. Where `main` is production and `develop` is integration, a lone default-branch value resolves to `main`: `work` started on `develop` finds no match and never branches, so every checkpoint commit lands on the shared integration branch, and `base_ref` becomes `merge-base(develop, main)` — under git-flow the last release — so every downstream diff spans the release instead of the session. Both halves of that bug come from collapsing two answers into one variable.
 
@@ -89,7 +89,7 @@ No `--force`. `git worktree remove` refuses a tree holding modified or untracked
 
 ## Error states
 
-Two conditions decided here so no caller re-decides them.
+Three conditions decided here so no caller re-decides them.
 
 ### Detached HEAD
 
@@ -108,5 +108,17 @@ else
 fi
 ```
 
-`base_ref` is an immutable commit id and needs no such check; `integration_branch` is a mutable ref name, and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome rather than a corruption. `recorded=stale` means fall through to fresh resolution instead of handing a dead ref to `gh`.
+`base_ref` is an immutable commit id and needs no such check; `integration_branch` is a mutable ref name, and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome rather than a corruption. `recorded=stale` means fall through to fresh resolution instead of merging into a branch that is no longer there.
+
+### Integration branch checked out in another worktree
+
+Git permits a branch to be checked out in at most one worktree, so the merge that ends a session cannot simply switch to the integration branch wherever the caller happens to be standing. `ship` issues its merge against the main checkout — `git -C "$REPO_ROOT"`, the one tree that is not a session's — and that is enough whenever the integration branch is either unoccupied or already checked out there.
+
+It is not enough when some other worktree holds it — one the user added themselves to keep the integration branch under an eye while a session runs. The switch then fails with git's own message:
+
+```
+fatal: 'dev' is already used by worktree at '/path/to/that/worktree'
+```
+
+Stop there and surface that path. Nothing has been merged yet, so there is nothing to unwind: the user finishes or removes the named worktree and re-runs. Do not merge into a substitute branch, and do not remove somebody else's worktree to clear the way.
 

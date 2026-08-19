@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Offline proof of the branch-resolution blocks in the canonical reference.
-# Each git topology named in phase-1's task scenarios is built as a throwaway
-# repo under a temp dir and torn down on exit: no network, no API credential,
-# no residue. The blocks are extracted from the reference by heading title, so
-# the harness runs the same text callers paste into their own Bash calls.
+# Offline proof of the branch-resolution blocks in the canonical reference and
+# of the merge flow `ship` drives them with. Each git topology named in the task
+# scenarios is built as a throwaway repo — with a local bare repo standing in for
+# origin, so fetch, push and a rejected push are all exercised for real — under a
+# temp dir, and torn down on exit: no network, no API credential, no residue. The
+# blocks are extracted by heading title, so the harness runs the same text
+# callers paste into their own Bash calls.
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
+SHIP="$ROOT/ixion/skills/ship/SKILL.md"
 . "$ROOT/tests/integration/lib/assert.sh"
 # sandbox.sh for fixture_git_config and add_bare_origin. It sources nothing and
 # shells out to nothing but git, so sharing the recipe costs this harness none of
@@ -15,10 +18,11 @@ REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
 . "$ROOT/tests/integration/lib/sandbox.sh"
 
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
+[ -f "$SHIP" ] || { note_fail "skill not found: $SHIP"; finalize; }
 
-# section <heading title> -> the bash block under that heading, at any level.
+# section <file> <heading title> -> the bash block under that heading, at any level.
 section() {
-  awk -v title="$1" '
+  awk -v title="$2" '
     /^#/ {
       h = $0; sub(/^#+[ \t]+/, "", h)
       if (insec) exit
@@ -28,21 +32,27 @@ section() {
     insec && /^```bash/ { inblk = 1; next }
     inblk && /^```/ { exit }
     inblk { print }
-  ' "$REFERENCE"
+  ' "$1"
 }
 
-ROLES_BLOCK=$(section "Resolve the branch roles")
-RECORDED_BLOCK=$(section "Verify a recorded integration branch")
-CREATE_BLOCK=$(section "Create or reuse the session worktree")
-REMOVE_BLOCK=$(section "Remove the session worktree")
+ROLES_BLOCK=$(section "$REFERENCE" "Resolve the branch roles")
+RECORDED_BLOCK=$(section "$REFERENCE" "Verify a recorded integration branch")
+CREATE_BLOCK=$(section "$REFERENCE" "Create or reuse the session worktree")
+REMOVE_BLOCK=$(section "$REFERENCE" "Remove the session worktree")
+FETCH_BLOCK=$(section "$SHIP" "Refresh the remote-tracking refs")
+TARGET_BLOCK=$(section "$SHIP" "Resolve the merge target")
+MERGE_BLOCK=$(section "$SHIP" "Merge and push")
 
 check_section() {
-  [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
+  [ -n "$3" ] || note_fail "no bash block under section \"$2\" in $1"
 }
-check_section "Resolve the branch roles" "$ROLES_BLOCK"
-check_section "Verify a recorded integration branch" "$RECORDED_BLOCK"
-check_section "Create or reuse the session worktree" "$CREATE_BLOCK"
-check_section "Remove the session worktree" "$REMOVE_BLOCK"
+check_section "$REFERENCE" "Resolve the branch roles" "$ROLES_BLOCK"
+check_section "$REFERENCE" "Verify a recorded integration branch" "$RECORDED_BLOCK"
+check_section "$REFERENCE" "Create or reuse the session worktree" "$CREATE_BLOCK"
+check_section "$REFERENCE" "Remove the session worktree" "$REMOVE_BLOCK"
+check_section "$SHIP" "Refresh the remote-tracking refs" "$FETCH_BLOCK"
+check_section "$SHIP" "Resolve the merge target" "$TARGET_BLOCK"
+check_section "$SHIP" "Merge and push" "$MERGE_BLOCK"
 [ "$fail" = 0 ] || finalize
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-branch-XXXXXX")
@@ -259,5 +269,181 @@ out=$(remove_worktree "$wt" "$repo" "$wt")
 expect "worktree holding uncommitted work: removal refuses" "$(field "$out" removed)" ""
 expect "worktree holding uncommitted work: the tree and the file survive" \
   "$(cat "$wt/scratch.txt" 2>/dev/null)" scratch
+
+# --- t1/t2: ship's merge into the integration branch ------------------------
+
+ship_fetch() { run_block "$1" "$(fill "$FETCH_BLOCK" '<repo_root= from Phase 0>' "$2")" 2>&1; }
+
+# ship_target <cwd> <repo root> <feature> <production> <integration>
+ship_target() {
+  local block
+  block=$(fill "$TARGET_BLOCK" '<repo_root= from Phase 0>' "$2")
+  block=$(fill "$block" '<current= from the branch-roles block>' "$3")
+  block=$(fill "$block" '<production= from the branch-roles block>' "$4")
+  block=$(fill "$block" '<the recorded branch where recorded=usable, otherwise integration= from the branch-roles block>' "$5")
+  run_block "$1" "$block" 2>&1
+}
+
+# ship_merge <cwd> <repo root> <feature> <production> <target> <create>
+ship_merge() {
+  local block
+  block=$(fill "$MERGE_BLOCK" '<repo_root= from Phase 0>' "$2")
+  block=$(fill "$block" '<current= from the branch-roles block>' "$3")
+  block=$(fill "$block" '<production= from the branch-roles block>' "$4")
+  block=$(fill "$block" '<target= from the merge-target block>' "$5")
+  block=$(fill "$block" '<create= from the merge-target block>' "$6")
+  run_block "$1" "$block" 2>&1
+}
+
+# merges <repo> <rev> -> how many merge commits the branch carries.
+merges() { git -C "$1" rev-list --count --merges "$2"; }
+
+# peer_push <repo> <branch> <path> <content> -> the sha another clone pushed.
+peer_push() {
+  local peer
+  peer=$(mktemp -d "$WORK/peer-XXXXXX")
+  git clone -q -b "$2" "$1.git" "$peer"
+  fixture_git_config "$peer"
+  printf '%s\n' "$4" > "$peer/$3"
+  git -C "$peer" add "$3"
+  git -C "$peer" commit -qm "peer edit"
+  git -C "$peer" push -q origin "$2"
+  git -C "$peer" rev-parse HEAD
+}
+
+# start_ship <name> <second branch or ""> <slug>: a repo with a bare origin, a
+# session worktree holding one commit, and production/integration resolved from
+# inside that worktree — the state every ship case below starts from.
+start_ship() {
+  local roles
+  repo=$(new_repo "$1" main)
+  [ -z "$2" ] || git -C "$repo" branch "$2"
+  add_bare_origin "$repo" main
+  roles=$(run_block "$repo" "$ROLES_BLOCK")
+  production=$(field "$roles" production)
+  integration=$(field "$roles" integration)
+  wt="$WORK/$1-$3"
+  create_worktree "$repo" "$3" "$wt" "$integration" >/dev/null
+  printf 'feature work\n' > "$wt/feature.txt"
+  git -C "$wt" add feature.txt
+  git -C "$wt" commit -qm "add feature"
+}
+
+start_ship ship-two-branch dev feata
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_target "$wt" "$repo" feata "$production" "$integration")
+expect "two-branch repo: the merge target is the integration branch" "$(field "$out" target)" dev
+expect "two-branch repo: no branch has to be created" "$(field "$out" create)" no
+expect "two-branch repo: the commit count is what the session added" "$(field "$out" commits)" 1
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "merge issued from the session worktree: it reports the merge commit" \
+  "$(field "$out" merged)" "$(git -C "$repo" rev-parse dev)"
+expect "merge issued from the session worktree: dev carries the merge" "$(merges "$repo" dev)" 1
+expect "merge issued from the session worktree: the merge is pushed" \
+  "$(git -C "$repo.git" rev-parse dev)" "$(git -C "$repo" rev-parse dev)"
+expect "merge issued from the session worktree: the feature branch is still checked out there" \
+  "$(git -C "$wt" branch --show-current)" feata
+expect "merge issued from the session worktree: the session branch is published too" \
+  "$(git -C "$repo.git" rev-parse feata)" "$(git -C "$wt" rev-parse HEAD)"
+
+start_ship ship-behind dev feata
+peer=$(peer_push "$repo" dev peer.txt "landed first")
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "integration behind its remote: the merge still reports a commit" \
+  "$(field "$out" merged)" "$(git -C "$repo" rev-parse dev)"
+if git -C "$repo" merge-base --is-ancestor "$peer" dev; then
+  note_pass "integration behind its remote: it was fast-forwarded first, so the pushed merge is not stale"
+else
+  note_fail "integration behind its remote: the merge was built on the stale tip"
+fi
+
+start_ship ship-diverged dev feata
+git -C "$repo" switch -q dev
+git -C "$repo" commit -q --allow-empty -m "local-only commit on dev"
+git -C "$repo" switch -q main
+before=$(git -C "$repo" rev-parse dev)
+peer_push "$repo" dev peer.txt "landed first" >/dev/null
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "integration that cannot fast-forward: no merge is reported" "$(field "$out" merged)" ""
+expect "integration that cannot fast-forward: the branch is left exactly as it was" \
+  "$(git -C "$repo" rev-parse dev)" "$before"
+
+start_ship ship-rejected dev feata
+ship_fetch "$wt" "$repo" >/dev/null
+peer_push "$repo" dev peer.txt "landed between the fetch and the push" >/dev/null
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "push rejected after the merge commit exists: it is reported as such" \
+  "$(field "$out" merged)" push-rejected
+expect "push rejected after the merge commit exists: local dev is reset to its remote" \
+  "$(git -C "$repo" rev-parse dev)" "$(git -C "$repo" rev-parse refs/remotes/origin/dev)"
+expect "push rejected after the merge commit exists: no unpushed merge is left behind" \
+  "$(merges "$repo" dev)" 0
+
+start_ship ship-conflict dev feata
+printf 'ours\n' > "$wt/seed.txt"
+git -C "$wt" commit -qam "rewrite seed from the session"
+peer_push "$repo" dev seed.txt theirs >/dev/null
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "merge conflict: it is reported as a conflict" "$(field "$out" merged)" conflict
+expect "merge conflict: the conflicting path is named" \
+  "$(printf '%s\n' "$out" | grep -c '^seed\.txt$')" 1
+expect "merge conflict: dev carries no merge commit" "$(merges "$repo" dev)" 0
+expect "merge conflict: dev is left where its remote has it"   "$(git -C "$repo" rev-parse dev)" "$(git -C "$repo" rev-parse refs/remotes/origin/dev)"
+expect "merge conflict: the aborted merge leaves the main checkout clean" \
+  "$(git -C "$repo" status --porcelain)" ""
+expect "merge conflict: the user is still on the feature branch" \
+  "$(git -C "$wt" branch --show-current)" feata
+
+start_ship ship-single "" feata
+main_before=$(git -C "$repo" rev-parse main)
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_target "$wt" "$repo" feata "$production" "$integration")
+expect "repo with no dev or develop: the target is a dev that does not exist yet" \
+  "$(field "$out" target)" dev
+expect "repo with no dev or develop: the branch has to be created" "$(field "$out" create)" yes
+expect "repo with no dev or develop: the commits are counted from production" \
+  "$(field "$out" commits)" 1
+out=$(ship_merge "$wt" "$repo" feata "$production" dev yes)
+expect "repo with no dev or develop: dev is created and carries the merge" \
+  "$(field "$out" merged)" "$(git -C "$repo" rev-parse dev)"
+expect "repo with no dev or develop: dev is pushed" \
+  "$(git -C "$repo.git" rev-parse dev)" "$(git -C "$repo" rev-parse dev)"
+expect "repo with no dev or develop: dev carries exactly the one merge" "$(merges "$repo" dev)" 1
+expect "repo with no dev or develop: production itself receives no merge" \
+  "$(git -C "$repo" rev-parse main)" "$main_before"
+expect "repo with no dev or develop: production on the remote is untouched too" \
+  "$(git -C "$repo.git" rev-parse main)" "$main_before"
+
+# The second session in that same repo finds the branch the first one published.
+wtb="$WORK/ship-single-featb"
+integration=$(field "$(run_block "$repo" "$ROLES_BLOCK")" integration)
+create_worktree "$repo" featb "$wtb" "$integration" >/dev/null
+printf 'more\n' > "$wtb/more.txt"
+git -C "$wtb" add more.txt
+git -C "$wtb" commit -qm "add more"
+ship_fetch "$wtb" "$repo" >/dev/null
+out=$(ship_target "$wtb" "$repo" featb "$production" "$integration")
+expect "second ship in that repo: dev is already the resolved integration branch" \
+  "$(field "$out" target)" dev
+expect "second ship in that repo: nothing is created" "$(field "$out" create)" no
+out=$(ship_merge "$wtb" "$repo" featb "$production" dev no)
+expect "second ship in that repo: it merges into the branch the first one made" \
+  "$(field "$out" merged)" "$(git -C "$repo" rev-parse dev)"
+
+start_ship ship-occupied dev feata
+occupied="$WORK/ship-occupied-devtree"
+git -C "$repo" worktree add -q "$occupied" dev
+before=$(git -C "$repo" rev-parse dev)
+ship_fetch "$wt" "$repo" >/dev/null
+out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
+expect "integration branch checked out in another worktree: no merge is reported" \
+  "$(field "$out" merged)" ""
+expect "integration branch checked out in another worktree: git names the holding tree" \
+  "$(printf '%s\n' "$out" | grep -c 'already used by worktree')" 1
+expect "integration branch checked out in another worktree: the branch is untouched" \
+  "$(git -C "$repo" rev-parse dev)" "$before"
 
 finalize

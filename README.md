@@ -2,7 +2,7 @@
 
 A plugin for Claude Code and OpenCode that runs a plan → work → review → ship workflow, with six-perspective agent review at the plan and code boundaries.
 
-Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to send a PR. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
+Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to merge. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -131,10 +131,10 @@ Plan → Work → Review → Fix → Ship
 | `/ixion:plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
 | `/ixion:plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
 | `/ixion:work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
-| `/ixion:work-review`       | Multi-agent code review on PRs, branches, or current changes |
+| `/ixion:work-review`       | Multi-agent code review on a session's work, a branch, or the current changes |
 | `/ixion:debug`             | Iterative fix-verify cycle for a specific reported issue |
 | `/ixion:compound`          | Capture a solved problem as searchable documentation |
-| `/ixion:ship`              | Branch → commit → PR; compounds learnings on the way out |
+| `/ixion:ship`              | Branch → commit → merge into the integration branch; compounds learnings on the way out |
 
 Every skill but `plan` also answers to its bare name on Claude Code, which is how the prose below refers to them.
 
@@ -167,9 +167,9 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Branching in a two-branch repo
 
-`/work` creates the session branch from the integration branch, and `/ship` opens its PR against that same branch. Start `/work` on production while a distinct integration branch exists and it switches to integration first, then branches — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release.
+`/work` creates the session branch from the integration branch, and `/ship` merges it back into that same branch with `--no-ff`. Start `/work` on production while a distinct integration branch exists and it switches to integration first, then branches — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release.
 
-The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither is unchanged** — integration resolves to the repo's default branch and every skill behaves exactly as it did before. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets the single-branch behavior.
+The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither gets one the first time it ships** — `/ship` creates `dev` off the default branch, pushes it, and merges into that, behind the same confirmation the merge itself carries. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets a `dev` alongside it.
 
 The resolution itself, the protected set, and the error states every skill handles identically (dirty tree, detached HEAD, an integration branch deleted between `work` and `ship`) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
 
