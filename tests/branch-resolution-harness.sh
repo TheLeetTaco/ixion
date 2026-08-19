@@ -345,6 +345,8 @@ expect "merge issued from the session worktree: the feature branch is still chec
   "$(git -C "$wt" branch --show-current)" feata
 expect "merge issued from the session worktree: the session branch is published too" \
   "$(git -C "$repo.git" rev-parse feata)" "$(git -C "$wt" rev-parse HEAD)"
+expect "merge issued from the session worktree: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
 
 start_ship ship-behind dev feata
 peer=$(peer_push "$repo" dev peer.txt "landed first")
@@ -369,6 +371,8 @@ out=$(ship_merge "$wt" "$repo" feata "$production" dev no)
 expect "integration that cannot fast-forward: no merge is reported" "$(field "$out" merged)" ""
 expect "integration that cannot fast-forward: the branch is left exactly as it was" \
   "$(git -C "$repo" rev-parse dev)" "$before"
+expect "integration that cannot fast-forward: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
 
 start_ship ship-rejected dev feata
 ship_fetch "$wt" "$repo" >/dev/null
@@ -380,6 +384,8 @@ expect "push rejected after the merge commit exists: local dev is reset to its r
   "$(git -C "$repo" rev-parse dev)" "$(git -C "$repo" rev-parse refs/remotes/origin/dev)"
 expect "push rejected after the merge commit exists: no unpushed merge is left behind" \
   "$(merges "$repo" dev)" 0
+expect "push rejected after the merge commit exists: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
 
 start_ship ship-conflict dev feata
 printf 'ours\n' > "$wt/seed.txt"
@@ -396,6 +402,8 @@ expect "merge conflict: the aborted merge leaves the main checkout clean" \
   "$(git -C "$repo" status --porcelain)" ""
 expect "merge conflict: the user is still on the feature branch" \
   "$(git -C "$wt" branch --show-current)" feata
+expect "merge conflict: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
 
 start_ship ship-single "" feata
 main_before=$(git -C "$repo" rev-parse main)
@@ -416,6 +424,8 @@ expect "repo with no dev or develop: production itself receives no merge" \
   "$(git -C "$repo" rev-parse main)" "$main_before"
 expect "repo with no dev or develop: production on the remote is untouched too" \
   "$(git -C "$repo.git" rev-parse main)" "$main_before"
+expect "repo with no dev or develop: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
 
 # The second session in that same repo finds the branch the first one published.
 wtb="$WORK/ship-single-featb"
@@ -445,5 +455,46 @@ expect "integration branch checked out in another worktree: git names the holdin
   "$(printf '%s\n' "$out" | grep -c 'already used by worktree')" 1
 expect "integration branch checked out in another worktree: the branch is untouched" \
   "$(git -C "$repo" rev-parse dev)" "$before"
+
+# Two sessions in a repo with no integration branch both resolve create=yes, and
+# the loser's push of the dev it just made locally is rejected. The branch must
+# not survive that: an unpublished dev is one nobody can pull, yet the next
+# resolution would answer integration=dev from it.
+start_ship ship-create-rejected "" feata
+ship_fetch "$wt" "$repo" >/dev/null
+peer=$(mktemp -d "$WORK/peer-XXXXXX")
+git clone -q -b main "$repo.git" "$peer"
+fixture_git_config "$peer"
+printf 'first\n' > "$peer/peer.txt"
+git -C "$peer" add peer.txt
+git -C "$peer" commit -qm "the other session publishes dev"
+git -C "$peer" push -q origin HEAD:refs/heads/dev
+out=$(ship_merge "$wt" "$repo" feata "$production" dev yes)
+expect "created dev rejected on publish: it is reported as such" \
+  "$(field "$out" merged)" create-rejected
+expect "created dev rejected on publish: the unpublished local branch is deleted" \
+  "$(git -C "$repo" branch --list dev)" ""
+expect "created dev rejected on publish: the main checkout is handed back on its own branch" \
+  "$(git -C "$repo" branch --show-current)" main
+expect "created dev rejected on publish: the dev that won is untouched" \
+  "$(git -C "$repo.git" rev-parse dev)" "$(git -C "$peer" rev-parse HEAD)"
+
+# Every command in these blocks targets the main checkout with `git -C`, so where
+# ship stands when it issues them must not change the answer. Phase 0 puts it in
+# the session worktree; a conversation that skips that step stands in the main
+# checkout instead, and that is the cwd the cases above never exercise.
+start_ship ship-from-main dev feata
+ship_fetch "$repo" "$repo" >/dev/null
+out=$(ship_target "$repo" "$repo" feata "$production" "$integration")
+expect "blocks issued from the main checkout: the same merge target" "$(field "$out" target)" dev
+expect "blocks issued from the main checkout: the same commit count" "$(field "$out" commits)" 1
+out=$(ship_merge "$repo" "$repo" feata "$production" dev no)
+expect "blocks issued from the main checkout: the merge still lands on dev" \
+  "$(field "$out" merged)" "$(git -C "$repo" rev-parse dev)"
+expect "blocks issued from the main checkout: dev carries the merge" "$(merges "$repo" dev)" 1
+expect "blocks issued from the main checkout: it is handed back on the branch it started on" \
+  "$(git -C "$repo" branch --show-current)" main
+expect "blocks issued from the main checkout: the session worktree is untouched" \
+  "$(git -C "$wt" branch --show-current)" feata
 
 finalize

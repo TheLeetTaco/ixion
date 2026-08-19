@@ -55,6 +55,20 @@ An empty `repo_root=`, `state=missing`, `state=schema-mismatch` and `state=compl
 
 An ad-hoc ship is exactly `dir=` unprinted, and that emptiness is the only test any later phase makes for it: every block below that reads session state interpolates `SDIR='<dir= from Phase 0>'` and branches on `[ -n "$SDIR" ]`, so each block's own code is the proof rather than a list kept here. Validation prints `dir=` only for a session it found usable, which is what makes its absence the test; don't rebuild the path from a session id instead, and don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id interpolated, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
 
+### Stand where the work is
+
+`work` runs every session in a worktree of its own, and git permits a branch to be checked out in at most one worktree — so the session's branch is checked out there and nowhere else. Derive that path and stand in it, rather than reading whatever checkout this skill happened to be invoked from:
+
+```bash
+<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`present=yes` — `cd` into `worktree=`, and run Phases 1, 3 and 5 from there: Phase 1 describes that tree, Phase 3 commits into it, Phase 5 removes it. Phase 4 is the exception and says so itself — it targets the main checkout explicitly, from wherever you are standing. Skipping this step is not a cosmetic miss: Phase 1 would read the invoking checkout's branch, Phase 2 would cut an empty branch off it, and Phase 4 would merge that and mark the session complete while its commits sat in a worktree nobody opened.
+
+`present=no` with a non-empty `dir=` — the session resolved but its worktree is gone. Say which path was expected and stop; the branch is checked out nowhere, so there is no tree whose state Phase 1 could honestly assess.
+
+`present=no` with an empty `dir=` — the ad-hoc ship. There is no session and no worktree, and the branch checked out where you were invoked is the one being shipped, so stay there.
+
 ---
 
 ## Phase 1: Assess Current State
@@ -140,20 +154,25 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 ## Phase 4: Merge into the Integration Branch
 
-Every git command in this phase is issued against the main checkout — `git -C "$REPO_ROOT"`, using the repository root Phase 0 resolved. That is not a stylistic choice: git permits a branch to be checked out in at most one worktree, and you are standing in the session's own worktree with the feature branch checked out in it. The main checkout is the one tree that holds no session's branch, so it is the one tree free to stand on the integration branch while the merge happens.
+Every git command in this phase is issued against the main checkout — `git -C "$REPO_ROOT"` — whichever tree Phase 0 left you standing in. The merge needs a working tree with the target branch checked out, and git permits a branch in at most one worktree, so the tree holding the feature branch cannot also hold the target. The main checkout is the one tree that is nobody's session, so it is the one free to stand on the integration branch while the merge happens.
+
+It does not stay there. The merge block records the branch the main checkout was on and switches back on every exit — success, conflict and rejection alike — so the tree this phase borrows is the tree it hands back. On the ad-hoc path that main checkout is the terminal the user is sitting in, and moving them off their branch as a side effect of shipping it is not something the merge confirmation asked for.
 
 ### Refresh the remote-tracking refs
 
 ```bash
 REPO_ROOT='<repo_root= from Phase 0>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 git -C "$REPO_ROOT" fetch origin
 ```
+
+The guard leads every block here that builds on `REPO_ROOT`, exactly as the blocks in `session-handoff.md` and `git-branches.md` carry it, because a pasted block shares no shell state with the one before it and cannot lean on Phase 0's halt having been issued. `git -C ""` is the specific reason: it does not fail, it silently operates on the current directory — which here is the session worktree, the one tree this phase exists to leave alone.
 
 Branch resolution reads local refs only — that is `git-branches.md`'s rule and it stays intact — so the fetch lives here instead, in the one caller whose answer has to reflect what other sessions already pushed. A `dev` created by a session that shipped an hour ago is a remote-tracking ref this repo has never seen until this call.
 
 ### Resolve the branch roles
 
-Re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference. Issue it here in the session worktree, so `current=` is the feature branch about to be merged:
+Re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference. It reads the tree you are standing in, which Phase 0 put on the feature branch, so `current=` is the branch about to be merged:
 
 ```bash
 <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
@@ -183,6 +202,7 @@ A branch name there is one `work` resolved, but it is a mutable ref and an integ
 
 ```bash
 REPO_ROOT='<repo_root= from Phase 0>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 FEATURE='<current= from the branch-roles block>'
 PRODUCTION='<production= from the branch-roles block>'
 TARGET='<the recorded branch where recorded=usable, otherwise integration= from the branch-roles block>'
@@ -213,16 +233,27 @@ Declining ends the skill here. Nothing is pushed, no branch is created, and the 
 
 ```bash
 REPO_ROOT='<repo_root= from Phase 0>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 FEATURE='<current= from the branch-roles block>'
 PRODUCTION='<production= from the branch-roles block>'
 TARGET='<target= from the merge-target block>'
 CREATE='<create= from the merge-target block>'
 
+WAS=$(git -C "$REPO_ROOT" branch --show-current)
+trap 'git -C "$REPO_ROOT" switch -q "$WAS"' EXIT
+
 git -C "$REPO_ROOT" push -u origin "$FEATURE" || exit 1
 if [ "$CREATE" = yes ]; then
-  git -C "$REPO_ROOT" switch -c "$TARGET" "origin/$PRODUCTION" && git -C "$REPO_ROOT" push -u origin "$TARGET" || exit 1
+  git -C "$REPO_ROOT" switch -q -c "$TARGET" "origin/$PRODUCTION" || exit 1
+  git -C "$REPO_ROOT" push -u origin "$TARGET" || {
+    git -C "$REPO_ROOT" switch -q "$WAS"
+    git -C "$REPO_ROOT" branch -D "$TARGET"
+    printf 'merged=create-rejected\n'
+    exit 1
+  }
 else
-  git -C "$REPO_ROOT" switch "$TARGET" && git -C "$REPO_ROOT" merge --ff-only "origin/$TARGET" || exit 1
+  git -C "$REPO_ROOT" switch -q "$TARGET" || exit 1
+  git -C "$REPO_ROOT" merge --ff-only "origin/$TARGET" || exit 1
 fi
 git -C "$REPO_ROOT" merge --no-ff -m "Merge $FEATURE into $TARGET" "$FEATURE" || {
   git -C "$REPO_ROOT" diff --name-only --diff-filter=U
@@ -235,19 +266,22 @@ git -C "$REPO_ROOT" push origin "$TARGET" || {
   printf 'merged=push-rejected\n'
   exit 1
 }
-printf 'merged=%s\n' "$(git -C "$REPO_ROOT" rev-parse HEAD)"
+printf 'merged=%s\n' "$(git -C "$REPO_ROOT" rev-parse "$TARGET")"
 ```
 
 The first push publishes the session branch itself, so the branch name the merge commit records resolves to a ref anyone who clones can check out. `--no-ff` is what makes the session legible afterwards: the checkpoint commits `work` made stay as themselves, and the merge commit is the one place the whole session appears as a unit.
 
-Four ways this stops, each leaving the shared branch as it found it:
+The `trap` is what makes "the tree this phase borrows is the tree it hands back" a property of the block rather than a promise in prose: it fires on the success path and on all five failures below, so no exit leaves the main checkout somewhere the user did not put it.
+
+Five ways this stops, each leaving the shared branch as it found it:
 
 - **`switch` refuses with `already used by worktree at <path>`** — surface it per `git-branches.md`'s "Integration branch checked out in another worktree". Nothing has been merged.
 - **`merge --ff-only` refuses** — the local integration branch has commits its remote does not, so fast-forwarding it would be a merge of its own. Report the divergence and stop; merging on top of it would push somebody's unreviewed local work along with this session's.
-- **The merge conflicts** — the unmerged paths are printed and the merge is aborted, which puts the main checkout back on the target with a clean tree. You are still on the feature branch in the session worktree, which was never touched; resolve there and re-run.
+- **Publishing a created `dev` is rejected** — the `create=yes` path only reaches the push after the branch exists locally, and two sessions both finding no integration branch in the same window is precisely the concurrency worktrees enable. The local branch is deleted before the exit, because a `dev` that was never published is not a branch anyone can pull and leaving it behind makes the next resolution answer `integration=dev` from a ref that only this checkout has. This is the one exit that switches back ahead of the trap rather than leaving it to fire: git refuses to delete a branch that is checked out, so the restore has to happen first. Re-run; the fetch above then finds the `dev` that won.
+- **The merge conflicts** — the unmerged paths are printed and the merge is aborted, which leaves the target clean. The feature branch is untouched in the tree Phase 0 left you standing in; resolve there and re-run.
 - **The push is rejected** — another session pushed to the target between the fetch and this push, which is the ordinary outcome of two sessions shipping minutes apart. `reset --keep` puts the local branch back on its remote, so the branch every worktree shares is not left carrying a merge commit nobody else has; it refuses rather than discarding uncommitted work if the main checkout has any. Re-run `/ixion:ship`, and the fetch above picks up what landed first.
 
-On success, report the printed merge commit. The main checkout is left standing on the integration branch — that is where the merge landed and where the next session branches from, and switching it back would be a second checkout that can fail after the push has already succeeded.
+On success, report the printed merge commit.
 
 ### Mark the session terminal
 
@@ -269,17 +303,15 @@ This is the write every skill's Phase 0 reads as `state=complete`. Without it a 
 
 ## Phase 5: Retire the Session Worktree
 
-`work` ran this session in a worktree of its own, and you are standing in it. Its branch is now pushed and merged, so the checkout has nothing left in it that is not also somewhere else — which is why this skill owns the removal and `work` does not: the disposal belongs with the step that made the tree disposable.
+`work` ran this session in a worktree of its own, and Phase 0 stood you in it. Its branch is now pushed and merged, so the checkout has nothing left in it that is not also somewhere else — which is why this skill owns the removal and `work` does not: the disposal belongs with the step that made the tree disposable.
+
+Phase 0 already printed the path, and the derivation is a pure function of the session id, so re-issuing it here would ask the same question twice and get the same answer:
 
 ```bash
-<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim, with `worktree=` taken from Phase 0's "Stand where the work is" step>
 ```
 
-```bash
-<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
-```
-
-`present=no` — nothing to retire. That is an ad-hoc ship, which resolved no session for the block to derive from, or a session whose tree is already gone. Skip.
+Phase 0's `present=no` — an ad-hoc ship, which resolved no session to derive a worktree from — means there is nothing to retire. Skip.
 
 A removal git refuses names files the worktree still holds that no commit does. Report them and leave the tree standing; the branch and the merge are already safe, and the uncommitted remainder is the user's to keep or discard.
 
