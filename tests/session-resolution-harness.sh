@@ -9,13 +9,13 @@
 # reference's own "Claim a session id" block, so the -2 collision suffix the
 # regression turns on is the one callers actually produce.
 #
-# The second half is a lint, and lints have no precedent in tests/ — every
-# other test here runs a mechanism and checks its output, where this one reads
-# source files and checks a spelling. It exists because install_opencode.py
-# rewrites `/ixion:` to `/` for OpenCode by exact match: a printed command that
-# spells the prefix any other way resolves nowhere on either client, and
-# nothing else in the suite would notice. It is scoped to that one string on
-# purpose and is not a template checker.
+# The second half is lints, and lints have no precedent in tests/ — every other
+# test here runs a mechanism and checks its output, where these read source
+# files and check what a string says. One exists because install_opencode.py rewrites
+# `/ixion:` to `/` for OpenCode by exact match: a printed command that spells
+# the prefix any other way resolves nowhere on either client, and nothing else
+# in the suite would notice. Each is scoped to one such string on purpose; none is a
+# template checker.
 #
 # python: the reference reads and writes session fields with a single-line
 # python program, so every assertion over those blocks needs an interpreter the
@@ -691,5 +691,46 @@ if [ -z "$(lint_printed_commands "$lintbed")" ]; then
 else
   note_fail "lint: fired on a bare slash-command in prose"
 fi
+
+# --- lint: every section cited by title is a heading that exists -------------
+
+# This is the harness that extracts by heading title, and check_section above
+# already fails loudly when a session-handoff heading is renamed. Skills reach
+# shared reference text the other way round too — prose telling a subagent to go
+# read a named section — and nothing was watching those. A renamed heading
+# leaves the citation pointing at a real file and no section, so the subagent
+# reads nothing and says nothing, which is the same silent shape check_section
+# exists to prevent.
+lint_dangling_sections() {
+  grep -rhoE 'the "[^"]+" section of `[^`]+`' "$1" --include='*.md' | sort -u |
+  while IFS= read -r citation; do
+    title=$(printf '%s' "$citation" | sed 's/^the "//; s/" section of .*$//')
+    path=$(printf '%s' "$citation" | sed 's/^.* section of `//; s/`$//')
+    if [ ! -f "$ROOT/$path" ]; then
+      printf '%s -> no such file\n' "$citation"
+    elif ! awk -v t="$title" '
+      /^#/ { h = $0; sub(/^#+[ \t]+/, "", h); if (h == t) ok = 1 }
+      END { exit !ok }' "$ROOT/$path"; then
+      printf '%s -> that file has no heading with exactly that title\n' "$citation"
+    fi
+  done
+}
+
+offenders=$(lint_dangling_sections "$ROOT/ixion")
+if [ -z "$offenders" ]; then
+  note_pass "every section ixion/ cites by title is a heading that exists"
+else
+  note_fail "citations naming a section that is not there:
+$offenders"
+fi
+
+printf 'Read the "Elegance Dispatch Bat" section of `ixion/skills/ixion-conventions/references/elegance.md`.\n' \
+  > "$lintbed/typo.md"
+if [ -n "$(lint_dangling_sections "$lintbed")" ]; then
+  note_pass "lint: a citation whose heading was renamed away is caught"
+else
+  note_fail "lint: a citation whose heading was renamed away went unnoticed"
+fi
+rm "$lintbed/typo.md"
 
 finalize

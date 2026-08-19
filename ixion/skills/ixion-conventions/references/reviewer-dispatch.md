@@ -14,18 +14,21 @@ Use Glob to find the project's architectural docs once at the orchestrator level
 
 Collect the matching paths into `PROJECT_CONTEXT_PATHS`. Inline them in every reviewer dispatch under "PROJECT CONTEXT PATHS." If no docs match, pass `none` — reviewers skip discovery and apply universal principles only.
 
-## Shared reference excerpts (orchestrator reads once)
+## Shared reference sections (each reviewer reads by path)
 
-Before composing dispatches, the orchestrator Reads — once — `ixion/skills/ixion-conventions/references/elegance.md` (the "Elegance Dispatch Bar" and "Anti-Pattern Catalog" sections) and the "Lead with the Failure" section of `ixion/skills/ixion-conventions/SKILL.md`, and pastes those excerpts into every dispatch below. This is the same read-once-paste-N-times idiom `work` uses for the Elegance Dispatch Bar: one orchestrator read replaces six identical subagent reads per round. Project-context docs stay as **paths** — reviewers read only the ones relevant to their domain; inlining whole ADRs would bloat six prompts.
+The preamble names the reference sections by path and the orchestrator inlines none of them. Every reviewer needs that text either way, so the copies a paste would add are the ones sitting in the orchestrator's own context — six per round, twice per pipeline — and context is the scarce resource where a disk read is not. `finding-format.md` already reaches every reviewer this way, through their Output Format sections. What that buys the saving is one extra Read round-trip per reviewer per wave: the same round-trip `finding-format.md` already costs each of them.
 
-## Dispatch preamble (paste at the top of every reviewer dispatch, with the excerpts filled in)
+Project-context docs are paths for the same reason, plus one of their own — reviewers read only the ones their domain touches, and inlining whole ADRs would bloat six prompts.
+
+## Dispatch preamble (paste at the top of every reviewer dispatch)
 
 ```
-Before assessing your domain, read the pasted reference excerpts and the project context paths listed below. The elegance lens applies to every domain — don't defer to reviewer-elegance.
+Before assessing your domain, read the reference sections and the project context paths listed below. The elegance lens applies to every domain — don't defer to reviewer-elegance.
 
-## Reference excerpts (pasted by the orchestrator — do not re-read the source files)
-<paste the Elegance Dispatch Bar + Anti-Pattern Catalog excerpt from elegance.md>
-<paste the "Lead with the Failure" excerpt from ixion-conventions SKILL.md>
+## Reference sections to read first
+- the "Elegance Dispatch Bar" section of `ixion/skills/ixion-conventions/references/elegance.md`
+- the "Anti-Pattern Catalog" section of `ixion/skills/ixion-conventions/references/elegance.md`
+- the "Finding Quality: Lead with the Failure" section of `ixion/skills/ixion-conventions/SKILL.md`
 
 If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
 

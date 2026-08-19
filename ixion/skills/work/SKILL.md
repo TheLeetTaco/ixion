@@ -64,6 +64,8 @@ Procedure:
    - `progress.json` missing AND `spec.json` exists → start fresh plan mode.
    - else → error: `"No spec.json or review.findings.json in session."`
 
+   Then Read this session's mode reference — `references/plan-mode.md` or `references/fix-findings-mode.md`, whichever branch above matched, and only that one. It carries what counts as a chunk in this mode and the dispatch template 2.2 sends; every phase below is the same in both modes.
+
 2. **Declare you've started — write `progress.json` immediately.** Before reading the spec, before dispatching any subagent, before opening any source file, write the initial `progress.json`. This is your declaration to the rest of the pipeline that work has begun.
 
    ```json
@@ -147,31 +149,17 @@ Procedure:
 
    Step 6 wrote that field a moment ago, so it is a commit id here and needs no fallback of its own. The range still earns its place: chunk ids are phase ids, so an earlier session on this same branch can have committed a `Ixion-Chunk: phase-1` trailer of its own, and an unbounded `--grep` would hand back that stranger's sha to record as this chunk's work.
 
-   A sha means only the record was lost: append `{ "chunk_id": "<id>", "sha": "<sha>" }` and leave the id in `completed[]`. Re-dispatching it instead would spend a subagent re-deriving work already in history and then record an empty commit as though it were the chunk. Empty output means the commit never landed: drop the id so 2.0a picks the chunk up again. Atomic write either way.
+   A sha means only the record was lost: append `{ "chunk_id": "<id>", "sha": "<sha>" }` and leave the id in `completed[]`. Re-dispatching it instead would spend a subagent re-deriving work already in history and then record an empty commit as though it were the chunk. Empty output means the commit never landed: drop the id so 2.0 picks the chunk up again. Atomic write either way.
 
-   2.0a takes `completed[]` as its exclusion set and makes no such check of its own, so a chunk this step doesn't rescue is skipped forever — silently, with no error. A fresh session has both arrays empty and this is a no-op.
+   2.0 takes `completed[]` as its exclusion set and makes no such check of its own, so a chunk this step doesn't rescue is skipped forever — silently, with no error. A fresh session has both arrays empty and this is a no-op.
 
 ---
 
 ## Phase 2: Execute (Per-Chunk Loop)
 
-The chunk unit depends on mode. In both modes, a chunk is a **phase + bullets** structure: one logical unit of work containing several related items the subagent works through in a single dispatch.
+In both modes a chunk is a **phase + bullets** structure: one logical unit of work containing several related items the subagent works through in a single dispatch. What supplies the phase and what supplies the bullets is the one thing that differs, and the mode reference Phase 1 loaded says which — along with the dispatch template 2.2 sends.
 
-- **Plan mode**: chunk = phase from `spec.json.phases[]`. ID = `phase.id`. Bullets = `phase.tasks[]`.
-- **Fix-findings mode**: chunk = **theme group** of findings — a logical cluster (e.g. one design refactor, one shared-helper simplification, one polish pass) that one subagent can address in a single dispatch. ID = `theme-<slug>` (e.g. `theme-scaffolding-redesign`, `theme-polish`). Bullets = the findings in that theme. **Every finding gets fixed** — P1 through P3 — with one exception: findings whose title starts with `[Contradicts user]` are advisory pushback against the user's explicit choice; skip them and list them in `outcomes` so the user sees the pushback without it being auto-applied.
-
-  **Theme grouping (the synthesizer's job):**
-  - Cluster findings whose suggested fixes share a structural change (same file or same coordinated cross-file edit). A `[Pattern cluster]`-prefixed group is one such change already — the members carry one shared Fix across scattered locations, so keep them in one theme rather than splitting them by file.
-  - Group all small unrelated polish (1-line comment fixes, import merges, single-finding files) into one `theme-polish` chunk; do NOT dispatch one subagent per single-finding file.
-  - Aim for 1-5 themes regardless of finding count. 17 findings → ~4 themes is right; 17 findings → 17 themes is wrong.
-  - Themes don't have to be balanced. A scaffolding redesign with 3 findings is a theme; a polish pass with 9 P3s is also a theme.
-  - Theme name should describe the change (e.g. `theme-loadmd-simplify`), not the file (e.g. `theme-load-step-markdown-ts`).
-
-### 2.0 Read the Elegance Dispatch Bar (once per session)
-
-Before entering the per-chunk loop, Read `ixion/skills/ixion-conventions/references/elegance.md` and extract the "Elegance Dispatch Bar" section. Hold the verbatim text for use in every dispatch this session — do not re-read on each chunk. Same bar applies to plan mode and fix-findings mode.
-
-### 2.0a Compute the Next Wave
+### 2.0 Compute the Next Wave
 
 Chunks that don't depend on each other and don't touch the same files run **concurrently** — one Task per chunk, all in a single message. The structure that makes this safe already exists: every chunk runs in a subagent, and the main agent is the sole writer of `progress.json`, so N parallel returns land in one context that checkpoints once per wave.
 
@@ -219,115 +207,7 @@ When the wave has more than one member, append this bullet as well:
   editing it — the orchestrator re-dispatches it serially after the wave.
 ```
 
-The dispatch templates below paste the verbatim Elegance Dispatch Bar text captured in step 2.0. Same bar in plan mode and fix-findings mode — read once, reuse N times.
-
-**Plan mode dispatch:**
-
-```
-Task general-purpose: "
-## Task
-Execute phase <id>: <phase.goal>
-
-## Phase JSON
-<paste phase JSON: tasks, files, verification, manual_verification>
-
-## Context
-- summary: <spec.summary>
-- success_criteria: <spec.success_criteria>
-- key_files: <spec.context.key_files>
-- patterns: <spec.context.patterns>
-- constraints: <spec.context.constraints>
-- Already completed: <progress.completed>
-
-## The bar the user set for me
-<paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
-
-Plan-mode addendum:
-- Search the codebase for an existing helper before adding new utility code.
-- Follow existing patterns; deviate when the existing pattern is itself inelegant — note the deviation in your report.
-
-## Constraints
-- TDD per task (RED → GREEN → REFACTOR). REFACTOR is mandatory. Skip TDD only for pure refactor, docs, or config-only changes.
-- No `git checkout <path>`, `git restore`, `git reset --hard`, `git stash`, or `git clean`. The tree holds uncommitted work from earlier phases and possibly concurrent wave siblings, and you can't tell which of it is yours — even inside your own declared files, so path arguments don't make these safe.
-- To mutation-test (break code deliberately to prove a test really fails), use **copy-mutate-restore**: `cp x.rs x.rs.bak`, mutate, restore from the copy, delete the copy. Never revert via git.
-- Record every command as you run it (don't summarize at the end).
-
-## Return shape
-
-Return JSON in exactly this shape — fill in your values, keep the field names and structure:
-
-```json
-{
-  "outcomes": ["Added timeout flag to clap config"],
-  "files_modified": ["src/cli.rs", "tests/cli_timeout.rs"],
-  "commands_run": [
-    { "command": "cargo test --test cli_timeout", "exit_code": 0, "stdout_tail": "test result: ok. 4 passed" },
-    { "command": "cargo clippy -- -D warnings", "exit_code": 0, "stdout_tail": "" }
-  ]
-}
-```
-
-`commands_run[]` is a forensic log — entries can be structured objects (as shown) or plain summary strings like `'cargo test — 4 passed'`. Whatever you'll find useful to read later. Nothing downstream parses this programmatically.
-\"
-```
-
-**Fix-findings mode dispatch:**
-
-```
-Task general-purpose: "
-## Task
-Resolve theme: <theme-id> — <theme-description>
-
-## Spec rationale (read before fixing)
-- summary: <spec.summary>
-- success_criteria: <spec.success_criteria>
-- patterns: <spec.context.patterns>
-- constraints: <spec.context.constraints>
-
-When the findings cluster around a structural issue, check the spec rationale first. If the spec already explains why the structure is what it is, the right fix is often outside the findings (e.g., the spec was wrong). In that case, do NOT patch the codebase. Return:
-- `files_modified: []`
-- `outcomes: ["spec inelegant — <one-paragraph reason>. Re-planning required."]`
-The orchestrator surfaces this for re-planning instead of dispatching the next chunk.
-
-## Findings (read all before fixing any)
-<paste each finding verbatim: title, severity, location, failure, fix>
-
-## Approach: symptoms vs. structure
-These findings are clustered because they likely share a structural cause. Diagnose first, patch never.
-1. Read all findings before touching code. Identify the structural issue they point at.
-2. Fix the structure once. If the structural change resolves N of M findings as a side effect, re-evaluate the rest before applying their fixes — they may dissolve too.
-3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
-
-## The bar the user set for me
-<paste the verbatim Elegance Dispatch Bar text captured in step 2.0>
-
-Fix-findings addendum:
-- If the cleaner shape requires touching files outside the findings list, take it — note the drift in your `outcomes` summary.
-
-## Constraints
-- Run tests after the change set; capture exit_code.
-- No `git checkout <path>`, `git restore`, `git reset --hard`, `git stash`, or `git clean`. The tree holds uncommitted work from earlier phases and possibly concurrent wave siblings, and you can't tell which of it is yours — even inside your own declared files, so path arguments don't make these safe.
-- To mutation-test (break code deliberately to prove a test really fails), use **copy-mutate-restore**: `cp x.rs x.rs.bak`, mutate, restore from the copy, delete the copy. Never revert via git.
-- Record every command as you run it (don't summarize at the end).
-
-## Return shape
-
-Return JSON in exactly this shape — fill in your values, keep the field names and structure:
-
-```json
-{
-  "findings_addressed": ["src/orders/handler.rs:81 N+1 query in list-orders", "src/orders/handler.rs:142 magic 30s timeout"],
-  "files_modified": ["src/orders/handler.rs", "src/orders/store.rs"],
-  "commands_run": [
-    { "command": "cargo test orders", "exit_code": 0, "stdout_tail": "test result: ok. 12 passed" },
-    { "command": "cargo clippy -- -D warnings", "exit_code": 0, "stdout_tail": "" }
-  ]
-}
-```
-
-`commands_run[]` is a forensic log — structured objects or summary strings, your call. Nothing downstream parses it programmatically.
-\"
-```
+Compose each dispatch from the template in the mode reference Phase 1 loaded.
 
 **BLOCKING: Do NOT specify a `model` parameter** — subagents inherit the current session's model.
 
@@ -360,7 +240,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
    done
    ```
 
-   This works because 2.0a made the wave's file sets disjoint and 2.1 confirmed they were clean, so HEAD holds exactly what the member started from. `cat-file -e` asks the one question the delete branch is for — is this path in HEAD at all — so a `git show` that fails for any other reason aborts under `set -e` instead of reading as "the member created it" and deleting the file. Restore every quarantined file (`cp "$Q/$f" "$f"`) once the last member is verified — the 3-strike protocol needs the failed attempt to diagnose, and losing it would cost more than the isolation buys.
+   This works because 2.0 made the wave's file sets disjoint and 2.1 confirmed they were clean, so HEAD holds exactly what the member started from. `cat-file -e` asks the one question the delete branch is for — is this path in HEAD at all — so a `git show` that fails for any other reason aborts under `set -e` instead of reading as "the member created it" and deleting the file. Restore every quarantined file (`cp "$Q/$f" "$f"`) once the last member is verified — the 3-strike protocol needs the failed attempt to diagnose, and losing it would cost more than the isolation buys.
 
    The restore stays the orchestrator's: a dispatched subagent is prohibited from these commands, and nothing in a dispatch prompt may ask one to run them.
 
@@ -399,7 +279,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
 
    ```bash
-   printf 'waves: %s done, %s remaining\n' "<waves checkpointed so far>" "<chunks not in completed[], grouped by 2.0a>"
+   printf 'waves: %s done, %s remaining\n' "<waves checkpointed so far>" "<chunks not in completed[], grouped by 2.0>"
    <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    ```
 
@@ -412,7 +292,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 
 ### 2.4 Loop
 
-Compute the next wave (2.0a) from the updated `completed[]`. All chunks complete → Phase 3.
+Compute the next wave (2.0) from the updated `completed[]`. All chunks complete → Phase 3.
 
 ---
 
@@ -496,7 +376,7 @@ After the user's choice:
 
 ## Recovery & Errors
 
-**Recovery**: "carry on" / "continue" / `/ixion:work` with no args all route through Phase 0 → Phase 1 resume. Resume recomputes the next wave (2.0a) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
+**Recovery**: "carry on" / "continue" / `/ixion:work` with no args all route through Phase 0 → Phase 1 resume. Resume recomputes the next wave (2.0) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
 
 **3-Strike protocol per chunk** (record each attempt in `progress.error_log[]`):
 
@@ -512,7 +392,7 @@ Test failures fix before checkpointing — never append a chunk ID to `completed
 ## Anti-Patterns
 
 - **Synthesize a TaskList from findings.json** — findings.json IS the list. Group by theme (not by file) and dispatch.
-- **Group fix-findings by `location`** — produces one chunk per file, which inflates dispatch count for any review with single-finding files. Use theme groups instead (see Phase 2 chunk-definition section). 17 findings spread across 9 files should land in ~4 themes, not 9.
+- **Group fix-findings by `location`** — produces one chunk per file, which inflates dispatch count for any review with single-finding files. Use theme groups instead (see `references/fix-findings-mode.md`). 17 findings spread across 9 files should land in ~4 themes, not 9.
 - **Write a baseline.json or compute a content hash** — the session's one reference point is `session.json.base_ref`, a commit id resolved in Phase 1. spec.json is the live target.
 - **Worktree-per-chunk** — disjoint `files[]` in one tree IS the isolation mechanism for wave members; worktrees are session-granularity (Phase 1 step 5). Per-chunk worktrees add merge cost and dependency installs and break "phase B builds on phase A's code."
 - **Relax the disjoint-files rule to widen a wave** — overlapping phases run in later waves. A wave of one is correct, not a failure to parallelize.
@@ -523,5 +403,6 @@ Test failures fix before checkpointing — never append a chunk ID to `completed
 
 ## Detailed References
 
+- `references/plan-mode.md`, `references/fix-findings-mode.md` — the chunk definition and dispatch template for each mode. Phase 1 loads exactly one.
 - `references/verification-gates.md` — Evidence-before-claim protocol and banned phrases.
 - `ixion/schemas/progress.schema.json`, `session.schema.json` — authoritative shapes for the artifacts this skill writes.
