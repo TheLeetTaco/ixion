@@ -97,59 +97,29 @@ Procedure:
 
    That block renames only on a successful write, which is what makes this atomic rather than merely two-step — the shape it replaced truncated its temp *before* the write ran, so an unconditional rename over it turned a 75-byte `session.json` into 0 bytes. The stale temp a failed write leaves behind is exactly what Phase 0's stale-tmp cleanup above already deletes.
 
-5. **Resolve the branch roles, then decide where commits land.** Every chunk gets committed at its checkpoint (2.3), so this decision precedes all of them. Resolve once, here — the worktree path and the in-place path both consume the same answer.
+5. **Resolve the branch roles, then put the session in a worktree of its own.** Every chunk gets committed at its checkpoint (2.3), so the branch those commits land on is settled here, before any of them run.
 
    ```bash
    <paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
    ```
 
-   **`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section. `on_protected=no` here is not permission to carry on: nothing matched because there is no branch name to match.
+   **`integration=` empty** — the production ladder ran out, which is a detached HEAD in a repo with no `origin/HEAD` and no local `main` or `master`. There is no start point to branch from: stop and surface it per that file's "Detached HEAD" section. The block's other lines describe the checkout you were invoked from, and nothing below reads them — this session commits in a tree of its own, not in that one.
 
-   **`on_protected=no`** — HEAD is already on a feature branch, where a resumed session and a hand-branched one both arrive. Nothing in the rest of this step applies; go to step 6.
-
-   **`on_protected=yes`** — a checkpoint commit would otherwise land on a shared branch, so the session needs a branch of its own. The **worktree assessment** (advisory) picks how it gets one: if `spec.json` modifies >10 files, has >3 phases, or any phase touches high-risk paths (auth, payments, migrations), prompt. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
-
-   ```
-   Ready to execute.
-   Scope: N files, M phases.
-
-   **Why you:** Scope. This answer fixes the git topology every later checkpoint commit lands on, and nothing in the session records it, so deciding it for you would leave the shape of the whole run written down only in this transcript.
-
-   1. Create worktree (Recommended at this size) - its own branch and directory; the primary checkout stays untouched
-   2. Current branch - branch in place, here
-   3. "You pick what's best" - Let me decide
-   ```
-
-   **Worktree.** Branch it from the resolved `integration=`, then make the worktree a self-contained pipeline home — the session artifacts must travel with the code they describe:
+   Derive where that tree goes, then create it:
 
    ```bash
-   git worktree add -b <slug> ../<repo>-<slug> '<integration= from the resolution block>'
-   mkdir -p ../<repo>-<slug>/.ixion/plugin/sessions
-   cp -r .ixion/plugin/sessions/<session= from Phase 0> ../<repo>-<slug>/.ixion/plugin/sessions/
-   printf '{ "schema_version": 1, "session_id": "%s" }\n' "<session= from Phase 0>" > ../<repo>-<slug>/.ixion/plugin/active.json
+   <paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
    ```
-
-   Passing the start point is what lets this path check nothing out in the primary working tree — leaving that tree untouched is the reason the worktree flow exists, so it neither switches nor probes for dirt.
-
-   Then remind about dependency install + `/init`, and continue the session from inside the worktree. The copy in the main checkout is stale from this moment — run `work-review` and `ship` from the worktree; `ship` copies the final session dir back before `git worktree remove`. This is also the strong-isolation answer for running two features in parallel: each gets its own worktree, its own branch, and its own `.ixion/plugin/` state. That isolation covers concurrent sessions and file collisions; it does not protect against the destructive git commands the dispatch templates' `## Constraints` block prohibits, which run inside the worktree and discard its uncommitted work just the same.
-
-   **In place.** The session branch is created where HEAD stands, so when `current=` is the production branch and `integration=` differs, move to integration first — branching from production would measure the session against production. That switch rewrites tracked files, so probe before it:
 
    ```bash
-   <paste the "Probe the working tree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+   <paste the "Create or reuse the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
    ```
 
-   `tree=dirty` halts the session: name the files and stop so the user can commit or stash them. Do not fall through to branching from production — that records `base_ref` against production and reproduces, for exactly those sessions, the stale-base bug this resolution exists to remove. On `tree=clean`:
+   `branch=` matching `slug=` is the go-ahead: `cd` into `worktree=` and run the whole rest of the session from there — every phase below, and `work-review` and `ship` after it. A resumed session finds the tree already built and reuses it; that is the same printed answer and needs no branch of its own here.
 
-   ```bash
-   <paste the "Switch to the integration branch" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
-   ```
+   Nothing about the session is copied into it. The sessions tree hangs off the repository root every checkout of this repo shares, so `dir=` from Phase 0 names the same directory from the worktree as it does from the checkout you started in, and there is one record of this session rather than one per tree.
 
-   Where `current=` is already `integration=` there is nothing to move to and no probe to run. Either way, the session branch is cut from where HEAD now stands:
-
-   ```bash
-   git switch -c "<slug>"
-   ```
+   That is also what makes two features in parallel work: each session gets its own worktree and its own branch, the checkout you invoked from is never switched or written to — so it can be dirty, and starting work no longer waits on the user to clean it — and the one thing the two sessions share is the session record neither writes the other's half of. The isolation covers concurrent sessions and file collisions; it does not protect against the destructive git commands the dispatch templates' `## Constraints` block prohibits, which run inside the worktree and discard its uncommitted work just the same.
 
 6. **Record the base ref and the integration branch.**
 
@@ -520,8 +490,7 @@ Print both onward commands under it, so choosing later — after a `/clear` — 
 After the user's choice:
 
 1. `progress.json.status = "completed"` (atomic write).
-2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"`.
-3. Worktree cleanup if applicable.
+2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"` and the removal of this session's worktree — it owns the merge that makes the tree disposable, and you are standing inside the tree.
 
 ---
 

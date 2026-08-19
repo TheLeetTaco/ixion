@@ -66,12 +66,19 @@ git branch --show-current
 gh pr view <PR_NUM> --json title,body,files
 ```
 
-### Setup environment
+### Stand where the work is
 
-- If already on target branch: proceed with analysis.
-- If different branch: offer to check out the target branch or create a worktree with `git worktree add`.
+A session under review has its own worktree — `work` gives every session one — and its branch is checked out there and nowhere else. Derive that path rather than reviewing whatever the invoking checkout happens to hold:
 
-Ensure the code is ready for analysis before dispatching reviewers.
+```bash
+<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`present=yes` — `cd` into `worktree=` and run the rest of this skill from there, so the diff below and the reviewers' file reads see the session's own tree.
+
+`present=no` — say which path was expected and stop. A session that reached review has a worktree; its absence means `ship` already retired it, and the checkout you are standing in holds a different branch's work that no reviewer should be handed as this session's.
+
+This applies when the review target is the resolved session's own work, which is the pipeline case. A PR number or URL names a target that came from GitHub rather than from this session; review that one where you stand.
 
 ### Discover project context
 
@@ -312,7 +319,7 @@ Option 1 is `work` again — it detects fix-findings mode from the completed pla
 
 - **Session resolution failures**: Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Reviewer failures**: emit synthetic P1 against that reviewer, continue with others. Minimum 50% reviewer success before proceeding.
-- **Git/GitHub failures**: if PR not found, verify number. If branch inaccessible, suggest worktree. If gh CLI not authenticated, surface setup instructions.
+- **Git/GitHub failures**: if PR not found, verify number. If gh CLI not authenticated, surface setup instructions.
 - **File write failure**: retry once with the `.tmp` pattern; if still failing, include full findings in the chat summary rather than losing them.
 
 ---

@@ -1,6 +1,6 @@
 # Branch roles (shared by work, work-review and ship)
 
-One resolution block and three error states that `work`, `work-review` and `ship` all use. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a PR targets).
+One resolution block, two error states, and the two commands that make and unmake a session's worktree — all used by `work`, `work-review` and `ship`. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a PR targets).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -47,30 +47,53 @@ Production resolves down a four-rung ladder: `refs/remotes/origin/HEAD`, then a 
 
 Resolution reads local refs only. Do not fetch or pull first: that turns a local branch decision into a network operation with its own failure modes and silently moves the base the session is measured from.
 
-## Error states
+## Create or reuse the session worktree
 
-Three conditions decided here so no caller re-decides them.
-
-### Probe the working tree
+Every session gets a worktree of its own, branched from the integration branch at the path `session-handoff.md`'s "Derive the session worktree" block computes.
 
 ```bash
-DIRTY=$(git status --porcelain -- ':(top,exclude).ixion')
-if [ -n "$DIRTY" ]; then
-  printf 'tree=dirty\n%s\n' "$DIRTY"
-else
-  printf 'tree=clean\n'
-fi
+SLUG='<slug= from the "Derive the session worktree" block>'
+WORKTREE='<worktree= from that same block>'
+INTEGRATION='<integration= from the branch-roles block>'
+
+git worktree add -b "$SLUG" "$WORKTREE" "$INTEGRATION"
+BRANCH=absent
+[ -d "$WORKTREE" ] && BRANCH=$(git -C "$WORKTREE" branch --show-current)
+printf 'worktree=%s\nbranch=%s\n' "$WORKTREE" "$BRANCH"
 ```
 
-`--porcelain` reports modified, staged and untracked entries alike. Only the tracked ones would actually be overwritten by a switch — untracked files ride across untouched — but an untracked file still means the user has work in flight, and this probe is the last moment before the session starts committing, so it counts too.
+`branch=` equal to `slug=` means the worktree is this session's and the session continues inside it — whether this call created it or found it already there. That covers a resumed session and a concurrent claim with one answer, and it is why the `add` is issued before anything is probed: git permits a branch to be checked out in at most one worktree at a time, so two invocations racing to start one session collide on the branch name and exactly one of them wins. The loser reads `branch=` and reuses. A read-then-create on a shared record would leave a window between the two where both invocations believe they won.
 
-The pathspec carves out the one exception. Ixion writes its own session state into the user's repo at `.ixion/`, so in a repo that doesn't gitignore that path the probe would report dirty on Ixion's own bookkeeping and no session in a two-branch repo could ever start. `:(top,exclude)` is anchored at the repo root, so the carve-out holds from any subdirectory a caller runs in. Excluding it here is what stops each caller re-deciding whether the tool's own state counts as the user's uncommitted work.
+Anything else is a failure to surface with git's own message, which the `add` has already printed: `branch=absent` where the integration ref does not exist or the parent directory is unwritable, and a branch name that is not the slug where the path is somebody else's checkout.
 
-On `tree=dirty`, name the files and stop so the user can commit or stash them. Never switch, never stash, never clean — the tree may hold work unrelated to this session, and the `## Constraints` prohibition on destructive git commands applies here exactly as it does inside a dispatch. Stopping is the whole handling: falling through to branch from production instead would record a `base_ref` against production and reproduce, for those sessions, the stale-base bug this file exists to remove.
+The `add` passes an explicit start point, so nothing is checked out or switched in the checkout the skill was invoked from. That tree is never touched, which is why a session can start while it is dirty.
+
+Every worktree pays for its own dependency install and build output — `node_modules`, `target/`, a virtualenv — and under unconditional worktrees every session pays it rather than only the large ones. Remind the user to install dependencies in the new tree.
+
+**A build cache shared across worktrees is rejected, not overlooked.** Where one exists it is per-ecosystem (`CARGO_TARGET_DIR` and its like), so adopting it means Ixion learning a build system per language and inventing the configuration surface to name them — the same Speculative Configuration that ADR-001 rejects a branch-names config file for. And the mitigation partly defeats its own purpose: a shared Cargo target directory serializes concurrent builds on `target/.cargo-lock`, so two sessions building at once take turns and give back the parallelism the worktrees were created to buy. A user who wants that trade can export the variable themselves before invoking; the plugin does not make the choice for them.
+
+## Remove the session worktree
+
+```bash
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+WORKTREE='<worktree= from the "Derive the session worktree" block>'
+cd "$REPO_ROOT" && git worktree remove "$WORKTREE" && printf 'removed=%s\n' "$WORKTREE"
+```
+
+`ship` is the only caller: it owns the merge that makes the worktree disposable, so it owns the disposal. The session branch survives — this removes the checkout, not the work.
+
+The `cd` is load-bearing rather than tidy. Under unconditional worktrees the agent is standing inside the very directory it is removing, and git refuses to remove the current working directory. `REPO_ROOT` is the one directory guaranteed to exist and to be outside every session worktree. Continue from there afterwards: the directory the shell started in is gone.
+
+No `--force`. `git worktree remove` refuses a tree holding modified or untracked files, and that refusal is the whole safety property — uncommitted work in a session worktree is the user's, exactly as the `## Constraints` prohibition on destructive git commands has it everywhere else.
+
+## Error states
+
+Two conditions decided here so no caller re-decides them.
 
 ### Detached HEAD
 
-Every caller reads `current=` before it acts on `on_protected=`. An empty `current=` is a detached HEAD: stop and surface it. `on_protected` reads `no` there — nothing matched because there is no branch name to match — and taking that as "already on a feature branch, carry on" is the whole failure, since a commit made on a detached HEAD is reachable from no ref and the next switch strands it even though the tree reports clean.
+An empty `current=` is a detached HEAD: stop and surface it. It costs each caller something different and both are silent. `ship` reads `on_protected=`, which is `no` there — nothing matched, because there is no branch name to match — and taking that as "already on a feature branch, carry on" commits onto a HEAD reachable from no ref, which the next switch strands. `work` reads `integration=`, and the production ladder's last rung is the same `symbolic-ref` that just came back empty, so there is no start point to branch a worktree from.
 
 `git branch --show-current` prints nothing when HEAD is detached, which is why the block uses it over `git rev-parse --abbrev-ref HEAD`; that one prints the literal string `HEAD`, and no caller ever compares a branch name against `HEAD`.
 
@@ -87,10 +110,3 @@ fi
 
 `base_ref` is an immutable commit id and needs no such check; `integration_branch` is a mutable ref name, and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome rather than a corruption. `recorded=stale` means fall through to fresh resolution instead of handing a dead ref to `gh`.
 
-### Switch to the integration branch
-
-```bash
-git switch '<integration branch>'
-```
-
-Run this only after the tree probes clean and `current=` is non-empty. `git switch` never reads its argument as a pathspec, so a repo containing a directory named `dev` still switches branches; `git checkout` is ambiguous there, which is why no branch operation in this pipeline uses it.

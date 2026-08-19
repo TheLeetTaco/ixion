@@ -220,18 +220,40 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 ---
 
-## Phase 5: Compound Learnings
+## Phase 5: Retire the Session Worktree
+
+`work` ran this session in a worktree of its own, and you are standing in it. Its branch is now pushed and under a PR, so the checkout has nothing left in it that is not also somewhere else — which is why this skill owns the removal and `work` does not: the disposal belongs with the step that made the tree disposable.
+
+```bash
+<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
+<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+```
+
+`present=no` — nothing to retire. That is an ad-hoc ship, which resolved no session for the block to derive from, or a session whose tree is already gone. Skip.
+
+A removal git refuses names files the worktree still holds that no commit does. Report them and leave the tree standing; the branch and the PR are already safe, and the uncommitted remainder is the user's to keep or discard.
+
+The branch survives the removal, so a resume command pasted later still names work that exists — it just no longer has a checkout of its own until someone makes one.
+
+This runs before the harvest below rather than after it, because `compound` writes a file into `docs/solutions/` and a file written into a tree that is about to be removed is a file git then refuses to remove the tree over. Retiring first puts the learning in the checkout that outlives the session, and the harvest reads the session directory, which hangs off the repository root and was never in the worktree to begin with.
+
+---
+
+## Phase 6: Compound Learnings
 
 Two sources feed this phase. The conversation holds the debugging story. The session dir holds the *reviewed* record — what the plan got wrong before review caught it, which findings survived scrutiny, which didn't. The session dir is the one that gets skipped, and it's the one that's gitignored, so it's also the only one that disappears. Harvest it first, then hand both to `compound`.
 
-### 5a. Harvest the session record
+### 6a. Harvest the session record
 
 ```bash
 SDIR='<dir= from Phase 0>'
 [ -n "$SDIR" ] && ls "$SDIR"
 ```
 
-An empty `SDIR` prints nothing: skip to 5b with the conversation as the only source, because an ad-hoc ship has no session to distill.
+An empty `SDIR` prints nothing: skip to 6b with the conversation as the only source, because an ad-hoc ship has no session to distill.
 
 Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
 
@@ -244,13 +266,13 @@ Otherwise read the artifacts and extract the durable signal. Each comparison ans
 
 Most sessions yield nothing here, and that's the expected outcome — a plan that survived review intact and a fix pass that changed little is a session with no lesson in it. Distill only what a future reader would change their behavior over.
 
-### 5b. Invoke compound
+### 6b. Invoke compound
 
 ```
 skill: compound
 ```
 
-Hand it both sources: the conversation, and the harvest from 5a stated plainly (what was reshaped, which principle names recurred, what the fix pass undid). `compound` owns the file format, category routing, and sanitization — don't write to `docs/solutions/` directly from here. If neither source yields a non-trivial lesson, compound detects that and skips gracefully.
+Hand it both sources: the conversation, and the harvest from 6a stated plainly (what was reshaped, which principle names recurred, what the fix pass undid). `compound` owns the file format, category routing, and sanitization — don't write to `docs/solutions/` directly from here. If neither source yields a non-trivial lesson, compound detects that and skips gracefully.
 
 **BLOCKING: Do NOT skip this phase.** The value of shipping is not just the code — it's the institutional knowledge captured alongside it. The session dir is gitignored; whatever isn't distilled here is gone when the sandbox is cleaned.
 
@@ -258,7 +280,6 @@ Hand it both sources: the conversation, and the harvest from 5a stated plainly (
 
 ## Edge Cases
 
-- **Shipping from a session worktree** (the CWD is a `git worktree` created by `work` with its own `.ixion/plugin/`): after the PR is created, copy the session dir back so the main checkout holds the final record — `cp -r .ixion/plugin/sessions/<session= from Phase 0> <main-checkout>/.ixion/plugin/sessions/` — before any `git worktree remove`. The worktree's copy was authoritative while work was in flight; the copy-back ends that split. Do the copy-back before Phase 5 so the harvest reads the merged record, and before any `git worktree remove` takes the artifacts with it.
 - **No remote configured**: Inform the user and stop
 - **Branch already has a PR**: Show the existing PR URL, ask if they want to update it. **Why you:** Irreversible. A push onto an open PR re-notifies its reviewers and rewrites what they have already read.
 - **Push fails**: Check if branch exists on remote, suggest force-push only with user confirmation. **Why you:** Irreversible. A force-push discards whatever the remote holds, including commits that were never in this checkout.

@@ -60,6 +60,7 @@ WRITE_BLOCK=$(section "Set session fields")
 RESOLVE_BLOCK=$(section "Resolve the session")
 NAMES_BLOCK=$(section "Does a token name a session?")
 VALIDATE_BLOCK=$(section "Validate the resolved session")
+DERIVE_BLOCK=$(section "Derive the session worktree")
 RESUME_BLOCK=$(section "Resume command")
 
 check_section() {
@@ -72,6 +73,7 @@ check_section "Set session fields" "$WRITE_BLOCK"
 check_section "Resolve the session" "$RESOLVE_BLOCK"
 check_section "Does a token name a session?" "$NAMES_BLOCK"
 check_section "Validate the resolved session" "$VALIDATE_BLOCK"
+check_section "Derive the session worktree" "$DERIVE_BLOCK"
 check_section "Resume command" "$RESUME_BLOCK"
 [ "$fail" = 0 ] || finalize
 
@@ -117,6 +119,10 @@ new_repo() {
 # repo_root <dir> -> repo_root=, as the session-root block resolves it from <dir>.
 repo_root() { field "$(run_block "$1" "$ROOT_BLOCK")" repo_root; }
 
+# checkout_root <dir> -> checkout_root=, the other half of the same block: the
+# root of the one working tree <dir> is inside, which is what carries the pointer.
+checkout_root() { field "$(run_block "$1" "$ROOT_BLOCK")" checkout_root; }
+
 run_block() { ( cd "$1" && printf '%s\n' "$2" | bash ); }
 
 fill() { printf '%s\n' "$1" | sed "s|$2|$3|g"; }
@@ -127,6 +133,7 @@ fill() { printf '%s\n' "$1" | sed "s|$2|$3|g"; }
 # cases, which is the split under test. The default is ${N-...} and not
 # ${N:-...} so a case can hand a block an empty root on purpose.
 fill_root() { fill "$1" '<repo_root= from the session-root block>' "$2"; }
+fill_checkout() { fill "$1" '<checkout_root= from the session-root block>' "$2"; }
 
 field() { printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -1; }
 
@@ -156,6 +163,7 @@ seed_session() {
 resolve() {
   local block
   block=$(fill_root "$RESOLVE_BLOCK" "${4-$1}")
+  block=$(fill_checkout "$block" "${5-$1}")
   [ -n "$2" ] && block=$(fill "$block" '^REMEMBERED=$' "REMEMBERED=$2")
   block=$(fill "$block" '<the session locator the caller extracted from $ARGUMENTS, or empty>' "$3")
   run_block "$1" "$block"
@@ -172,6 +180,7 @@ names_session() {
 validate() {
   local block
   block=$(fill_root "$VALIDATE_BLOCK" "${4-$1}")
+  block=$(fill_checkout "$block" "${5-$1}")
   block=$(fill "$block" '<session= from the resolution block>' "$2")
   block=$(fill "$block" '<via= from the resolution block>' "$3")
   run_block "$1" "$block"
@@ -192,6 +201,13 @@ set_fields() {
   block=$(fill "$WRITE_BLOCK" '<the JSON file to update>' "$2")
   block=$(fill "$block" "<field> '<JSON value>'" "$3")
   run_block "$1" "$block"
+}
+
+# derive <cwd> <session-id> [repo root]
+derive() {
+  local block
+  block=$(fill_root "$DERIVE_BLOCK" "${3-$1}")
+  run_block "$1" "$(fill "$block" '<session= from the resolution block>' "$2")"
 }
 
 # resume <cwd> <skills> <session-id> [repo root]
@@ -228,10 +244,25 @@ else
   expect "session root, from a nested subdirectory of a worktree: still the main checkout's root" \
     "$(repo_root "$wt/nested")" "$mroot"
 
+  # The other half of the same block. The sessions tree is shared, so repo_root
+  # is one answer everywhere; the pointer is per-checkout, so checkout_root has
+  # to differ between the trees and hold steady at any depth inside each.
+  wt_top=$(cd "$wt" && pwd)
+  expect "checkout root, from the repository root: its own path" \
+    "$(checkout_root "$main")" "$mroot"
+  expect "checkout root, from a nested subdirectory: still the checkout it is in" \
+    "$(checkout_root "$main/nested/deeper")" "$mroot"
+  expect "checkout root, from a linked worktree: that worktree, not the main checkout" \
+    "$(checkout_root "$wt")" "$wt_top"
+  expect "checkout root, from a nested subdirectory of a worktree: still that worktree" \
+    "$(checkout_root "$wt/nested")" "$wt_top"
+
   outside="$WORK/outside"
   mkdir -p "$outside"
   expect "outside any repository: an empty root, not the / an unguarded absolutization yields" \
     "$(repo_root "$outside")" ""
+  expect "outside any repository: an empty checkout root too" \
+    "$(checkout_root "$outside")" ""
 
   # Every block that builds a path from the root refuses an empty one first.
   # The fixture holds a real session because that is the only tree where the
@@ -239,7 +270,7 @@ else
   # absent anyway, and the whole failure is that it probes one that is present.
   root=$(new_root emptyroot)
   claim "$root" feata-2026-08-01 >/dev/null
-  for name in CLAIM RESOLVE NAMES VALIDATE RESUME; do
+  for name in CLAIM RESOLVE NAMES VALIDATE DERIVE RESUME; do
     eval "block=\$${name}_BLOCK"
     out=$(run_block "$root" "$(fill_root "$block" "")" 2>&1)
     if [ "$?" = 0 ]; then
@@ -493,6 +524,64 @@ else
     "$(field "$(resolve "$wta" "" "" "$mroot")" session)" "$ida"
   expect "bare resolution in the other worktree: its own pointer, untouched by the first" \
     "$(field "$(resolve "$wtb" "" "" "$mroot")" session)" "$idb"
+
+  # Under unconditional worktrees a skill is ordinarily invoked from somewhere
+  # inside one rather than at its root, and a pointer addressed relative to the
+  # current directory is simply absent there.
+  mkdir -p "$wta/nested/deeper" "$wtb/nested"
+  expect "bare resolution from a nested subdirectory: its own worktree's pointer" \
+    "$(field "$(resolve "$wta/nested/deeper" "" "" "$mroot" "$(checkout_root "$wta")")" session)" "$ida"
+  expect "bare resolution from a nested subdirectory: reported as a pointer resolution, not via=none" \
+    "$(field "$(resolve "$wta/nested/deeper" "" "" "$mroot" "$(checkout_root "$wta")")" via)" pointer
+  rm "$wtb/.ixion/plugin/active.json"
+  expect "bare resolution from a nested subdirectory: still cannot see the other worktree's pointer" \
+    "$(field "$(resolve "$wtb/nested" "" "" "$mroot" "$(checkout_root "$wtb")")" via)" none
+fi
+
+# --- the worktree path every read site derives rather than reads -------------
+
+if [ -z "$GIT" ]; then
+  echo "SKIPPED: the worktree derivation is anchored on a git-resolved root, and git is not on PATH"
+else
+  # work, work-review and ship each paste this block and none of them records
+  # what it printed, so the property under test is that one session id yields
+  # one path from every checkout it can be asked from.
+  id=add-timeout-flag-2026-04-23
+  main=$(new_repo derived)
+  mroot=$(repo_root "$main")
+  expected="$(cd "$mroot/.." && pwd)/${mroot##*/}-add-timeout-flag"
+
+  out=$(derive "$main" "$id" "$mroot")
+  expect "derive: the branch name is the slug the session id carries" \
+    "$(field "$out" slug)" add-timeout-flag
+  expect "derive: the path is the slug beside the repository root" \
+    "$(field "$out" worktree)" "$expected"
+  expect "derive: a worktree that was never created is reported absent, not handed back as usable" \
+    "$(field "$out" present)" no
+
+  wt="$WORK/derived-add-timeout-flag"
+  git -C "$main" worktree add -q "$wt" -b add-timeout-flag
+  mkdir -p "$wt/nested"
+  expect "derive: an existing worktree is reported present" \
+    "$(field "$(derive "$main" "$id" "$mroot")" present)" yes
+  expect "derive: git reports the same path back for it" \
+    "$(cd "$(git -C "$main" worktree list --porcelain | sed -n "s|^worktree ||p" | grep "add-timeout-flag$")" && pwd)" \
+    "$expected"
+
+  # Every read site is a different checkout at a different depth, and the path
+  # is a function of the id alone, so all of them have to agree.
+  expect "derive: from inside the session's own worktree, the same path" \
+    "$(field "$(derive "$wt" "$id" "$(repo_root "$wt")")" worktree)" "$expected"
+  expect "derive: from a nested subdirectory, the same path" \
+    "$(field "$(derive "$wt/nested" "$id" "$(repo_root "$wt/nested")")" worktree)" "$expected"
+
+  expect "derive: a -2 collision id shares its base's worktree" \
+    "$(field "$(derive "$main" "$id-2" "$mroot")" worktree)" "$expected"
+
+  # ship reaches this with nothing resolved on an ad-hoc ship. Deriving there
+  # would probe <parent>/<repo>- and answer for a directory nobody named.
+  expect "derive: no session resolved, so no path is built from an empty id" \
+    "$(derive "$main" "" "$mroot")" "present=no"
 fi
 
 # --- the resume command every closing block prints ---------------------------

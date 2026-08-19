@@ -32,17 +32,17 @@ section() {
 }
 
 ROLES_BLOCK=$(section "Resolve the branch roles")
-TREE_BLOCK=$(section "Probe the working tree")
 RECORDED_BLOCK=$(section "Verify a recorded integration branch")
-SWITCH_BLOCK=$(section "Switch to the integration branch")
+CREATE_BLOCK=$(section "Create or reuse the session worktree")
+REMOVE_BLOCK=$(section "Remove the session worktree")
 
 check_section() {
   [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
 }
 check_section "Resolve the branch roles" "$ROLES_BLOCK"
-check_section "Probe the working tree" "$TREE_BLOCK"
 check_section "Verify a recorded integration branch" "$RECORDED_BLOCK"
-check_section "Switch to the integration branch" "$SWITCH_BLOCK"
+check_section "Create or reuse the session worktree" "$CREATE_BLOCK"
+check_section "Remove the session worktree" "$REMOVE_BLOCK"
 [ "$fail" = 0 ] || finalize
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-branch-XXXXXX")
@@ -136,31 +136,6 @@ expect "remote-tracking origin/develop, no local develop: integration resolves t
 
 # --- t4: error states -------------------------------------------------------
 
-repo=$(new_repo clean-tree main)
-out=$(run_block "$repo" "$TREE_BLOCK")
-expect "committed tree with nothing pending: reported clean" "$(field "$out" tree)" clean
-
-repo=$(new_repo untracked-tree main)
-echo scratch > "$repo/scratch.txt"
-out=$(run_block "$repo" "$TREE_BLOCK")
-expect "untracked file only: reported dirty" "$(field "$out" tree)" dirty
-
-repo=$(new_repo staged-tree main)
-echo more >> "$repo/seed.txt"
-git -C "$repo" add seed.txt
-out=$(run_block "$repo" "$TREE_BLOCK")
-expect "staged but uncommitted change: reported dirty" "$(field "$out" tree)" dirty
-
-repo=$(new_repo ixion-state-tree main)
-mkdir -p "$repo/.ixion/plugin/sessions/s"
-echo '{}' > "$repo/.ixion/plugin/sessions/s/progress.json"
-out=$(run_block "$repo" "$TREE_BLOCK")
-expect "only Ixion's own session state untracked: reported clean" "$(field "$out" tree)" clean
-
-echo scratch > "$repo/scratch.txt"
-out=$(run_block "$repo" "$TREE_BLOCK")
-expect "Ixion session state alongside a user file: still reported dirty" "$(field "$out" tree)" dirty
-
 repo=$(new_repo recorded-live main)
 git -C "$repo" branch develop
 out=$(run_block "$repo" "$(fill "$RECORDED_BLOCK" '<integration_branch recorded in session.json>' develop)")
@@ -174,30 +149,115 @@ git -C "$repo" branch -q -D develop
 out=$(run_block "$repo" "$(fill "$RECORDED_BLOCK" '<integration_branch recorded in session.json>' develop)")
 expect "recorded branch deleted since work ran: stale, so resolution reruns" "$(field "$out" recorded)" stale
 
-repo=$(new_repo branch-dir-collision main)
-mkdir "$repo/dev"
-echo doc > "$repo/dev/notes.md"
-git -C "$repo" add dev/notes.md
-git -C "$repo" commit -qm "add dev directory"
-git -C "$repo" branch dev
-run_block "$repo" "$(fill "$SWITCH_BLOCK" '<integration branch>' dev)" >/dev/null 2>&1
-expect "branch name colliding with a directory: switches branches, not paths" \
-  "$(git -C "$repo" branch --show-current)" dev
+# --- t1/t3: the always-worktree topology ------------------------------------
 
-# The same name as a path but no such branch — where `git checkout` would
-# silently restore the path over the user's edit and `git switch` refuses.
-repo=$(new_repo stale-name-collision main)
-mkdir "$repo/dev"
-echo committed > "$repo/dev/notes.md"
-git -C "$repo" add dev/notes.md
-git -C "$repo" commit -qm "add dev directory"
-echo edited > "$repo/dev/notes.md"
-if run_block "$repo" "$(fill "$SWITCH_BLOCK" '<integration branch>' dev)" >/dev/null 2>&1; then
-  note_fail "deleted integration branch matching a path: switch succeeded instead of refusing"
-else
-  note_pass "deleted integration branch matching a path: switch refuses"
-fi
-expect "deleted integration branch matching a path: the uncommitted edit survives" \
-  "$(cat "$repo/dev/notes.md")" edited
+# create <repo> <slug> <worktree path> <integration> -> the block's output.
+create_worktree() {
+  local block
+  block=$(fill "$CREATE_BLOCK" '<slug= from the "Derive the session worktree" block>' "$2")
+  block=$(fill "$block" '<worktree= from that same block>' "$3")
+  block=$(fill "$block" '<integration= from the branch-roles block>' "$4")
+  run_block "$1" "$block" 2>&1
+}
+
+# remove_worktree <cwd> <repo root> <worktree path> -> the block's output.
+remove_worktree() {
+  local block
+  block=$(fill "$REMOVE_BLOCK" '<repo_root= from the session-root block>' "$2")
+  block=$(fill "$block" '<worktree= from the "Derive the session worktree" block>' "$3")
+  run_block "$1" "$block" 2>&1
+}
+
+repo=$(new_repo two-branch main)
+git -C "$repo" branch dev
+git -C "$repo" commit -q --allow-empty -m "dev moves ahead"
+git -C "$repo" branch -f dev HEAD
+git -C "$repo" switch -q main
+integration=$(field "$(run_block "$repo" "$ROLES_BLOCK")" integration)
+wt="$WORK/two-branch-feata"
+out=$(create_worktree "$repo" feata "$wt" "$integration")
+expect "session started on production: the worktree holds the session branch" \
+  "$(field "$out" branch)" feata
+expect "session started on production: the branch is cut from integration, not production" \
+  "$(git -C "$wt" rev-parse HEAD)" "$(git -C "$repo" rev-parse dev)"
+expect "the created worktree is the derived path git reports back" \
+  "$(git -C "$repo" worktree list --porcelain | sed -n "s|^worktree ||p" | grep -c "feata$")" 1
+
+# Reuse is the same printed answer, which is what makes a resumed session and a
+# concurrent claim one path instead of two.
+out=$(create_worktree "$repo" feata "$wt" "$integration")
+expect "resumed session: the second create reports the same branch rather than failing" \
+  "$(field "$out" branch)" feata
+expect "resumed session: still exactly one worktree for the slug" \
+  "$(git -C "$repo" worktree list --porcelain | sed -n "s|^worktree ||p" | grep -c "feata$")" 1
+
+# A second session claims its own slug: two trees, two branches, one repo.
+wtb="$WORK/two-branch-featb"
+out=$(create_worktree "$repo" featb "$wtb" "$integration")
+expect "second concurrent session: its own branch in its own worktree" \
+  "$(field "$out" branch)" featb
+expect "second concurrent session: branched from integration too" \
+  "$(git -C "$wtb" rev-parse HEAD)" "$(git -C "$repo" rev-parse dev)"
+expect "second concurrent session: the first worktree is undisturbed" \
+  "$(git -C "$wt" branch --show-current)" feata
+
+# Nothing is copied: the sessions tree stays in the checkout that shares the
+# common dir, and neither worktree carries a second copy of it.
+mkdir -p "$repo/.ixion/plugin/sessions/feata-2026-08-01"
+expect "no session directory is copied into the first worktree" \
+  "$(ls -d "$wt/.ixion" 2>/dev/null)" ""
+expect "no session directory is copied into the second worktree" \
+  "$(ls -d "$wtb/.ixion" 2>/dev/null)" ""
+
+# Nothing switches branches in the invoking checkout, so its state is its own.
+expect "the invoking checkout is left on the branch it was on" \
+  "$(git -C "$repo" branch --show-current)" main
+
+repo=$(new_repo dirty-start main)
+git -C "$repo" branch dev
+echo "in flight" >> "$repo/seed.txt"
+integration=$(field "$(run_block "$repo" "$ROLES_BLOCK")" integration)
+wt="$WORK/dirty-start-feata"
+out=$(create_worktree "$repo" feata "$wt" "$integration")
+expect "dirty invoking checkout: the session starts anyway" "$(field "$out" branch)" feata
+expect "dirty invoking checkout: the uncommitted work is still there" \
+  "$(tail -1 "$repo/seed.txt")" "in flight"
+
+repo=$(new_repo single-branch main)
+integration=$(field "$(run_block "$repo" "$ROLES_BLOCK")" integration)
+wt="$WORK/single-branch-feata"
+out=$(create_worktree "$repo" feata "$wt" "$integration")
+expect "no integration branch distinct from production: branches from production" \
+  "$(git -C "$wt" rev-parse HEAD)" "$(git -C "$repo" rev-parse main)"
+expect "no integration branch distinct from production: the branch it named is the one it used" \
+  "$integration" main
+
+# git permits a branch in one worktree at a time, which is the collision the
+# create block reads as its answer. A second path for a branch already checked
+# out cannot be made, and the block says so rather than reporting a reuse.
+out=$(create_worktree "$repo" feata "$WORK/single-branch-feata-again" "$integration")
+expect "same branch demanded at a second path: reported absent, not reused" \
+  "$(field "$out" branch)" absent
+
+# --- t3: removal, which ship owns -------------------------------------------
+
+repo=$(new_repo teardown main)
+wt="$WORK/teardown-feata"
+create_worktree "$repo" feata "$wt" main >/dev/null
+out=$(remove_worktree "$wt" "$repo" "$wt")
+expect "removal issued from inside the worktree: it succeeds anyway" \
+  "$(field "$out" removed)" "$wt"
+expect "removal issued from inside the worktree: the directory is gone" \
+  "$(ls -d "$wt" 2>/dev/null)" ""
+expect "removal leaves the session branch behind" \
+  "$(git -C "$repo" branch --list feata)" "  feata"
+
+wt="$WORK/teardown-featb"
+create_worktree "$repo" featb "$wt" main >/dev/null
+echo scratch > "$wt/scratch.txt"
+out=$(remove_worktree "$wt" "$repo" "$wt")
+expect "worktree holding uncommitted work: removal refuses" "$(field "$out" removed)" ""
+expect "worktree holding uncommitted work: the tree and the file survive" \
+  "$(cat "$wt/scratch.txt" 2>/dev/null)" scratch
 
 finalize

@@ -23,12 +23,14 @@ Callers cite several sections apiece; read this file once per invocation and hol
   spec.json.pre-consolidation  # plan-consolidation writes before refinement
   review.findings.json         # plan-review and work-review write here (consumed by next skill)
   progress.json                # work checkpoint state
-.ixion/plugin/active.json      # per-checkout; { "schema_version": 1, "session_id": "<session-id>" }
+<checkout root>/.ixion/plugin/active.json   # { "schema_version": 1, "session_id": "<session-id>" }
 ```
 
 The `plugin/` infix exists so plugin sessions coexist with TUI sessions (`.ixion/sessions/`) in the same repo without collision.
 
-The two paths are anchored differently on purpose. `<repo root>` is the repository's shared root — the block below resolves it, and the main checkout and every linked worktree of it resolve the same one — so a session claimed in one checkout is the same session read in another, and there is one record of it rather than one per tree. `active.json` is written relative to the checkout the skill is running in, so each one has its own. Sharing it would put two parallel sessions on one pointer, each retargeting the other's bare `/ixion:work` — the exact collision worktrees are used to avoid. The sessions tree is the record; the pointer is a per-terminal convenience default, and a default only means anything when it is the terminal's own.
+The two paths are anchored differently on purpose, and the block below resolves both roots in one go. `<repo root>` is the repository's shared root — the main checkout and every linked worktree of it resolve the same one — so a session claimed in one checkout is the same session read in another, and there is one record of it rather than one per tree. `<checkout root>` is the root of the one working tree the skill is running in, so each worktree has its own `active.json`. Sharing it would put two parallel sessions on one pointer, each retargeting the other's bare `/ixion:work` — the exact collision worktrees are used to avoid. The sessions tree is the record; the pointer is a per-terminal convenience default, and a default only means anything when it is the terminal's own.
+
+Both are roots rather than relative paths for the same reason: a skill is invoked from wherever the user happens to be standing, and `work` now gives every session a worktree, so a nested subdirectory is the ordinary case rather than the corner one. A pointer addressed as `.ixion/plugin/active.json` from two directories down is simply absent, and a bare `/ixion:work` in a checkout that has a perfectly good pointer reports that there is no active session.
 
 `active.json` has exactly one writer: plan-creation, which writes it after it creates the session directory. Resolution never writes it — see "Resolve the session" below for why.
 
@@ -37,16 +39,20 @@ The two paths are anchored differently on purpose. `<repo root>` is the reposito
 ```bash
 REPO_ROOT=
 COMMON=$(git rev-parse --git-common-dir 2>/dev/null) && REPO_ROOT=$(cd "$COMMON/.." && pwd)
-printf 'repo_root=%s\n' "$REPO_ROOT"
+CHECKOUT_ROOT=
+TOP=$(git rev-parse --show-toplevel 2>/dev/null) && CHECKOUT_ROOT=$(cd "$TOP" && pwd)
+printf 'repo_root=%s\ncheckout_root=%s\n' "$REPO_ROOT" "$CHECKOUT_ROOT"
 ```
 
-A skill issues this before anything else that touches session state, and every block below is pasted with `REPO_ROOT` bound to what it printed.
+A skill issues this before anything else that touches session state, and every block below is pasted with `REPO_ROOT` and `CHECKOUT_ROOT` bound to what it printed.
 
-`--git-common-dir` is the one git question whose answer is shared across checkouts: a linked worktree's own `--git-dir` is private to that worktree, the common dir is the one they all point at. Its parent is the repository root the sessions tree hangs off, whichever checkout the skill was invoked from.
+Two values, two scopes, one block. `--git-common-dir` is the one git question whose answer is shared across checkouts: a linked worktree's own `--git-dir` is private to that worktree, the common dir is the one they all point at. Its parent is the repository root the sessions tree hangs off, whichever checkout the skill was invoked from. `--show-toplevel` is its exact counterpart — the root of the single working tree the caller is standing in, answered the same from any depth within it — and that is where the per-checkout `active.json` lives. Resolving them together is what makes the split legible: one call, one printed pair, and no caller left deciding which anchor a given artifact takes.
 
-It answers *relative* from a subdirectory — `../../.git` from `ixion/skills` where the repo root answers `.git` — so the `cd … && pwd` is not decoration. Without it, two callers standing at different depths hold two different strings for one directory, and the single-root premise fails one level down.
+The common dir answers *relative* from a subdirectory — `../../.git` from `ixion/skills` where the repo root answers `.git` — so the `cd … && pwd` is not decoration. Without it, two callers standing at different depths hold two different strings for one directory, and the single-root premise fails one level down. `--show-toplevel` answers absolute already, and goes through the same `cd … && pwd` for the other half of that reason: git reports it in the host's native spelling, so on Windows the shell that resolved `C:/Users/you/repo` here is comparing it against the `/c/Users/you/repo` the common dir yielded. Two spellings of one directory is the failure this treatment exists to prevent, whichever way it arises.
 
-Outside a repository `git rev-parse` fails and `REPO_ROOT` stays empty, which is the `repo_root=` error state below. The absolutization hangs off the `&&` rather than running on its own line because `cd "/.." && pwd` succeeds and yields `/`: run unconditionally, it would turn "no repository" into a plausible-looking root that every path built from it accepts.
+Outside a repository `git rev-parse` fails and both stay empty, which is the `repo_root=` error state below. The absolutization hangs off the `&&` rather than running on its own line because `cd "/.." && pwd` succeeds and yields `/`: run unconditionally, it would turn "no repository" into a plausible-looking root that every path built from it accepts.
+
+`CHECKOUT_ROOT` alone can be empty where `REPO_ROOT` is not — inside `.git/`, or in a bare repository. That case gets no error state of its own: the checkout root's only consumer is the pointer, the pointer is a convenience default for bare invocations, and a checkout with no working tree has no default to offer. The blocks below leave `POINTER` unset there and resolution falls through to `via=none`, which is already the message for "nothing named a session."
 
 A block that builds a path from the root refuses an empty root first, before the path exists to be probed — `"$REPO_ROOT/.ixion/plugin/sessions"` with an empty root is `/.ixion/plugin/sessions`, and `docs/solutions/mistakes/empty-id-makes-a-path-probe-answer-present-System-20260806.md` is four instances of what happens when the guard tests the path instead of the variable.
 
@@ -101,7 +107,7 @@ The write is atomic in the same sense the filter-into-a-temp-then-rename shape i
 
 Both blocks are cited rather than restated. Nine call sites across `work`, `work-review` and `ship` were each authoring their own copy of these two operations, which is how the plugin ended up with two spellings of the same read and a temp-file convention nobody could point at. One home means the interpreter probe, the `null` spelling and the temp path are decided once.
 
-The two blocks below this one are the exception: they carry the read inline rather than citing it. A caller pastes each of them as a single self-contained unit, and a citation nested inside a pasted block would make every caller's paste two levels deep and interleave the inner block's own printed line into the outer block's `session=` / `state=` output, which is the whole of what the next call reads.
+The blocks below this one are the exception: they carry the read inline rather than citing it, and the resume block carries the worktree derivation the same way. A caller pastes each of them as a single self-contained unit, and a citation nested inside a pasted block would make every caller's paste two levels deep and interleave the inner block's own printed line into the outer block's `session=` / `state=` / `cd` output, which is the whole of what the next call reads.
 
 ## Resolve the session
 
@@ -111,7 +117,9 @@ Precedence, highest first: a session id this conversation already established, a
 REPO_ROOT='<repo_root= from the session-root block>'
 [ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
-POINTER=.ixion/plugin/active.json
+CHECKOUT_ROOT='<checkout_root= from the session-root block>'
+POINTER=
+[ -n "$CHECKOUT_ROOT" ] && POINTER="$CHECKOUT_ROOT/.ixion/plugin/active.json"
 REMEMBERED=
 LOCATOR='<the session locator the caller extracted from $ARGUMENTS, or empty>'
 SESSION_ID=
@@ -139,6 +147,8 @@ printf 'session=%s\nvia=%s\n' "$SESSION_ID" "$VIA"
 `REMEMBERED` therefore ships empty rather than as a fill-in placeholder, and a caller binds it only when it genuinely holds an id. It is the highest rung, so an unsubstituted placeholder there would be a non-empty string that outranks the id the user actually typed, resolving the session to the placeholder text itself — a wrong answer that reads like a right one. Empty is the state every caller is in unless it says otherwise, so the safe case needs no action and only the rare one does.
 
 The exact-match rung is what makes a full session id mean the session it names. Without it, a locator that is a *prefix of its own collision sibling* resolves to the sibling: with `feat-foo-2026-08-06` and `feat-foo-2026-08-06-2` both on disk, `-name "feat-foo-2026-08-06-*"` matches only the `-2` directory, so passing the base id silently lands on the wrong session — and passing it in a repo with no sibling matches nothing at all. The scan stays underneath it, because a bare slug (`feata`) matches no directory and must still resolve to the most recent dated session sharing it. The ISO-date suffix sorts lexically, so `sort -r | head -1` is the most-recent tiebreak. When the scan matches nothing, `SESSION_ID` falls back to the raw locator, because `${MATCH##*/}` of an empty match is empty and the `Session <session-id> not found.` message would have nothing to name. `via=` stays `prefix` through that fallback: the error table keys on `state=`, and the only branch that reads `via=` at all asks whether it is `pointer`. The scan discards `find`'s stderr for the same reason the token probe below does: until a repo's first session is claimed there is no sessions directory, and a `No such file or directory` line printed at the user while resolution falls back correctly reads as a fault in the tool.
+
+`POINTER` is built from the checkout root rather than from the current directory, so a bare `/ixion:work` two levels down inside a session worktree finds that worktree's pointer and still cannot see its neighbour's. It is left unset where there is no working tree, which sends the last rung to `via=none` without ever forming `/.ixion/plugin/active.json` — a path an unguarded build would then probe, which is the shape `docs/solutions/mistakes/empty-id-makes-a-path-probe-answer-present-System-20260806.md` records four times.
 
 `LOCATOR` is a token the caller supplies, not `$ARGUMENTS` itself. Most callers take the whole argument string; `ship` also carries a commit-message hint in `$ARGUMENTS` and passes only the leading token.
 
@@ -187,12 +197,14 @@ Commands named in these messages are spelled the way the installer for this tree
 REPO_ROOT='<repo_root= from the session-root block>'
 [ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
-POINTER=.ixion/plugin/active.json
+CHECKOUT_ROOT='<checkout_root= from the session-root block>'
+POINTER=
+[ -n "$CHECKOUT_ROOT" ] && POINTER="$CHECKOUT_ROOT/.ixion/plugin/active.json"
 SESSION_ID='<session= from the resolution block>'
 VIA='<via= from the resolution block>'
 SDIR="$SESSIONS/$SESSION_ID"
 
-[ "$VIA" = pointer ] && { [ -z "$SESSION_ID" ] || [ ! -d "$SDIR" ]; } && rm -f "$POINTER"
+[ -n "$POINTER" ] && [ "$VIA" = pointer ] && { [ -z "$SESSION_ID" ] || [ ! -d "$SDIR" ]; } && rm -f "$POINTER"
 
 if [ -z "$SESSION_ID" ]; then
   printf 'via=none\n'
@@ -214,9 +226,35 @@ fi
 
 The empty-id rung is first because callers paste this block straight after the resolution block with nothing in between, and every caller does. Without it, `$SDIR` is the sessions directory itself: the directory exists, so the lookup runs against `<sessions>/session.json`, and the most ordinary first-contact state there is — a repo with no session and no pointer — surfaces as `Unsupported schema version .` instead of the message written for it. Re-printing `via=none` keys the same table row the resolution block's own `via=none` keys, so the two routes to "nothing resolved" land on one message: the second route is an `active.json` too corrupt to parse, which leaves `SESSION_ID` empty at `via=pointer` and which a caller-side `via=none` guard would not have caught.
 
-The stale pointer is cleared above the rungs rather than inside one, because both reports can be the pointer's fault and the two would otherwise differ only in whether they clear it: `state=missing` when the id it named has no directory, `via=none` when it was too corrupt to yield an id at all. Neither of those is reachable from the other's branch, so a single guarded statement covers both and each rung is left doing nothing but reporting. The scoping to `via=pointer` is the same in both cases: an id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it.
+The stale pointer is cleared above the rungs rather than inside one, because both reports can be the pointer's fault and the two would otherwise differ only in whether they clear it: `state=missing` when the id it named has no directory, `via=none` when it was too corrupt to yield an id at all. Neither of those is reachable from the other's branch, so a single guarded statement covers both and each rung is left doing nothing but reporting. The scoping to `via=pointer` is the same in both cases: an id the user typed, or one this conversation remembers, says nothing about whether `active.json` is still good, and deleting it there would break the *other* session that is using it. The leading `[ -n "$POINTER" ]` is the same guard the resolution block puts on the same variable, kept here because this is the one line that would otherwise act on a path built from an empty root.
 
 `state=complete` is the rung that keeps a resume command from re-entering a finished pipeline. `status` reaches `completed` when the session ships; resuming past that point re-runs verification against merged work and re-offers "Ship it" on a branch that no longer needs it, which reads as a bug in the tool rather than a finished session. `active` and `paused` both continue normally.
+
+## Derive the session worktree
+
+`work` gives every session a worktree of its own, named for the session's slug beside the repository root. The path is a pure function of `session_id`, so it is derived wherever it is needed and recorded nowhere.
+
+```bash
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+SESSION_ID='<session= from the resolution block>'
+[ -n "$SESSION_ID" ] || { printf 'present=no\n'; exit 0; }
+SLUG=$(printf '%s' "$SESSION_ID" | sed 's/-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\(-[0-9][0-9]*\)\{0,1\}$//')
+WORKTREE="$(cd "$REPO_ROOT/.." && pwd)/${REPO_ROOT##*/}-$SLUG"
+PRESENT=no
+[ -d "$WORKTREE" ] && PRESENT=yes
+printf 'slug=%s\nworktree=%s\npresent=%s\n' "$SLUG" "$WORKTREE" "$PRESENT"
+```
+
+`slug=` is also the session branch's name, so `work` creates the branch and the directory from one derivation and `git worktree list --porcelain` reports the same path back.
+
+Storing the path instead would put a second representation of one deterministic value in `session.json`, and every reader would then need a staleness branch and a fallback order — machinery whose entire job is reconciling the copy with the source it was copied from. The concurrent case a record would have settled is settled better by git: two invocations racing to create one session's worktree collide on the branch name, and the loser reuses what the winner made.
+
+The parent is absolutized rather than the worktree itself, because the parent always exists and the worktree does not yet on the invocation that creates it. That keeps `worktree=` a single clean absolute path in both states, with `present=` carrying the existence answer instead of an empty string overloading it. A read site that finds `present=no` reports the path it expected rather than working against whatever checkout it is standing in.
+
+Stripping the date takes the `-2` tiebreak with it: collision siblings share a slug, so they share a worktree.
+
+An empty `SESSION_ID` reports `present=no` and stops there rather than deriving `<parent>/<repo>-` and probing it. `ship` is the caller that reaches this with nothing resolved — an ad-hoc ship has no session and so no worktree — and a path built from an empty id is the shape `docs/solutions/mistakes/empty-id-makes-a-path-probe-answer-present-System-20260806.md` records answering "present" for a directory nobody named.
 
 ## Resume command
 
