@@ -32,26 +32,26 @@ The review target is provided via `$ARGUMENTS`. Can be:
 
 ### Resolve the session
 
-Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
 
 `$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk — under the repository root, which the block above resolves once for every session path this skill builds:
 
 ```bash
-<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
+<paste the "Does a token name a session?" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
 ```
 
 `names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a branch this repo has no session for.
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
@@ -76,7 +76,7 @@ printf 'target=%s\nkind=%s\n' "$TARGET" "$KIND"
 A session under review has its own worktree — `work` gives every session one — and its branch is checked out there and nowhere else. Derive that path rather than reviewing whatever the invoking checkout happens to hold:
 
 ```bash
-<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Derive the session worktree" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 `present=yes` — `cd` into `worktree=` and run the rest of this skill from there, so the diff below and the reviewers' file reads see the session's own tree.
@@ -87,7 +87,7 @@ This applies when the review target is the resolved session's own work, which is
 
 ### Discover project context
 
-Run the "Project context discovery" step from `ixion/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
+Run the "Project context discovery" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
 
 ---
 
@@ -105,7 +105,7 @@ Read the active session's `spec.json` before composing the dispatch. Extract `sp
 **Standard reviewer prompt shape:**
 
 ```
-<paste the "Dispatch preamble" from ixion/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
+<paste the "Dispatch preamble" from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
 
 Review this change.
 
@@ -134,11 +134,11 @@ Do NOT write to any files. The synthesizer owns all file writes.
 Determine the diff size before dispatching:
 
 ```bash
-<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+<paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
 ```bash
-<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
+<paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
 BASE_REF=$VALUE
 [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
@@ -172,15 +172,15 @@ The synthesizer reads each reviewer's prose output and structures it into `ixion
 
 ### 2.1 Read each reviewer's prose output
 
-Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Read each reviewer's prose output" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
+Run the "Validate the location tier" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Semantic dedup" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Drift arbitration (files outside spec scope)
 
@@ -210,7 +210,7 @@ The synthesizer applies this judgment once at merge time.
 
 ### 2.3b Tag contradictions with the verbatim prompt; scale findings to the change's actual surface
 
-Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
 
 ### 2.3c Empirical gate on runtime claims
 
@@ -289,7 +289,7 @@ The "Top findings" list shows 3-5 highest-severity finding titles, ordered by se
 
 ### Next-step prompt
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
 ```
 What's next?
@@ -304,7 +304,7 @@ If a finding this round repeats one from a previous review of the same codebase,
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work ship'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work ship'>
 ```
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.

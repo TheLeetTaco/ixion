@@ -26,9 +26,9 @@ Project-context docs are paths for the same reason, plus one of their own — re
 Before assessing your domain, read the reference sections and the project context paths listed below. The elegance lens applies to every domain — don't defer to reviewer-elegance.
 
 ## Reference sections to read first
-- the "Elegance Dispatch Bar" section of `ixion/skills/ixion-conventions/references/elegance.md`
-- the "Anti-Pattern Catalog" section of `ixion/skills/ixion-conventions/references/elegance.md`
-- the "Finding Quality: Lead with the Failure" section of `ixion/skills/ixion-conventions/SKILL.md`
+- the "Elegance Dispatch Bar" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`
+- the "Anti-Pattern Catalog" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`
+- the "Finding Quality: Lead with the Failure" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/SKILL.md`
 
 If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
 

@@ -63,4 +63,4 @@ When evaluating language-specific patterns, load the `language-standards` skill.
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, or an architectural canonical like "Layering Violation", "Bidirectional Coupling".
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, or an architectural canonical like "Layering Violation", "Bidirectional Coupling".

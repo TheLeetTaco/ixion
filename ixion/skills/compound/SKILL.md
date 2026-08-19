@@ -26,7 +26,7 @@ Document solved problems to build searchable institutional knowledge.
 
 **Organization:** Single-file per problem in category directory (e.g., `docs/solutions/performance-issues/n-plus-one-query.md`).
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 ---
 

@@ -122,7 +122,7 @@ Do NOT flag:
 
 ## Anti-Pattern Catalog
 
-The canonical catalog lives at `ixion/skills/ixion-conventions/references/elegance.md`. Use those names when leading the Failure paragraph in findings — naming makes findings actionable and consistent, and plan-consolidation routes structural failures to redesign by these names.
+The canonical catalog lives at `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`. Use those names when leading the Failure paragraph in findings — naming makes findings actionable and consistent, and plan-consolidation routes structural failures to redesign by these names.
 
 Before reviewing, load the `language-standards` skill. Focus on the Ownership & API Design, Type-Driven Design, and Idiomatic Patterns sections — they name where the six universal principles land in this language, and each bolded entry there (**Clone to Satisfy Borrowck** for a `.clone()` that only silences the borrow checker, **Shallow Wrapper** for a newtype carrying no invariant) is a catalog name you lead the Failure with.
 
@@ -154,6 +154,6 @@ When referencing locations: plan identifiers ("Phase 2", "Step 3.1") for plans, 
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape.
 
-Your findings are always principle violations — that's your domain. Pick the principle name from the Anti-Pattern Catalog or Universal Principles in `ixion/skills/ixion-conventions/references/elegance.md`. Plan-consolidation routes structural failures by this leading name.
+Your findings are always principle violations — that's your domain. Pick the principle name from the Anti-Pattern Catalog or Universal Principles in `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`. Plan-consolidation routes structural failures by this leading name.

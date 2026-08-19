@@ -25,7 +25,7 @@ Research the codebase, validate technical claims, and emit a work-ready `spec.js
 
 ## Input
 
-Feature description via `$ARGUMENTS`. If empty, ask user. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+Feature description via `$ARGUMENTS`. If empty, ask user. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
 **Why you:** Missing fact. The repo can tell me what exists, but not what you want built next or what would make it done — and a spec is nothing without both.
 
@@ -50,7 +50,7 @@ If relevant knowledge found, use it as starting point for Phase 1. Fold key refe
 
 **BLOCKING:** Do NOT use Read/Grep/Glob for TARGET CODEBASE research — dispatch locator Tasks first, then feed results to analyzer Tasks. Skill references, plan artifacts, and template files are exempt.
 
-Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel. Read `ixion/skills/ixion-conventions/references/research-workflow.md` for locator templates, the consolidation rule, and analyzer templates.
+Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/research-workflow.md` for locator templates, the consolidation rule, and analyzer templates.
 
 After the canonical workflow completes, also check `CLAUDE.md` for team conventions (if analyzer-docs didn't already surface it) and recent similar features for precedent.
 
@@ -132,11 +132,11 @@ Spec is a structured JSON document validated against `ixion/schemas/spec.schema.
 Pick a kebab-case slug for the feature, then claim it:
 
 ```bash
-<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Claim a session id" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Claim a session id" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 That file also gives the id format the slug has to satisfy, what an empty `session=` means, and the "Error states" message for an empty `repo_root=`. Steps 6 and 7 write into the `dir=` the claim block printed, so the sessions tree is located once here rather than re-spelled at each write.
@@ -314,7 +314,7 @@ Print the spec's `summary` field + next-steps hint.
 Print both onward commands under the prompt, so "done for now" and a `/clear` cost nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-review work'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-review work'>
 ```
 
 ---
@@ -348,4 +348,4 @@ Print both onward commands under the prompt, so "done for now" and a `/clear` co
 
 - `references/validation-research.md` — High-risk heuristic, Context7 workflow, external validation dispatch templates
 - `references/formatting-guide.md` — Spec content guidelines: what goes inside `spec.json` fields
-- `ixion/skills/ixion-conventions/references/session-handoff.md` — Session id format, directory layout, and the claim loop Phase 4 pastes
+- `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` — Session id format, directory layout, and the claim loop Phase 4 pastes

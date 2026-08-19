@@ -23,7 +23,7 @@ Execute phase <id>: <phase.goal>
 - Already completed: <progress.completed>
 
 ## The bar the user set for me
-Read the "Elegance Dispatch Bar" section of `ixion/skills/ixion-conventions/references/elegance.md` before you touch code. It is the binding contract for this chunk.
+Read the "Elegance Dispatch Bar" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md` before you touch code. It is the binding contract for this chunk.
 
 Plan-mode addendum:
 - Search the codebase for an existing helper before adding new utility code.

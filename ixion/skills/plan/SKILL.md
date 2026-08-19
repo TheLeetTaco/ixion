@@ -20,7 +20,7 @@ allowed-tools:
 An input naming an existing session routes to review; anything else starts a new plan. Resolve it with the shared rules rather than pattern-matching the string — a bare slug and a full session id both name a session, and only the exact-match rung tells a full id apart from its own `-2` collision sibling:
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
 - `session=` names a directory holding `spec.json` → start with `plan-review`, passing that id
@@ -131,7 +131,7 @@ Scale it to the spec: a two-phase spec gets a shorter version of the same shape,
 **3. The command that resumes this session.** This is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
 ```
 
 ---

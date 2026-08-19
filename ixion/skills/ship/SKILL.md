@@ -30,11 +30,11 @@ Automates the full flow: branch creation (if needed), commit, and a `--no-ff` me
 `$ARGUMENTS` carries two things here: an optional session locator and an optional commit-message hint (Phase 3 uses the hint). Split it before resolving, so the locator handed to the shared rules is a single token and never the prose:
 
 ```bash
-<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the leading whitespace-delimited word of $ARGUMENTS>
+<paste the "Does a token name a session?" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the leading whitespace-delimited word of $ARGUMENTS>
 ```
 
 `names_session=yes` — that leading word is the `LOCATOR` and the rest of `$ARGUMENTS` is the hint. `names_session=no` — there is no locator and the whole of `$ARGUMENTS` is the hint, so `/ixion:ship tighten the error copy` resolves through the pointer rather than losing `tighten` into a session lookup. A word that matches is consumed, so `/ixion:ship feat-foo-2026-08-06` leaves no hint and `/ixion:ship feat-foo-2026-08-06 tighten the error copy` keeps the rest.
@@ -42,11 +42,11 @@ Automates the full flow: branch creation (if needed), commit, and a `--no-ff` me
 Then the shared resolution:
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 An empty `repo_root=`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 4's terminal write is what sets `status` there — so re-entering would put a second, empty merge commit on the branch every worktree shares.
@@ -60,7 +60,7 @@ An ad-hoc ship is exactly `dir=` unprinted, and that emptiness is the only test 
 `work` runs every session in a worktree of its own, and git permits a branch to be checked out in at most one worktree — so the session's branch is checked out there and nowhere else. Derive that path and stand in it, rather than reading whatever checkout this skill happened to be invoked from:
 
 ```bash
-<paste the "Derive the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Derive the session worktree" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 `present=yes` — `cd` into `worktree=`, and run Phases 1, 3 and 5 from there: Phase 1 describes that tree, Phase 3 commits into it, Phase 5 removes it. Phase 4 is the exception and says so itself — it targets the main checkout explicitly, from wherever you are standing. Skipping this step is not a cosmetic miss: Phase 1 would read the invoking checkout's branch, Phase 2 would cut an empty branch off it, and Phase 4 would merge that and mark the session complete while its commits sat in a worktree nobody opened.
@@ -86,7 +86,7 @@ git rev-parse --abbrev-ref HEAD
 Then resolve the branch roles — which branches are off-limits to commit onto, and which one this branch's work is measured from:
 
 ```bash
-<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+<paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
 **`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section; `on_protected=no` here is not the "already on a feature branch" case Phase 2 skips for. Commit anyway and the commits are reachable from no ref, which nothing notices until Phase 4 has no branch name to merge, by which point they exist with nothing pointing at them.
@@ -97,7 +97,7 @@ Then the base — the commit `work` recorded when it created the branch:
 SDIR='<dir= from Phase 0>'
 BASE_REF=
 if [ -n "$SDIR" ]; then
-  <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to base_ref>
+  <paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to base_ref>
   BASE_REF=$VALUE
 fi
 [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
@@ -120,7 +120,7 @@ If Phase 1's resolution printed `on_protected=yes` — the current branch is in 
 
 1. Analyze the changes to generate a short, descriptive branch name
 2. Use format: `<type>/<short-description>` (e.g. `fix/search-pagination`, `feat/match-scoring`)
-3. Present the branch name to the user for confirmation using AskUserQuestion. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+3. Present the branch name to the user for confirmation using AskUserQuestion. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
    **Why you:** Irreversible. Phase 4 pushes this name and writes it into the merge commit on the shared integration branch, so renaming afterward leaves the published history pointing at a branch nobody can find.
 4. Create and switch to the branch:
@@ -175,7 +175,7 @@ Branch resolution reads local refs only — that is `git-branches.md`'s rule and
 Re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference. It reads the tree you are standing in, which Phase 0 put on the feature branch, so `current=` is the branch about to be merged:
 
 ```bash
-<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+<paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
 Then read the branch `work` recorded, which is the branch this session was actually cut from:
@@ -184,7 +184,7 @@ Then read the branch `work` recorded, which is the branch this session was actua
 SDIR='<dir= from Phase 0>'
 RECORDED_INTEGRATION=
 if [ -n "$SDIR" ]; then
-  <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to integration_branch>
+  <paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to integration_branch>
   RECORDED_INTEGRATION=$VALUE
 fi
 printf 'recorded_integration=%s\n' "$RECORDED_INTEGRATION"
@@ -193,7 +193,7 @@ printf 'recorded_integration=%s\n' "$RECORDED_INTEGRATION"
 A branch name there is one `work` resolved, but it is a mutable ref and an integration branch merged and deleted between `work` and `ship` is an ordinary outcome, so `git show-ref` it before use:
 
 ```bash
-<paste the "Verify a recorded integration branch" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+<paste the "Verify a recorded integration branch" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
 `recorded=usable` → that branch is the merge target. Everything else falls through to the freshly resolved `integration=`: `recorded=stale`, the four-character string `null` printed for a session that predates the field, and the empty value an ad-hoc ship leaves because it read no session at all.
@@ -217,7 +217,7 @@ printf 'target=%s\ncreate=%s\ncommits=%s\n' "$TARGET" "$CREATE" "$COMMITS"
 
 ### Confirm the merge
 
-Present this using AskUserQuestion. Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all. This is a confirmation, so it carries no delegation option, and the non-destructive answer leads and is what a bare Enter takes.
+Present this using AskUserQuestion. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all. This is a confirmation, so it carries no delegation option, and the non-destructive answer leads and is what a bare Enter takes.
 
 Question: "Merge: bring `<current=>`'s `<commits=>` commits into `<target=>` and push?"
 **Why you:** Irreversible. The merge lands on the branch every other worktree in this repo builds from, and undoing it after the push means a revert commit everyone else has already pulled.
@@ -290,7 +290,7 @@ Only once the block above printed a merge commit — this write is what tells ev
 ```bash
 SDIR='<dir= from Phase 0>'
 if [ -n "$SDIR" ]; then
-  <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and the field/value pairs set to status '"completed"' active_skill null>
+  <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and the field/value pairs set to status '"completed"' active_skill null>
 fi
 ```
 
@@ -308,7 +308,7 @@ This is the write every skill's Phase 0 reads as `state=complete`. Without it a 
 Phase 0 already printed the path, and the derivation is a pure function of the session id, so re-issuing it here would ask the same question twice and get the same answer:
 
 ```bash
-<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with `worktree=` taken from Phase 0's "Stand where the work is" step>
+<paste the "Remove the session worktree" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with `worktree=` taken from Phase 0's "Stand where the work is" step>
 ```
 
 Phase 0's `present=no` — an ad-hoc ship, which resolved no session to derive a worktree from — means there is nothing to retire. Skip.

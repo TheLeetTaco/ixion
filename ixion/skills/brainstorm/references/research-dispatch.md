@@ -6,7 +6,7 @@ Detailed dispatch templates for Phase 1 (Silent Research) and Phase 2 (Research 
 
 ## Phase 1: Canonical Research Workflow
 
-Brainstorm runs the canonical research workflow (see `ixion/skills/ixion-conventions/references/research-workflow.md`) — all four locators, consolidate, all four analyzers. Substitute `<topic>` with `<feature_idea>`. Apply a 15s soft timeout to locator-web for fast exploration.
+Brainstorm runs the canonical research workflow (see `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/research-workflow.md`) — all four locators, consolidate, all four analyzers. Substitute `<topic>` with `<feature_idea>`. Apply a 15s soft timeout to locator-web for fast exploration.
 
 **Extract for internal use** (map the canonical analyzer outputs to brainstorm's approach-selection inputs):
 

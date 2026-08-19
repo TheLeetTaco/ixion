@@ -16,7 +16,7 @@ allowed-tools:
 
 Iterative debug loop: gather problem, investigate, fix loop (max 10 iterations) with verification after each fix.
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 ---
 
@@ -29,7 +29,7 @@ Parse `$ARGUMENTS` for a problem description.
   - **Why you:** Missing fact. The error text, the environment it appeared in, and what you actually observed live in your terminal, not in the repo.
 
 **Check for active work session:**
-- Check every `session.json` under the sessions tree — the "Resolve the session root" block in `ixion/skills/ixion-conventions/references/session-handoff.md` gives the repository root it hangs off, which is shared with every worktree — for any session with `status: "active"` and a non-null `active_skill`. If one exists, name it and continue: "Session <session_id> is mid-<active_skill>. Debugging may conflict with in-progress work." Debugging alongside it is reversible and you just ran `/debug`, so continuing is the decision rather than a question.
+- Check every `session.json` under the sessions tree — the "Resolve the session root" block in `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` gives the repository root it hangs off, which is shared with every worktree — for any session with `status: "active"` and a non-null `active_skill`. If one exists, name it and continue: "Session <session_id> is mid-<active_skill>. Debugging may conflict with in-progress work." Debugging alongside it is reversible and you just ran `/debug`, so continuing is the decision rather than a question.
 
 **Get verification command:**
 - Use AskUserQuestion: "Verification: what command reproduces or shows the problem? (e.g., `cargo test`, `cargo test --test cli`, `curl ...`). Say 'none' for manual verification."

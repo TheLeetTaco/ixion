@@ -40,7 +40,7 @@ These findings are clustered because they likely share a structural cause. Diagn
 3. Do NOT apply each fix as an isolated patch. The fixes are reviewer hypotheses about individual symptoms; the synthesizer grouped them because the real fix is upstream.
 
 ## The bar the user set for me
-Read the "Elegance Dispatch Bar" section of `ixion/skills/ixion-conventions/references/elegance.md` before you touch code. It is the binding contract for this chunk.
+Read the "Elegance Dispatch Bar" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md` before you touch code. It is the binding contract for this chunk.
 
 Fix-findings addendum:
 - If the cleaner shape requires touching files outside the findings list, take it — note the drift in your `outcomes` summary.

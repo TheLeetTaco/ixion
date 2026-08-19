@@ -709,11 +709,15 @@ lint_dangling_sections() {
   while IFS= read -r citation; do
     title=$(printf '%s' "$citation" | sed 's/^the "//; s/" section of .*$//')
     path=$(printf '%s' "$citation" | sed 's/^.* section of `//; s/`$//')
-    if [ ! -f "$ROOT/$path" ]; then
+    # Citations address the installed plugin, where ${CLAUDE_PLUGIN_ROOT} is the
+    # directory holding skills/ and agents/. In this checkout that directory is
+    # ixion/, so resolving the placeholder is what maps a citation onto a file.
+    file=$(printf '%s' "$path" | sed 's|^${CLAUDE_PLUGIN_ROOT}/|ixion/|')
+    if [ ! -f "$ROOT/$file" ]; then
       printf '%s -> no such file\n' "$citation"
     elif ! awk -v t="$title" '
       /^#/ { h = $0; sub(/^#+[ \t]+/, "", h); if (h == t) ok = 1 }
-      END { exit !ok }' "$ROOT/$path"; then
+      END { exit !ok }' "$ROOT/$file"; then
       printf '%s -> that file has no heading with exactly that title\n' "$citation"
     fi
   done
@@ -727,7 +731,7 @@ else
 $offenders"
 fi
 
-printf 'Read the "Elegance Dispatch Bat" section of `ixion/skills/ixion-conventions/references/elegance.md`.\n' \
+printf 'Read the "Elegance Dispatch Bat" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`.\n' \
   > "$lintbed/typo.md"
 if [ -n "$(lint_dangling_sections "$lintbed")" ]; then
   note_pass "lint: a citation whose heading was renamed away is caught"
@@ -735,5 +739,32 @@ else
   note_fail "lint: a citation whose heading was renamed away went unnoticed"
 fi
 rm "$lintbed/typo.md"
+
+# --- lint: no citation still points at the source checkout -------------------
+
+# A bare `ixion/skills/...` resolves only when the working directory happens to
+# be this repo. Everywhere the plugin actually runs it names nothing, and an
+# agent told to paste a block it cannot read invents one instead. Requiring a
+# name character after the slash is what keeps prose *about* that mistake from
+# matching the mistake itself.
+lint_source_checkout_paths() {
+  grep -rnE 'ixion/(skills|agents)/[A-Za-z]' "$1" --include='*.md'
+}
+
+strays=$(lint_source_checkout_paths "$ROOT/ixion")
+if [ -z "$strays" ]; then
+  note_pass "no citation under ixion/ resolves only from the source checkout"
+else
+  note_fail "citations that resolve only from the source checkout:
+$strays"
+fi
+
+printf 'Read `ixion/skills/ixion-conventions/references/elegance.md`.\n' > "$lintbed/stray.md"
+if [ -n "$(lint_source_checkout_paths "$lintbed")" ]; then
+  note_pass "lint: a citation left pointing at the source checkout is caught"
+else
+  note_fail "lint: a citation left pointing at the source checkout went unnoticed"
+fi
+rm "$lintbed/stray.md"
 
 finalize

@@ -61,4 +61,4 @@ You already project each finding to 10x and 100x — that projection is the seve
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: "N+1 Query", "O(n²) Hot Path", "Unbounded Allocation", "Blocking Async Call", "Missing Index", "Cache Stampede", "Clone to Satisfy Borrowck", "MutexGuard Across .await".
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: "N+1 Query", "O(n²) Hot Path", "Unbounded Allocation", "Blocking Async Call", "Missing Index", "Cache Stampede", "Clone to Satisfy Borrowck", "MutexGuard Across .await".

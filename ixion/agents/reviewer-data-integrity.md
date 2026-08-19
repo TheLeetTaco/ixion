@@ -120,4 +120,4 @@ You already ask "what breaks if this fails halfway through?" — the answer's re
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: "Race Condition", "Missing Transaction", "Orphaned Reference", "Swapped Mapping", "Irreversible Migration", "PII Leak".
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: "Race Condition", "Missing Transaction", "Orphaned Reference", "Swapped Mapping", "Irreversible Migration", "PII Leak".

@@ -31,20 +31,20 @@ Run ALL available reviewer agents in parallel, collect their prose findings, str
 1. A `$ARGUMENTS` that is a readable path is the review target directly; skip to step 3. Otherwise it is the `LOCATOR`, and the session's `spec.json` is the target:
 
    ```bash
-   <paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+   <paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
    ```
 
    ```bash
-   <paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+   <paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
    ```
 
    ```bash
-   <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+   <paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
    ```
 
 2. An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, load `<dir>/spec.json`.
 3. The review target (plan content or spec content) is passed inline to the reviewers.
-4. Run the "Project context discovery" step from `ixion/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
+4. Run the "Project context discovery" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
 
 **Plan reviewers:** reviewer-architecture, reviewer-code-quality, reviewer-patterns, reviewer-performance, reviewer-data-integrity, reviewer-elegance.
 
@@ -63,7 +63,7 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 **Standard reviewer prompt shape:**
 
 ```
-<paste the "Dispatch preamble" from ixion/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
+<paste the "Dispatch preamble" from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
 
 Review this plan.
 
@@ -105,19 +105,19 @@ The synthesizer reads each reviewer's prose output and structures it into `ixion
 
 ### 2.1 Read each reviewer's prose output
 
-Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Read each reviewer's prose output" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is plan-review context, so plan-scope is the required tier and a code-scope location is the violation.
+Run the "Validate the location tier" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`. This is plan-review context, so plan-scope is the required tier and a code-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Semantic dedup" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Tag contradictions with the verbatim prompt; scale findings to the spec's actual size
 
-Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and before 2.4 (structure into schema).
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and before 2.4 (structure into schema).
 
 ### 2.4 Structure into schema
 
@@ -170,7 +170,7 @@ Findings written to: <dir= from Phase 0>/review.findings.json
 Then the command that continues this session, so a `/clear` here costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-consolidation'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='plan-consolidation'>
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
