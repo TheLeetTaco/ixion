@@ -1,6 +1,6 @@
 # Session handoff (shared by plan, plan-creation, plan-review, plan-consolidation, work, work-review and ship)
 
-What a session id looks like, where its directory lives, how any skill reads or writes one field of a session artifact, how any skill turns an argument into one session, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
+What a session id looks like, which repository root its directory hangs off, how any skill reads or writes one field of a session artifact, how any skill turns an argument into one session, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -17,33 +17,57 @@ Callers cite several sections apiece; read this file once per invocation and hol
 `add-timeout-flag-2026-04-23` and `refactor-auth-2026-04-23-2` are ids; `add_timeout_flag-2026-04-23` (underscores), `Add-Timeout-2026-04-23` (uppercase) and `timeout-2026-4-23` (unpadded month) are not. `ixion/schemas/session.schema.json` enforces the same shape on `session_id`, so an id this file would reject fails validation there too.
 
 ```
-.ixion/plugin/sessions/<session-id>/
+<repo root>/.ixion/plugin/sessions/<session-id>/
   spec.json                    # plan-creation writes; plan-consolidation refines
   session.json                 # plan-creation writes; status/active_skill metadata
   spec.json.pre-consolidation  # plan-consolidation writes before refinement
   review.findings.json         # plan-review and work-review write here (consumed by next skill)
   progress.json                # work checkpoint state
-.ixion/plugin/active.json      # { "schema_version": 1, "session_id": "<session-id>" }
+.ixion/plugin/active.json      # per-checkout; { "schema_version": 1, "session_id": "<session-id>" }
 ```
 
 The `plugin/` infix exists so plugin sessions coexist with TUI sessions (`.ixion/sessions/`) in the same repo without collision.
 
+The two paths are anchored differently on purpose. `<repo root>` is the repository's shared root — the block below resolves it, and the main checkout and every linked worktree of it resolve the same one — so a session claimed in one checkout is the same session read in another, and there is one record of it rather than one per tree. `active.json` is written relative to the checkout the skill is running in, so each one has its own. Sharing it would put two parallel sessions on one pointer, each retargeting the other's bare `/ixion:work` — the exact collision worktrees are used to avoid. The sessions tree is the record; the pointer is a per-terminal convenience default, and a default only means anything when it is the terminal's own.
+
 `active.json` has exactly one writer: plan-creation, which writes it after it creates the session directory. Resolution never writes it — see "Resolve the session" below for why.
+
+## Resolve the session root
+
+```bash
+REPO_ROOT=
+COMMON=$(git rev-parse --git-common-dir 2>/dev/null) && REPO_ROOT=$(cd "$COMMON/.." && pwd)
+printf 'repo_root=%s\n' "$REPO_ROOT"
+```
+
+A skill issues this before anything else that touches session state, and every block below is pasted with `REPO_ROOT` bound to what it printed.
+
+`--git-common-dir` is the one git question whose answer is shared across checkouts: a linked worktree's own `--git-dir` is private to that worktree, the common dir is the one they all point at. Its parent is the repository root the sessions tree hangs off, whichever checkout the skill was invoked from.
+
+It answers *relative* from a subdirectory — `../../.git` from `ixion/skills` where the repo root answers `.git` — so the `cd … && pwd` is not decoration. Without it, two callers standing at different depths hold two different strings for one directory, and the single-root premise fails one level down.
+
+Outside a repository `git rev-parse` fails and `REPO_ROOT` stays empty, which is the `repo_root=` error state below. The absolutization hangs off the `&&` rather than running on its own line because `cd "/.." && pwd` succeeds and yields `/`: run unconditionally, it would turn "no repository" into a plausible-looking root that every path built from it accepts.
+
+A block that builds a path from the root refuses an empty root first, before the path exists to be probed — `"$REPO_ROOT/.ixion/plugin/sessions"` with an empty root is `/.ixion/plugin/sessions`, and `docs/solutions/mistakes/empty-id-makes-a-path-probe-answer-present-System-20260806.md` is four instances of what happens when the guard tests the path instead of the variable.
 
 ## Claim a session id
 
 ```bash
-mkdir -p .ixion/plugin/sessions
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
+mkdir -p "$SESSIONS"
 SESSION_ID=
+SDIR=
 for n in "" -2 -3 -4 -5 -6 -7 -8 -9; do
-  if mkdir ".ixion/plugin/sessions/<slug>-<YYYY-MM-DD>$n" 2>/dev/null; then
-    SESSION_ID="<slug>-<YYYY-MM-DD>$n"; break
+  if mkdir "$SESSIONS/<slug>-<YYYY-MM-DD>$n" 2>/dev/null; then
+    SESSION_ID="<slug>-<YYYY-MM-DD>$n"; SDIR="$SESSIONS/$SESSION_ID"; break
   fi
 done
-printf 'session=%s\n' "$SESSION_ID"
+printf 'session=%s\ndir=%s\n' "$SESSION_ID" "$SDIR"
 ```
 
-Creation *is* the probe: plain `mkdir` (no `-p`) fails atomically when the slot is taken, so two sessions planning the same slug on the same day can never both land in one directory — a `test -d` probe followed by a separate create would race. An empty `session=` means all ten slots are taken; that is ten sessions for one slug on one day, so stop and ask the user to clean up rather than widening the suffix range.
+Creation *is* the probe: plain `mkdir` (no `-p`) fails atomically when the slot is taken, so two sessions planning the same slug on the same day can never both land in one directory — a `test -d` probe followed by a separate create would race. `dir=` is the claimed directory, printed here because the caller's next act is to write artifacts into it and re-spelling the sessions path at each write is how the root stops being resolved in one place. An empty `session=` means all ten slots are taken; that is ten sessions for one slug on one day, so stop and ask the user to clean up rather than widening the suffix range.
 
 ## Read a session field
 
@@ -84,7 +108,9 @@ The two blocks below this one are the exception: they carry the read inline rath
 Precedence, highest first: a session id this conversation already established, an exact directory match on the caller's locator token, a prefix scan of that token, then `active.json`.
 
 ```bash
-SESSIONS=.ixion/plugin/sessions
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
 POINTER=.ixion/plugin/active.json
 REMEMBERED=
 LOCATOR='<the session locator the caller extracted from $ARGUMENTS, or empty>'
@@ -123,7 +149,9 @@ The exact-match rung is what makes a full session id mean the session it names. 
 The same two rungs the block above tries in order, asked as a yes/no question instead of used as a lookup — which is why both exist and why they live together. Two callers need the question first, because their argument is not known to be a locator at all: `ship` must tell a leading session id from the first word of a commit-message hint, and `work-review` must tell a locator from a PR number, URL or branch name.
 
 ```bash
-SESSIONS=.ixion/plugin/sessions
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
 TOKEN='<the single token to test>'
 
 if [ -n "$TOKEN" ] \
@@ -139,10 +167,11 @@ fi
 
 ## Error states
 
-Four conditions decided here so no caller re-decides them, each with exactly one message.
+Five conditions decided here so no caller re-decides them, each with exactly one message.
 
 | Signal | Message |
 |---|---|
+| `repo_root=` (empty) | `Not inside a git repository. Ixion keeps session state at the repository root — run this from a checkout.` |
 | `via=none` | `No active session. Run /ixion:plan to create one, or name one: /ixion:work <session-id>.` |
 | `state=missing` | `Session <session-id> not found.` |
 | `state=schema-mismatch` | `Unsupported schema version <N>. Re-run the producing skill to regenerate.` |
@@ -150,12 +179,14 @@ Four conditions decided here so no caller re-decides them, each with exactly one
 
 Commands named in these messages are spelled the way the installer for this tree installs them. `install_claude_code.sh` qualifies them with the plugin namespace, and `plan` is why: a bare `/plan` on that host is a built-in and never reaches this plugin, so an error message instructing it would strand the user it was written to help.
 
-`via=none` needs nothing inspected — no id was resolved, so there is nothing on disk to look at. The other three do, and share one probe, which reports `via=none` itself rather than making the caller decide whether to run it:
+`repo_root=` and `via=none` need nothing inspected — the first has no root to look under, the second resolved no id to look for. The other three do, and share one probe, which reports `via=none` itself rather than making the caller decide whether to run it:
 
 ### Validate the resolved session
 
 ```bash
-SESSIONS=.ixion/plugin/sessions
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
 POINTER=.ixion/plugin/active.json
 SESSION_ID='<session= from the resolution block>'
 VIA='<via= from the resolution block>'
@@ -198,32 +229,37 @@ Agent-facing instructions may still follow the citation in the skill file — an
 ```bash
 SKILLS='<the skills that can continue this session, space-separated: plan-review, plan-consolidation, work, work-review or ship>'
 SESSION_ID='<session= from the resolution block>'
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 
-[ -f "$(git rev-parse --git-path gitdir)" ] \
-  && printf 'cd %s\n' "$(git rev-parse --show-toplevel)"
+SLUG=$(printf '%s' "$SESSION_ID" | sed 's/-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\(-[0-9][0-9]*\)\{0,1\}$//')
+SESSION_WORKTREE=$(cd "$REPO_ROOT/../${REPO_ROOT##*/}-$SLUG" 2>/dev/null && pwd)
+HERE=$(cd "$(git rev-parse --show-toplevel)" && pwd)
+[ -n "$SESSION_WORKTREE" ] && [ "$SESSION_WORKTREE" != "$HERE" ] \
+  && printf 'cd %s\n' "$SESSION_WORKTREE"
 for skill in $SKILLS; do
   printf '/ixion:%s %s\n' "$skill" "$SESSION_ID"
 done
 ```
 
-In the main checkout a single-skill closing block prints one line:
+Standing in the checkout that holds this session's work, a single-skill closing block prints one line:
 
 ```
 /ixion:work add-timeout-flag-2026-04-23
 ```
 
-Inside a git worktree it prints two, and both are part of the paste:
+Standing anywhere else in the repository it prints two, and both are part of the paste:
 
 ```
 cd /home/you/src/ixion-add-timeout-flag
 /ixion:work add-timeout-flag-2026-04-23-2
 ```
 
-`SKILLS` is a list because a closing block that offers the user a choice has to print every branch of it, and the `cd` belongs to the checkout rather than to any one command — issuing the block once per skill would probe and print it twice. One list under one probe is what keeps that format from being hand-written at the call sites that need two.
+`SKILLS` is a list because a closing block that offers the user a choice has to print every branch of it, and the `cd` belongs to the checkout rather than to any one command — issuing the block once per skill would resolve and print it twice. One list under one resolution is what keeps that format from being hand-written at the call sites that need two.
 
-The `cd` line is what a session id alone cannot carry. `work` may move a session into a worktree, which copies the session directory across and leaves the main checkout's copy stale from that moment; a command pasted without the `cd` resolves the id against the stale copy and works on the wrong tree. Git writes a `gitdir` file inside a linked worktree's git dir and nowhere else, so testing for it answers which checkout you are standing in, from any directory within it. Resist the shorter-looking probe of comparing `--git-dir` against `--git-common-dir`: from a subdirectory `--git-dir` answers absolute while `--git-common-dir` stays relative, so the two differ textually in a plain main checkout and the `cd` line prints a path the user does not need and did not expect. Skills run from wherever the user invoked them, which makes that the ordinary case rather than the corner one — a probe of this kind is only believable once it has been run from a nested directory of both checkouts.
+The `cd` line is what a session id alone cannot carry. The id resolves to the same session directory from every checkout, but the *branch and the source* it describes live in exactly one of them, and a skill resumed in the wrong tree reads a diff of work that isn't this session's. So the question is whether this session's worktree is the one you are standing in — not whether you are standing in a worktree at all.
 
-What the `cd` line closes is the pasted path, and only that. A bare `/ixion:work` typed in the main checkout still resolves against the stale copy and writes progress there until `ship` copies the worktree's session dir back. That residual is accepted, not overlooked: marking the stale copy would take a sentinel file plus a fifth `state=` rung to read it, which is machinery for the one window the printed command already covers.
+`SESSION_WORKTREE` is derived rather than recorded: `work` names a session's worktree `<repo>-<slug>` beside the repository root, and the slug is already the front of `session_id`, so the path is a function of the id and storing it would be a second copy of one deterministic value. The `cd … && pwd` that derives it is also the existence test — a session that never got a worktree, which is every session between `plan` and `work`, resolves to empty, and the guard is on that variable rather than on a probe of the path it would have had. `HERE` goes through the same `cd … && pwd` so the comparison is between two strings built the same way, and it is the checkout root rather than `$PWD` so that a nested subdirectory of the session's own worktree does not print a `cd` into the tree the user is already in. Skills run from wherever the user invoked them, which makes that the ordinary case rather than the corner one — a test of this kind is only believable once it has been run from a nested directory of both checkouts.
 
 Print the **full session id**, never the bare slug. The slug goes back through the prefix scan and its most-recent tiebreak, which is exactly the resolution a resume command exists to bypass — and a `-2` session resumed by slug lands on whichever sibling sorts first, not the one that was just worked.
 

@@ -18,7 +18,7 @@ allowed-tools:
 
 # Work Implementation Skill
 
-Execute the active session's plan or review findings via probe → dispatch → checkpoint. Namespace: plugin uses `.ixion/plugin/sessions/`.
+Execute the active session's plan or review findings via probe → dispatch → checkpoint. Namespace: plugin sessions live under the repository root Phase 0 resolves.
 
 ## Input
 
@@ -33,6 +33,10 @@ Mode is detected from session contents — never set explicitly.
 Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 2.3 and Phase 5 cite it again for the resume command.
 
 ```bash
+<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
 <paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
@@ -40,7 +44,7 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is the rung that matters most here: `/work` is the command a resume prints, so it is the one most likely to be pasted after the session already shipped, and continuing would re-run verification against merged work and re-offer "Ship it" on a branch that no longer needs it. Only `state=usable` continues.
+An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. `state=complete` is the rung that matters most here: `/work` is the command a resume prints, so it is the one most likely to be pasted after the session already shipped, and continuing would re-run verification against merged work and re-offer "Ship it" on a branch that no longer needs it. Only `state=usable` continues.
 
 Stale-tmp cleanup: if `progress.json.tmp` or `session.json.tmp` exist from an interrupted prior write, delete them. The authoritative file is the un-suffixed one; partial writes never persist past a crash because `.tmp` → `mv` is atomic on local POSIX.
 
@@ -79,14 +83,14 @@ Procedure:
 3. **Session update** — `active_skill` and `last_checkpoint_at`, in one write:
 
    ```bash
-   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pairs set to active_skill '"work"' last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pairs set to active_skill '"work"' last_checkpoint_at '"<now, UTC ISO-8601>"'>
    ```
 
 4. **Skill-exit trap** to clear `active_skill`:
 
    ```bash
    cleanup_active_skill() {
-     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pair set to active_skill null>
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pair set to active_skill null>
    }
    trap cleanup_active_skill EXIT
    ```
@@ -150,11 +154,11 @@ Procedure:
 6. **Record the base ref and the integration branch.**
 
    ```bash
-   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
    BASE_REF=$VALUE
    if [ "$BASE_REF" = null ]; then
      BASE_REF=$(git merge-base HEAD '<integration= from step 5>')
-     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pairs set to base_ref "\"$BASE_REF\"" integration_branch '"<integration= from step 5>"'>
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pairs set to base_ref "\"$BASE_REF\"" integration_branch '"<integration= from step 5>"'>
    fi
    ```
 
@@ -167,7 +171,7 @@ Procedure:
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
    ```bash
-   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
    git log --format=%H --grep="^Ixion-Chunk: <chunk id>$" "$VALUE"..HEAD
    ```
 
@@ -419,7 +423,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 7. Update the session's checkpoint time:
 
    ```bash
-   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and the field/value pair set to last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pair set to last_checkpoint_at '"<now, UTC ISO-8601>"'>
    ```
 
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
@@ -449,7 +453,7 @@ Run the plan's `success_criteria` checks (plan mode) or full test suite + typech
 Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading the session's cumulative diff:
 
 ```bash
-<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
 git diff "$VALUE"..HEAD
 ```
 
@@ -477,7 +481,7 @@ After `success_criteria` passes, the orchestrator runs the diff self-check at th
 1. Run the same two lines Phase 3 ran:
 
    ```bash
-   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
    git diff "$VALUE"..HEAD
    ```
 

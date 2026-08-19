@@ -53,6 +53,7 @@ section() {
   ' "$REFERENCE"
 }
 
+ROOT_BLOCK=$(section "Resolve the session root")
 CLAIM_BLOCK=$(section "Claim a session id")
 READ_BLOCK=$(section "Read a session field")
 WRITE_BLOCK=$(section "Set session fields")
@@ -64,6 +65,7 @@ RESUME_BLOCK=$(section "Resume command")
 check_section() {
   [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"
 }
+check_section "Resolve the session root" "$ROOT_BLOCK"
 check_section "Claim a session id" "$CLAIM_BLOCK"
 check_section "Read a session field" "$READ_BLOCK"
 check_section "Set session fields" "$WRITE_BLOCK"
@@ -86,6 +88,12 @@ trap 'rm -rf "$WORK"' EXIT
 PY=
 for py in python3 python; do "$py" -c '' 2>/dev/null && { PY=$py; break; }; done
 
+# git answers both the session root and the resume command's cd, so their
+# fixtures are real repos with real linked worktrees. Off PATH it gets the same
+# SKIPPED: treatment, for the same reason: absence is never reported as a pass.
+GIT=
+command -v git >/dev/null 2>&1 && GIT=git
+
 # --- fixtures and block plumbing ---------------------------------------------
 
 new_root() {
@@ -94,9 +102,31 @@ new_root() {
   printf '%s\n' "$dir"
 }
 
+# new_repo <name> -> a real one-commit repo, the fixture the session-root block
+# and the resume command's worktree derivation both need. Nothing reads a file
+# in these, so the seed commit is empty.
+new_repo() {
+  local dir="$WORK/$1"
+  mkdir -p "$dir"
+  git -C "$dir" init -q
+  fixture_git_config "$dir"
+  git -C "$dir" commit -q --allow-empty -m init
+  printf '%s\n' "$dir"
+}
+
+# repo_root <dir> -> repo_root=, as the session-root block resolves it from <dir>.
+repo_root() { field "$(run_block "$1" "$ROOT_BLOCK")" repo_root; }
+
 run_block() { ( cd "$1" && printf '%s\n' "$2" | bash ); }
 
 fill() { printf '%s\n' "$1" | sed "s|$2|$3|g"; }
+
+# Every block that touches the sessions tree is pasted with the repo root bound.
+# The helpers below take it as a trailing optional argument defaulting to the
+# directory the block runs in; the two coincide everywhere except the worktree
+# cases, which is the split under test. The default is ${N-...} and not
+# ${N:-...} so a case can hand a block an empty root on purpose.
+fill_root() { fill "$1" '<repo_root= from the session-root block>' "$2"; }
 
 field() { printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -1; }
 
@@ -104,9 +134,11 @@ expect() {
   if [ "$2" = "$3" ]; then note_pass "$1"; else note_fail "$1 (expected '$3', got '$2')"; fi
 }
 
-# claim <root> <slug>-<date> -> the session id the reference's claim block took.
+# claim <cwd> <slug>-<date> [repo root] -> the session id the claim block took.
 claim() {
-  run_block "$1" "$(fill "$CLAIM_BLOCK" '<slug>-<YYYY-MM-DD>' "$2")" | sed -n 's/^session=//p'
+  local block
+  block=$(fill_root "$CLAIM_BLOCK" "${3-$1}")
+  run_block "$1" "$(fill "$block" '<slug>-<YYYY-MM-DD>' "$2")" | sed -n 's/^session=//p'
 }
 
 # seed_session <root> <session-id> <schema_version> <status>
@@ -115,28 +147,32 @@ seed_session() {
     > "$1/.ixion/plugin/sessions/$2/session.json"
 }
 
-# resolve <root> <remembered id> <locator>
+# resolve <cwd> <remembered id> <locator> [repo root]
 #
 # An empty remembered id leaves the block's own `REMEMBERED=` line untouched,
 # which is the shape all six callers paste: they bind LOCATOR and nothing else.
 # So every assertion below that passes "" is also asserting that an unbound
 # REMEMBERED cannot outrank the locator.
 resolve() {
-  local block=$RESOLVE_BLOCK
+  local block
+  block=$(fill_root "$RESOLVE_BLOCK" "${4-$1}")
   [ -n "$2" ] && block=$(fill "$block" '^REMEMBERED=$' "REMEMBERED=$2")
   block=$(fill "$block" '<the session locator the caller extracted from $ARGUMENTS, or empty>' "$3")
   run_block "$1" "$block"
 }
 
-# names_session <root> <token>
+# names_session <cwd> <token> [repo root]
 names_session() {
-  run_block "$1" "$(fill "$NAMES_BLOCK" '<the single token to test>' "$2")"
+  local block
+  block=$(fill_root "$NAMES_BLOCK" "${3-$1}")
+  run_block "$1" "$(fill "$block" '<the single token to test>' "$2")"
 }
 
-# validate <root> <session-id> <via>
+# validate <cwd> <session-id> <via> [repo root]
 validate() {
   local block
-  block=$(fill "$VALIDATE_BLOCK" '<session= from the resolution block>' "$2")
+  block=$(fill_root "$VALIDATE_BLOCK" "${4-$1}")
+  block=$(fill "$block" '<session= from the resolution block>' "$2")
   block=$(fill "$block" '<via= from the resolution block>' "$3")
   run_block "$1" "$block"
 }
@@ -158,14 +194,62 @@ set_fields() {
   run_block "$1" "$block"
 }
 
-# resume <dir> <skills> <session-id>
+# resume <cwd> <skills> <session-id> [repo root]
 resume() {
   local block
-  block=$(fill "$RESUME_BLOCK" \
+  block=$(fill_root "$RESUME_BLOCK" "${4-$1}")
+  block=$(fill "$block" \
     '<the skills that can continue this session, space-separated: plan-review, plan-consolidation, work, work-review or ship>' "$2")
   block=$(fill "$block" '<session= from the resolution block>' "$3")
   run_block "$1" "$block"
 }
+
+# --- the repository root every session path hangs off ------------------------
+
+if [ -z "$GIT" ]; then
+  echo "SKIPPED: the session root is a git question, and git is not on PATH"
+else
+  main=$(new_repo rooted)
+  mkdir -p "$main/nested/deeper"
+  mroot=$(repo_root "$main")
+  expect "session root, from the repository root: its own absolute path" \
+    "$mroot" "$(cd "$main" && pwd)"
+  # --git-common-dir answers relative from a subdirectory, so this compares the
+  # strings and not the directories they name: two callers at different depths
+  # holding two spellings of one root is the single-root premise failing.
+  expect "session root, from a nested subdirectory: the same string, not merely the same directory" \
+    "$(repo_root "$main/nested/deeper")" "$mroot"
+
+  wt="$WORK/rooted-feata"
+  git -C "$main" worktree add -q "$wt" -b feata
+  mkdir -p "$wt/nested"
+  expect "session root, from a linked worktree: the main checkout's root" \
+    "$(repo_root "$wt")" "$mroot"
+  expect "session root, from a nested subdirectory of a worktree: still the main checkout's root" \
+    "$(repo_root "$wt/nested")" "$mroot"
+
+  outside="$WORK/outside"
+  mkdir -p "$outside"
+  expect "outside any repository: an empty root, not the / an unguarded absolutization yields" \
+    "$(repo_root "$outside")" ""
+
+  # Every block that builds a path from the root refuses an empty one first.
+  # The fixture holds a real session because that is the only tree where the
+  # bug is visible: an empty root under an empty tree probes a path that is
+  # absent anyway, and the whole failure is that it probes one that is present.
+  root=$(new_root emptyroot)
+  claim "$root" feata-2026-08-01 >/dev/null
+  for name in CLAIM RESOLVE NAMES VALIDATE RESUME; do
+    eval "block=\$${name}_BLOCK"
+    out=$(run_block "$root" "$(fill_root "$block" "")" 2>&1)
+    if [ "$?" = 0 ]; then
+      note_fail "empty root in the $name block: it built a path from nothing"
+    else
+      expect "empty root in the $name block: refused before any path was built" \
+        "$out" "repo_root="
+    fi
+  done
+fi
 
 # --- resolving a locator to one session --------------------------------------
 
@@ -372,45 +456,120 @@ else
   fi
 fi
 
+# --- one sessions tree across checkouts, one pointer per checkout ------------
+
+if [ -z "$GIT" ] || [ -z "$PY" ]; then
+  echo "SKIPPED: the shared-tree cases need real linked worktrees and the python field idiom"
+else
+  main=$(new_repo split)
+  mroot=$(repo_root "$main")
+  wta="$WORK/split-feata"
+  wtb="$WORK/split-featb"
+  git -C "$main" worktree add -q "$wta" -b feata
+  git -C "$main" worktree add -q "$wtb" -b featb
+
+  ida=$(claim "$wta" feata-2026-08-01 "$(repo_root "$wta")")
+  expect "claim from a worktree: the directory lands under the main checkout" \
+    "$(ls -d "$mroot/.ixion/plugin/sessions/$ida" 2>/dev/null)" \
+    "$mroot/.ixion/plugin/sessions/$ida"
+  expect "claim from a worktree: the main checkout resolves it" \
+    "$(field "$(resolve "$main" "" feata "$mroot")" session)" "$ida"
+  seed_session "$mroot" "$ida" 1 active
+  expect "claim from a worktree: the main checkout validates it usable" \
+    "$(field "$(validate "$main" "$ida" exact "$mroot")" state)" usable
+
+  idb=$(claim "$main" featb-2026-08-01 "$mroot")
+  expect "claim from the main checkout: the other worktree resolves it" \
+    "$(field "$(resolve "$wtb" "" featb "$(repo_root "$wtb")")" session)" "$idb"
+
+  # The pointer is the half that stays per-checkout. plan-creation writes it
+  # beside the checkout it ran in, so each terminal's bare invocation resolves
+  # its own session; one shared pointer would let two parallel sessions
+  # retarget each other, which is the collision the worktrees exist to prevent.
+  mkdir -p "$wta/.ixion/plugin" "$wtb/.ixion/plugin"
+  printf '{"schema_version": 1, "session_id": "%s"}\n' "$ida" > "$wta/.ixion/plugin/active.json"
+  printf '{"schema_version": 1, "session_id": "%s"}\n' "$idb" > "$wtb/.ixion/plugin/active.json"
+  expect "bare resolution in one worktree: its own pointer" \
+    "$(field "$(resolve "$wta" "" "" "$mroot")" session)" "$ida"
+  expect "bare resolution in the other worktree: its own pointer, untouched by the first" \
+    "$(field "$(resolve "$wtb" "" "" "$mroot")" session)" "$idb"
+fi
+
 # --- the resume command every closing block prints ---------------------------
 
-if ! command -v git >/dev/null 2>&1; then
-  echo "SKIPPED: the resume command's worktree probe is a git question, and git is not on PATH"
+if [ -z "$GIT" ]; then
+  echo "SKIPPED: the resume command's cd line is a git question, and git is not on PATH"
 else
-  # The worktree probe is the intricate half: an earlier version compared
-  # `--git-dir` against `--git-common-dir`, which differ textually from any
-  # subdirectory of a plain checkout, so it printed a cd nobody asked for. The
-  # probe answers per checkout rather than per directory, so both checkouts are
-  # exercised from their root and from a nested subdirectory — the four
-  # positions that tell the shipped probe from the one it replaced. Nothing
-  # reads a file here, so the seed commit is empty.
+  # The cd line asks whether this session's worktree is the checkout you are
+  # standing in, and the worktree is derived from the slug in the session id
+  # rather than recorded. Both checkouts are exercised from their root and from
+  # a nested subdirectory, because the answer is per checkout and not per
+  # directory. Nothing reads a file here, so the seed commit is empty.
   id=add-timeout-flag-2026-04-23
-  main="$WORK/plain"
+  main=$(new_repo resumed)
+  mroot=$(repo_root "$main")
   mkdir -p "$main/nested"
-  git -C "$main" init -q
-  fixture_git_config "$main"
-  git -C "$main" commit -q --allow-empty -m init
-  expect "plain checkout, from its root: the resume line stands alone" \
-    "$(resume "$main" work "$id")" "/ixion:work $id"
-  expect "plain checkout, from a nested subdirectory: still no cd line" \
-    "$(resume "$main/nested" work "$id")" "/ixion:work $id"
+  expect "no worktree for this session: the resume line stands alone" \
+    "$(resume "$main" work "$id" "$mroot")" "/ixion:work $id"
+  expect "no worktree for this session, from a nested subdirectory: still no cd line" \
+    "$(resume "$main/nested" work "$id" "$mroot")" "/ixion:work $id"
 
-  wt="$WORK/linked"
-  git -C "$main" worktree add -q "$wt" -b linked
+  wt="$WORK/resumed-add-timeout-flag"
+  git -C "$main" worktree add -q "$wt" -b add-timeout-flag
   mkdir -p "$wt/nested"
-  wt_top=$(git -C "$wt" rev-parse --show-toplevel)
-  expect "linked worktree, from its root: the cd line leads the paste" \
-    "$(resume "$wt" work "$id")" "cd $wt_top
+  wt_top=$(cd "$wt" && pwd)
+  expect "session worktree exists, resuming from the main checkout: the cd line leads the paste" \
+    "$(resume "$main" work "$id" "$mroot")" "cd $wt_top
 /ixion:work $id"
-  expect "linked worktree, from a nested subdirectory: the cd line still leads" \
-    "$(resume "$wt/nested" work "$id")" "cd $wt_top
+  expect "session worktree exists, resuming from a nested subdirectory of the main checkout: the cd line still leads" \
+    "$(resume "$main/nested" work "$id" "$mroot")" "cd $wt_top
 /ixion:work $id"
+  expect "resuming from inside the session's own worktree: no cd line" \
+    "$(resume "$wt" work "$id" "$mroot")" "/ixion:work $id"
+  expect "resuming from a nested subdirectory of the session's own worktree: still no cd line" \
+    "$(resume "$wt/nested" work "$id" "$mroot")" "/ixion:work $id"
 
-  expect "a closing block offering two skills: one cd probe, one command each" \
-    "$(resume "$wt" 'work-review ship' "$id")" "cd $wt_top
+  # A -2 collision id shares its slug with the base id, so it shares the
+  # worktree — stripping the date has to take the tiebreak with it.
+  expect "a -2 collision id derives the same worktree as its base" \
+    "$(resume "$main" work "$id-2" "$mroot")" "cd $wt_top
+/ixion:work $id-2"
+
+  expect "a closing block offering two skills: one cd line, one command each" \
+    "$(resume "$main" 'work-review ship' "$id" "$mroot")" "cd $wt_top
 /ixion:work-review $id
 /ixion:ship $id"
 fi
+
+# --- lint: session artifacts are addressed through the resolved root ---------
+
+# A session artifact named by a literal `.ixion/plugin/sessions/...` path is a
+# path built from the current working directory, which is the main checkout only
+# when the skill happens to have been invoked there. Skills name the directory
+# validation or the claim block printed instead. The pointer is deliberately not
+# covered: `active.json` is per-checkout, so a path relative to the current one
+# is exactly right for it.
+lint_literal_artifacts() {
+  grep -rnE '\.ixion/plugin/sessions/[^ ]*\.json' "$1" --include='*.md'
+}
+
+offenders=$(lint_literal_artifacts "$ROOT/ixion")
+if [ -z "$offenders" ]; then
+  note_pass "every session artifact in ixion/ is addressed through the resolved root"
+else
+  note_fail "session artifacts named by a path built from the current directory:
+$offenders"
+fi
+
+lintbed="$WORK/lint"
+mkdir -p "$lintbed"
+printf 'Read `.ixion/plugin/sessions/<id>/spec.json` for the plan.\n' > "$lintbed/literal.md"
+if [ -n "$(lint_literal_artifacts "$lintbed")" ]; then
+  note_pass "lint: a literal session-artifact path is caught"
+else
+  note_fail "lint: a literal session-artifact path went unnoticed"
+fi
+rm "$lintbed/literal.md"
 
 # --- lint: the /ixion: spelling install_opencode.py matches on ---------------
 
@@ -428,8 +587,6 @@ else
 $offenders"
 fi
 
-lintbed="$WORK/lint"
-mkdir -p "$lintbed"
 printf "printf '/work %%s\\\\n' \"\$SESSION_ID\"\n" > "$lintbed/unprefixed.md"
 if [ -n "$(lint_printed_commands "$lintbed")" ]; then
   note_pass "lint: a printed command without the prefix is caught"

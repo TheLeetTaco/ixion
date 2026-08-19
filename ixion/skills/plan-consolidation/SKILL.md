@@ -13,7 +13,7 @@ allowed-tools:
 
 # Plan Consolidation Skill
 
-Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin uses `.ixion/plugin/sessions/`.
+Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin sessions live under the repository root Phase 0 resolves.
 
 ## Input
 
@@ -26,6 +26,10 @@ Optional `$ARGUMENTS`: a session locator — a full session id, or a bare slug. 
 Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 6 cites it again for the resume command.
 
 ```bash
+<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
 <paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
@@ -33,7 +37,7 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, read the two inputs from `dir=`:
+An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, read the two inputs from `dir=`:
 
 - `spec.json` (the pre-refinement spec)
 - `review.findings.json` (written by plan-review)
@@ -48,8 +52,8 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 ## Phase 1: Back Up to Sidecar (D7)
 
 ```bash
-cp .ixion/plugin/sessions/<id>/spec.json \
-   .ixion/plugin/sessions/<id>/spec.json.pre-consolidation
+SDIR='<dir= from Phase 0>'
+cp "$SDIR/spec.json" "$SDIR/spec.json.pre-consolidation"
 ```
 
 Cleaned on `ship`.
@@ -156,10 +160,10 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 ## Phase 6: Write Refined Spec & Hand Off
 
 1. Validate the refined spec against `ixion/schemas/spec.schema.json`.
-2. Atomic write `.ixion/plugin/sessions/<id>/spec.json` (`.tmp` → `mv`).
+2. Atomic write `<dir= from Phase 0>/spec.json` (`.tmp` → `mv`).
 3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/work` that no unhandled review remains.
    ```bash
-   rm .ixion/plugin/sessions/<id>/review.findings.json
+   rm '<dir= from Phase 0>/review.findings.json'
    ```
 4. Print summary:
    ```

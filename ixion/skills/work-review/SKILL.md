@@ -36,7 +36,11 @@ The review target is provided via `$ARGUMENTS`. Can be:
 
 Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
 
-`$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk:
+`$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk — under the repository root, which the block above resolves once for every session path this skill builds:
+
+```bash
+<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
 
 ```bash
 <paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
@@ -52,7 +56,7 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
+An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
 
 ### Determine review target
 
@@ -122,7 +126,7 @@ Determine the diff size before dispatching:
 ```
 
 ```bash
-<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to .ixion/plugin/sessions/<session= from Phase 0>/session.json and FIELD set to base_ref>
+<paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
 BASE_REF=$VALUE
 [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
@@ -240,7 +244,7 @@ Validate against `ixion/schemas/findings.schema.json`. If validation fails, the 
 Write into the session Phase 0 resolved:
 
 ```
-.ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
+<dir= from Phase 0>/review.findings.json
 ```
 
 Write atomically: write to `review.findings.json.tmp` then rename.
@@ -266,7 +270,7 @@ Top findings:
 - <title> (P1)
 - <title> (P2)
 
-Review written to: .ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
+Review written to: <dir= from Phase 0>/review.findings.json
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.

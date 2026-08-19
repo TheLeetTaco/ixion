@@ -74,7 +74,7 @@ Check for the file before moving on. If it is not there, the skill has not run y
 [Input] → plan-creation → plan-review → plan-consolidation → [Present]
 ```
 
-After plan-creation, the session dir at `.ixion/plugin/sessions/<session-id>/` contains the spec.json and session.json that subsequent skills read. The active pointer `.ixion/plugin/active.json` is the glue for bare interactive invocations only — as the orchestrator, capture the session id plan-creation prints and pass it to plan-review and plan-consolidation explicitly (`skill: plan-review` with the id as input). A concurrent Claude Code session can retarget active.json mid-run; the id you captured is this run's identity.
+After plan-creation, the session dir at `<repo root>/.ixion/plugin/sessions/<session-id>/` contains the spec.json and session.json that subsequent skills read. The active pointer `.ixion/plugin/active.json` is the glue for bare interactive invocations only — as the orchestrator, capture the session id plan-creation prints and pass it to plan-review and plan-consolidation explicitly (`skill: plan-review` with the id as input). A concurrent Claude Code session can retarget active.json mid-run; the id you captured is this run's identity.
 
 1. **plan-creation** → writes `spec.json`, `session.json` into the session dir; updates `active.json`
 2. **plan-review** → reads the active session's spec.json, writes `review.findings.json`

@@ -31,6 +31,10 @@ Automates the full flow: branch creation (if needed), commit, push, and PR creat
 `$ARGUMENTS` carries two things here: an optional session locator and an optional commit-message hint (Phase 3 uses the hint). Split it before resolving, so the locator handed to the shared rules is a single token and never the prose:
 
 ```bash
+<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
 <paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the leading whitespace-delimited word of $ARGUMENTS>
 ```
 
@@ -46,11 +50,11 @@ Then the shared resolution:
 <paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 4 step 7 is what sets `status` there — so re-entering would push a merged branch and open a second PR for it.
+An empty `repo_root=`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 4 step 7 is what sets `status` there — so re-entering would push a merged branch and open a second PR for it.
 
 `via=none` is the signal that does not halt. Nothing named a session, which is an ad-hoc ship: `/ixion:ship tighten the error copy` in a repo that never ran `/ixion:plan` is a supported way to use this skill, and halting there would answer it by naming two skills the user didn't ask for. Continue to Phase 1.
 
-An ad-hoc ship is exactly `session=` empty, and that emptiness is the only test any later phase makes for it: every block below that reads session state interpolates `SESSION_ID='<session= from Phase 0>'` and branches on `[ -n "$SESSION_ID" ]`, so each block's own code is the proof rather than a list kept here. Don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
+An ad-hoc ship is exactly `dir=` unprinted, and that emptiness is the only test any later phase makes for it: every block below that reads session state interpolates `SDIR='<dir= from Phase 0>'` and branches on `[ -n "$SDIR" ]`, so each block's own code is the proof rather than a list kept here. Validation prints `dir=` only for a session it found usable, which is what makes its absence the test; don't rebuild the path from a session id instead, and don't substitute a `[ -d "$SDIR" ]` probe for it. With an empty id interpolated, `"$SESSIONS/$SESSION_ID"` is the sessions directory itself, which exists in any repo that has ever planned a session, so the probe answers "session present" for the ad-hoc case it was meant to catch. This is why the "Validate the resolved session" block puts its empty-id rung first rather than relying on the directory test.
 
 ---
 
@@ -77,10 +81,10 @@ Then resolve the branch roles — which branches are off-limits to commit onto, 
 Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
-SESSION_ID='<session= from Phase 0>'
+SDIR='<dir= from Phase 0>'
 BASE_REF=
-if [ -n "$SESSION_ID" ]; then
-  <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to ".ixion/plugin/sessions/$SESSION_ID/session.json" and FIELD set to base_ref>
+if [ -n "$SDIR" ]; then
+  <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to base_ref>
   BASE_REF=$VALUE
 fi
 [ -z "$BASE_REF" ] || [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
@@ -151,10 +155,9 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 3. Read what `work` recorded, and analyze the commits on this branch to write the PR description:
 
    ```bash
-   SESSION_ID='<session= from Phase 0>'
+   SDIR='<dir= from Phase 0>'
    BASE_REF=; RECORDED_INTEGRATION=
-   if [ -n "$SESSION_ID" ]; then
-     SDIR=".ixion/plugin/sessions/$SESSION_ID"
+   if [ -n "$SDIR" ]; then
      <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to base_ref>
      BASE_REF=$VALUE
      <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and FIELD set to integration_branch>
@@ -205,9 +208,9 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 7. Mark the session terminal, now that its work is on a remote branch under a PR:
 
    ```bash
-   SESSION_ID='<session= from Phase 0>'
-   if [ -n "$SESSION_ID" ]; then
-     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to ".ixion/plugin/sessions/$SESSION_ID/session.json" and the field/value pairs set to status '"completed"' active_skill null>
+   SDIR='<dir= from Phase 0>'
+   if [ -n "$SDIR" ]; then
+     <paste the "Set session fields" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "$SDIR/session.json" and the field/value pairs set to status '"completed"' active_skill null>
    fi
    ```
 
@@ -224,11 +227,11 @@ Two sources feed this phase. The conversation holds the debugging story. The ses
 ### 5a. Harvest the session record
 
 ```bash
-SESSION_ID='<session= from Phase 0>'
-[ -n "$SESSION_ID" ] && ls ".ixion/plugin/sessions/$SESSION_ID"
+SDIR='<dir= from Phase 0>'
+[ -n "$SDIR" ] && ls "$SDIR"
 ```
 
-An empty `SESSION_ID` prints nothing: skip to 5b with the conversation as the only source, because an ad-hoc ship has no session to distill.
+An empty `SDIR` prints nothing: skip to 5b with the conversation as the only source, because an ad-hoc ship has no session to distill.
 
 Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
 

@@ -125,17 +125,21 @@ Every spec MUST emit at least one `context.constraints[]` entry recording the de
 
 ## Phase 4: Compose and Write Artifacts
 
-Spec is a structured JSON document validated against `ixion/schemas/spec.schema.json`. Namespace: plugin uses `.ixion/plugin/sessions/`.
+Spec is a structured JSON document validated against `ixion/schemas/spec.schema.json`. Namespace: plugin sessions live under the repository root the block below resolves.
 
 ### Step 1 + 2: Derive session id by claiming the directory
 
 Pick a kebab-case slug for the feature, then claim it:
 
 ```bash
+<paste the "Resolve the session root" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
 <paste the "Claim a session id" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-That file also gives the id format the slug has to satisfy and what an empty `session=` means.
+That file also gives the id format the slug has to satisfy, what an empty `session=` means, and the "Error states" message for an empty `repo_root=`. Steps 6 and 7 write into the `dir=` the claim block printed, so the sessions tree is located once here rather than re-spelled at each write.
 
 ### Step 3: Synthesize phases and tasks
 
@@ -188,7 +192,7 @@ fi
 
 ### Step 6: Write `spec.json`
 
-Path: `.ixion/plugin/sessions/<session= from the claim block>/spec.json`
+Path: `<dir= from the claim block>/spec.json`
 
 Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `ixion/schemas/spec.schema.json` for the authoritative shape.
 
@@ -278,17 +282,17 @@ On the phases where language-standards places the feature-combination checks —
 
 ### Step 7: Write `session.json`
 
-Path: `.ixion/plugin/sessions/<session= from the claim block>/session.json`
+Path: `<dir= from the claim block>/session.json`
 
 Fields: `schema_version: 1`, `session_id`, `slug`, `status: "active"`, `started_at` (ISO 8601), `last_checkpoint_at: null`, `active_skill: "plan-creation"`. On exit, set `active_skill: null`.
 
-### Step 8: Update `.ixion/plugin/active.json`
+### Step 8: Update this checkout's `.ixion/plugin/active.json`
 
 ```json
 { "schema_version": 1, "session_id": "<session= from the claim block>" }
 ```
 
-Write via a PID-suffixed temp (`active.json.tmp.$$` → `mv`) so a concurrent session's in-flight write is never clobbered mid-rename.
+Write via a PID-suffixed temp (`active.json.tmp.$$` → `mv`) so a concurrent session's in-flight write is never clobbered mid-rename. The pointer is written relative to the checkout this ran in, unlike the session directory above: it is the default for bare invocations typed *here*, and one copy shared across checkouts would let a session started in one retarget the bare invocations of a session running in another.
 
 ### Step 9: Print summary
 
@@ -298,7 +302,7 @@ Print the spec's `summary` field + next-steps hint.
 
 ## Phase 5: Summary & Next Steps
 
-**AskUserQuestion:** "Spec ready at `.ixion/plugin/sessions/<id>/spec.json`. What next?"
+**AskUserQuestion:** "Spec ready at `<dir= from the claim block>/spec.json`. What next?"
 
 **Why you:** Preference. The spec is work-ready as written, so a review round buys a second opinion you may or may not want on this particular change.
 
@@ -321,7 +325,7 @@ Print both onward commands under the prompt, so "done for now" and a `/clear` co
 - **Missing CLAUDE.md:** Note conventions may be incomplete
 - **No similar patterns found:** Ask user for guidance on approach
 - **Context7 failure:** Fall back to WebSearch for external validation
-- **Write failure:** Create `.ixion/plugin/sessions/<id>/` with `mkdir -p`, report errors
+- **Write failure:** Create `<dir= from the claim block>` with `mkdir -p`, report errors
 - **Session id collision past `-9`:** Error out — user probably has a stuck session
 
 ---
