@@ -298,16 +298,16 @@ Compute the next wave (2.0) from the updated `completed[]`. All chunks complete 
 
 Run the plan's `success_criteria` checks (plan mode) or full test suite + typecheck (fix-findings mode). Read `references/verification-gates.md`: identify the proving command, run it fresh, read full output, verify, then claim done.
 
-Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified by reading the session's cumulative diff:
+Then read the session's cumulative diff, once, here:
 
 ```bash
 <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
 git diff "$VALUE"..HEAD
 ```
 
-Phase 1 step 6 wrote that field before the first chunk ran, so it is a commit id by the time you get here.
+Phase 1 step 6 wrote that field before the first chunk ran, so it is a commit id by the time you get here, and every chunk is committed, so this spans the whole session.
 
-Cite the diff line that proves the criterion holds.
+Criteria not expressible as a command (e.g., "No new helper added without first searching for an existing one") are verified against it — cite the diff line that proves the criterion holds. Hold the output: Phase 4's self-check runs against this same diff, and nothing between here and there commits, dispatches or rewrites `base_ref`, so issuing these two lines a second time would return the same bytes and pull the session's whole diff into context twice.
 
 **Leave the record before Phase 4.** These checks run once per session rather than once per chunk, so nothing else ever re-runs them — and to `work-review`, `ship` and any later auditor, a criterion that passed, one that failed, and one that was never reached all read the same unless Phase 3 leaves the forensic trail 2.3 leaves for chunks. Append one entry per command you actually ran to `progress.artifacts.commands_run`, quoting its output rather than summarising it — a gate that reports itself skipped rather than failing says so in its own words, and a paraphrase drops exactly the distinction the entry exists to hold:
 
@@ -326,14 +326,7 @@ Criteria you resolved from the cumulative diff ran no command and get no entry �
 
 After `success_criteria` passes, the orchestrator runs the diff self-check at the *whole-session* level — the dispatched subagent only sees its own chunk; this catches cross-phase drift that no chunk-level review can.
 
-1. Run the same two lines Phase 3 ran:
-
-   ```bash
-   <paste the "Read a session field" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
-   git diff "$VALUE"..HEAD
-   ```
-
-   Read the full output. Every chunk is committed by now, so this spans the whole session.
+1. Work from the cumulative diff Phase 3 read. Do not re-run it — it already spans the whole session and nothing since has changed what it would print.
 2. Answer each question with concrete evidence. Cite file:line:
 
    - Is there any line whose removal would NOT change behavior across the whole change? Name one or confirm none exists.
@@ -374,7 +367,7 @@ After the user's choice:
 
 ## Recovery & Errors
 
-**Recovery**: "carry on" / "continue" / `/ixion:work` with no args all route through Phase 0 → Phase 1 resume. Resume recomputes the next wave (2.0) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
+**Recovery**: "carry on" / "continue" / `/ixion:work` with no args all route through Phase 0 → Phase 1 resume on the session id this conversation established. In a fresh conversation they have no remembered id and fall through to `active.json`, which the session's own worktree does not carry — `session-handoff.md`'s "Resolve the session" gives the reason and states it as an accepted cost. So a worktree session is resumed with the `cd` and the full session id 2.3 and Phase 5 print, not with a bare invocation. Resume recomputes the next wave (2.0) from `progress.completed[]` — an interrupted wave simply re-runs; its unverified members were never appended. No work is lost: `progress.json` is atomically written so partial states never persist, and Phase 1 step 7 reconciles any member the interruption caught between its commit and its record.
 
 **3-Strike protocol per chunk** (record each attempt in `progress.error_log[]`):
 

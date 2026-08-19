@@ -10,6 +10,11 @@ set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
+# The worktree lifecycle is split by what each half needs: creating one needs a
+# resolved integration branch, so it lives in REFERENCE; removing one needs only
+# the repository root and the derived path, so it lives with the derivation in
+# HANDOFF. Both halves are exercised here because `ship` drives both.
+HANDOFF="$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md"
 SHIP="$ROOT/ixion/skills/ship/SKILL.md"
 . "$ROOT/tests/integration/lib/assert.sh"
 # sandbox.sh for fixture_git_config and add_bare_origin. It sources nothing and
@@ -18,6 +23,7 @@ SHIP="$ROOT/ixion/skills/ship/SKILL.md"
 . "$ROOT/tests/integration/lib/sandbox.sh"
 
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
+[ -f "$HANDOFF" ] || { note_fail "reference not found: $HANDOFF"; finalize; }
 [ -f "$SHIP" ] || { note_fail "skill not found: $SHIP"; finalize; }
 
 # section <file> <heading title> -> the bash block under that heading, at any level.
@@ -38,7 +44,7 @@ section() {
 ROLES_BLOCK=$(section "$REFERENCE" "Resolve the branch roles")
 RECORDED_BLOCK=$(section "$REFERENCE" "Verify a recorded integration branch")
 CREATE_BLOCK=$(section "$REFERENCE" "Create or reuse the session worktree")
-REMOVE_BLOCK=$(section "$REFERENCE" "Remove the session worktree")
+REMOVE_BLOCK=$(section "$HANDOFF" "Remove the session worktree")
 FETCH_BLOCK=$(section "$SHIP" "Refresh the remote-tracking refs")
 TARGET_BLOCK=$(section "$SHIP" "Resolve the merge target")
 MERGE_BLOCK=$(section "$SHIP" "Merge and push")
@@ -49,7 +55,7 @@ check_section() {
 check_section "$REFERENCE" "Resolve the branch roles" "$ROLES_BLOCK"
 check_section "$REFERENCE" "Verify a recorded integration branch" "$RECORDED_BLOCK"
 check_section "$REFERENCE" "Create or reuse the session worktree" "$CREATE_BLOCK"
-check_section "$REFERENCE" "Remove the session worktree" "$REMOVE_BLOCK"
+check_section "$HANDOFF" "Remove the session worktree" "$REMOVE_BLOCK"
 check_section "$SHIP" "Refresh the remote-tracking refs" "$FETCH_BLOCK"
 check_section "$SHIP" "Resolve the merge target" "$TARGET_BLOCK"
 check_section "$SHIP" "Merge and push" "$MERGE_BLOCK"

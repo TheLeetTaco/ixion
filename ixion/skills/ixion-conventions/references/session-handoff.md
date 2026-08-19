@@ -1,6 +1,6 @@
 # Session handoff (shared by plan, plan-creation, plan-review, plan-consolidation, work, work-review and ship)
 
-What a session id looks like, which repository root its directory hangs off, how any skill reads or writes one field of a session artifact, how any skill turns an argument into one session, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
+What a session id looks like, which repository root its directory hangs off, how any skill reads or writes one field of a session artifact, how any skill turns an argument into one session, where that session's worktree lives and how it is retired, and the command a user pastes into a fresh context to land back in it. Modifying session-resolution behavior means editing this file — the callers hold only their scope-specific tails (which artifact they read, which skill they name in the resume command).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -156,7 +156,7 @@ The exact-match rung is what makes a full session id mean the session it names. 
 
 `LOCATOR` is a token the caller supplies, not `$ARGUMENTS` itself. Most callers take the whole argument string; `ship` also carries a commit-message hint in `$ARGUMENTS` and passes only the leading token.
 
-**No branch of this block writes `active.json`** — not the exact match, not the prefix scan. The pointer is a convenience default for bare invocations, and a resolution step that retargeted it would let a command pasted in one terminal silently redirect a concurrent session's bare `/ixion:work` in another. Keeping the single writer (plan-creation, at create time) removes that race entirely rather than narrowing it. The accepted cost is stated so no caller re-decides it: after you paste an explicit session id, a *later bare* invocation in the same terminal still resolves through `active.json` and can land on a different session. Keep passing the id — that is what the resume command below exists to make effortless.
+**No branch of this block writes `active.json`** — not the exact match, not the prefix scan. The pointer is a convenience default for bare invocations, and a resolution step that retargeted it would let a command pasted in one terminal silently redirect a concurrent session's bare `/ixion:work` in another. Keeping the single writer (plan-creation, at create time) removes that race entirely rather than narrowing it. The accepted cost has two halves, stated so no caller re-decides them. After you paste an explicit session id, a *later bare* invocation in the same terminal still resolves through `active.json` and can land on a different session. And a session's own worktree never has a pointer at all: `plan-creation` is the single writer and runs in the main checkout before `work` cuts the tree, and `work` copies nothing into it — so a bare invocation from inside a session worktree resolves `via=none`, which is the one checkout where that session's work actually is. Keep passing the id — that is what the resume command below exists to make effortless, and why it prints the `cd` alongside it.
 
 ## Does a token name a session?
 
@@ -264,6 +264,23 @@ Stripping the date takes the `-2` tiebreak with it: collision siblings share a s
 That `sed` is the file's one hand-synchronised pair: the "Resume command" block below needs the same path and re-derives it with the identical expression, because a citation nested inside a pasted block is the shape ruled out above. Widening the tiebreak past `-9` — or changing the date format — means editing both, and this sentence is how the second one gets found.
 
 An empty `SESSION_ID` reports `present=no` and stops there rather than deriving `<parent>/<repo>-` and probing it. `ship` is the caller that reaches this with nothing resolved — an ad-hoc ship has no session and so no worktree — and a path built from an empty id is the shape `docs/solutions/mistakes/empty-id-makes-a-path-probe-answer-present-System-20260806.md` records answering "present" for a directory nobody named.
+
+## Remove the session worktree
+
+```bash
+REPO_ROOT='<repo_root= from the session-root block>'
+[ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
+WORKTREE='<worktree= from the "Derive the session worktree" block>'
+cd "$REPO_ROOT" && git worktree remove "$WORKTREE" && printf 'removed=%s\n' "$WORKTREE"
+```
+
+The undo of the block above, and it lives beside it: it reads that block's `worktree=` and this file's `repo_root=`, and nothing else. Cutting the tree needs a branch to cut it from, which is why `git-branches.md` owns that half; removing it needs no branch at all.
+
+`ship` is the only caller: it owns the merge that makes the worktree disposable, so it owns the disposal. The session branch survives — this removes the checkout, not the work.
+
+The `cd` is load-bearing rather than tidy. Every session runs in a worktree, so the agent is standing inside the very directory it is removing, and git refuses to remove the current working directory. `REPO_ROOT` is the one directory guaranteed to exist and to be outside every session worktree. Continue from there afterwards: the directory the shell started in is gone.
+
+No `--force`. `git worktree remove` refuses a tree holding modified or untracked files, and that refusal is the whole safety property — uncommitted work in a session worktree is the user's, exactly as the `## Constraints` prohibition on destructive git commands has it everywhere else.
 
 ## Resume command
 

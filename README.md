@@ -169,7 +169,7 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 `/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/ship` removes the worktree once the merge makes it disposable; the branch survives.
 
-The path is derived from the session id, never recorded, so any skill can recompute it. What that costs is real: **each worktree installs its own dependencies and produces its own build output.** Ixion does not configure a shared build cache — see `ixion/skills/ixion-conventions/references/git-branches.md` for why.
+The path is derived from the session id, never recorded, so any skill can recompute it. What that costs is real: **each worktree installs its own dependencies and produces its own build output.** Ixion does not configure a shared build cache — `docs/adrs/0001-skill-design-as-negotiation.md` records why.
 
 Session state does not follow the worktree. `.ixion/plugin/sessions/` hangs off the repository root that every checkout shares, so one session has one record no matter which tree reads it. The `.ixion/plugin/active.json` pointer stays per-checkout on purpose: it is what a bare `/work` with no arguments falls back to, and a shared pointer would let two parallel sessions retarget each other's. Name the session explicitly — that is what the resume line exists to make effortless.
 
@@ -179,7 +179,7 @@ Session state does not follow the worktree. `.ixion/plugin/sessions/` hangs off 
 
 The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither gets one the first time it ships** — `/ship` creates `dev` off the default branch, pushes it, and merges into that, behind the same confirmation the merge itself carries. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets a `dev` alongside it.
 
-The resolution itself, the protected set, the two commands that make and unmake a session's worktree, and the error states every skill handles identically (detached HEAD, an integration branch deleted between `work` and `ship`, an integration branch another worktree already holds) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
+The resolution itself, the protected set, the command that cuts a session's worktree off the integration branch, and the error states every skill handles identically (detached HEAD, an integration branch deleted between `work` and `ship`, an integration branch another worktree already holds) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
 
 ## Components
 

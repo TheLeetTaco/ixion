@@ -294,7 +294,7 @@ if [ -n "$SDIR" ]; then
 fi
 ```
 
-That block renames only on a successful write, which carries the same weight as the guard around it: the shape it replaced truncated its temp before the write ran, so a failure plus an unconditional rename put an empty file over the session record — the one this skill is here to mark terminal. `work`'s Phase 0 deletes the stale temp a failure leaves.
+That block renames only on a successful write, which carries the same weight as the guard around it: the shape it replaced truncated its temp before the write ran, so a failure plus an unconditional rename put an empty file over the session record — the one this skill is here to mark terminal. A write that raises now never opens its temp at all, and a temp orphaned by a crash mid-write is named for the pid that made it and read by nobody, so nothing sweeps up after this.
 
 This is the write every skill's Phase 0 reads as `state=complete`. Without it a resume command pasted after the merge re-enters the pipeline, re-runs verification against merged work, and offers to ship a branch that is already shipped.
 
@@ -308,7 +308,7 @@ This is the write every skill's Phase 0 reads as `state=complete`. Without it a 
 Phase 0 already printed the path, and the derivation is a pure function of the session id, so re-issuing it here would ask the same question twice and get the same answer:
 
 ```bash
-<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim, with `worktree=` taken from Phase 0's "Stand where the work is" step>
+<paste the "Remove the session worktree" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with `worktree=` taken from Phase 0's "Stand where the work is" step>
 ```
 
 Phase 0's `present=no` — an ad-hoc ship, which resolved no session to derive a worktree from — means there is nothing to retire. Skip.
