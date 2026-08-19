@@ -115,6 +115,16 @@ Procedure:
    <paste the "Create or reuse the session worktree" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
    ```
 
+   For session `branchcheck-2026-08-04` invoked from a repository at `/tmp/ixion-int-branch-one`, those two blocks resolve to exactly this:
+
+   ```
+   slug=branchcheck
+   worktree=/tmp/ixion-int-branch-one-branchcheck
+   branch=branchcheck
+   ```
+
+   Every one of those is derived, and the derivation is the blocks' rather than yours. If you find yourself parking the tree under a `.worktrees/` subdirectory, prefixing the branch with `work/`, appending a timestamp to keep it unique, or recording either value anywhere — those are other tools' conventions, and reaching for one is this step being skipped rather than pasted. Step 6 lists every field `work` writes to `session.json` and neither value is among them, because every later reader re-derives `<repo>-<slug>`: a tree parked anywhere else is reported missing for the rest of the session, whatever a recorded path says.
+
    `branch=` matching `slug=` is the go-ahead: `cd` into `worktree=` and run the whole rest of the session from there — every phase below, and `work-review` and `ship` after it. A resumed session finds the tree already built and reuses it; that is the same printed answer and needs no branch of its own here.
 
    Nothing about the session is copied into it. The sessions tree hangs off the repository root every checkout of this repo shares, so `dir=` from Phase 0 names the same directory from the worktree as it does from the checkout you started in, and there is one record of this session rather than one per tree.
@@ -137,6 +147,8 @@ Procedure:
    The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its merge target from `base_ref` instead.
 
    `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one merge target.
+
+   These two, plus step 3's `active_skill` and `last_checkpoint_at`, are every field `work` writes to `session.json`; the set is closed. `session.schema.json` sets `additionalProperties: false`, and nothing validates the file at write time, so a field added on your own initiative makes the artifact invalid silently rather than loudly.
 
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
