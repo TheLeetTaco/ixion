@@ -81,7 +81,7 @@ Extract from conversation history:
 | Principle name recurring across sessions | Category `pattern` or `mistake`; feeds Step 5.5 |
 | Fix pass fighting the original structure | Investigation — the approach that was tried and cost something |
 
-Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the PR is the verification.
+Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the merge is the verification.
 
 **If critical context missing**, ask user, in this order:
 

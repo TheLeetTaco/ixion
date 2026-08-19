@@ -156,7 +156,7 @@ The exact-match rung is what makes a full session id mean the session it names. 
 
 ## Does a token name a session?
 
-The same two rungs the block above tries in order, asked as a yes/no question instead of used as a lookup — which is why both exist and why they live together. Two callers need the question first, because their argument is not known to be a locator at all: `ship` must tell a leading session id from the first word of a commit-message hint, and `work-review` must tell a locator from a PR number, URL or branch name.
+The same two rungs the block above tries in order, asked as a yes/no question instead of used as a lookup — which is why both exist and why they live together. Two callers need the question first, because their argument is not known to be a locator at all: `ship` must tell a leading session id from the first word of a commit-message hint, and `work-review` must tell a locator from a branch name.
 
 ```bash
 REPO_ROOT='<repo_root= from the session-root block>'

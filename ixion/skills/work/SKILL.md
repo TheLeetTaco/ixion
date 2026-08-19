@@ -136,9 +136,9 @@ Procedure:
 
    `base_ref` is optional in `session.schema.json`, and the read block prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
 
-   The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its PR base from `base_ref` instead.
+   The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its merge target from `base_ref` instead.
 
-   `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one PR target.
+   `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one merge target.
 
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
@@ -357,7 +357,7 @@ All chunks complete, verified, and committed on <branch>.
 What's next?
 **Why you:** Preference. Every chunk's verification already passed, so a review round is worth its cost only against how much scrutiny you want on this particular change.
 1. Review the work (Recommended for substantive changes)
-2. Ship it — push the branch, open the PR, compound learnings
+2. Ship it — push the branch, merge it into the integration branch, compound learnings
 3. "You pick what's best" - Let me decide
 ```
 

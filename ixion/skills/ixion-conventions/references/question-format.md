@@ -31,8 +31,8 @@ A fifth reason is added when a concrete site needs one, not in advance.
 **The gate:** when no reason fits, don't ask. Pick the determined best solution, apply it, and report what you picked and why in the same breath. Questions tagged **Irreversible** are exempt from the gate — ask them even when you could compute the answer, because being right about an unrecoverable action is not the same as being allowed to take it.
 
 **Strong:**
-> Question: "PR base: open this against `dev` or `main`?"
-> **Why you:** Irreversible. Targeting `main` puts the branch in front of release review, and retargeting afterward re-runs CI for everyone already subscribed.
+> Question: "Merge: bring `fix/search-pagination`'s 4 commits into `dev` and push?"
+> **Why you:** Irreversible. The merge lands on the branch every other worktree in this repo builds from, and undoing it after the push means a revert commit everyone else has already pulled.
 
 **Weak:**
 > Question: "Naming: call the module `session_store` or `store`?" — no reason fits. The surrounding code already implies one; pick it and say which you picked.

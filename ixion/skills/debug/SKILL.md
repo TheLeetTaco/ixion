@@ -175,10 +175,10 @@ git diff
 
 ```
 Question: "Next: commit the fix, or leave it in the working tree?"
-**Why you:** Irreversible. `/ixion:ship` pushes a branch and opens a PR, which puts the fix in front of reviewers and cannot be quietly taken back.
+**Why you:** Irreversible. `/ixion:ship` pushes the branch and merges it into the integration branch, which puts the fix on the branch everyone else builds from and cannot be quietly taken back.
 Options:
 1. Done for now (Recommended) - Exit; changes stay uncommitted in the working tree
-2. Commit - Invoke `/ixion:ship` to commit and open the PR
+2. Commit - Invoke `/ixion:ship` to commit and merge
 3. "You pick what's best" - Let me decide
 ```
 
