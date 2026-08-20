@@ -5,11 +5,11 @@
 # for origin, so the fetch and the push are exercised for real — under a temp dir,
 # and torn down on exit: no network, no API credential, no residue. The blocks are
 # extracted by heading title, so the harness runs the same text callers paste into
-# their own Bash calls. Three `gh` steps are not covered — `gh pr create`, the
-# `gh api` repository probe and `gh pr merge --auto` — each for the same reason:
-# they need a GitHub remote and a credential, and a stub would only test the
-# stub. The auto-merge ladder is reached through its own probe placeholders
-# instead, which is what each probe running only where its value is unset buys.
+# their own Bash calls. `gh pr create` is not covered: it needs a GitHub remote
+# and a credential, and its whole effect is the PR it opens, so a stub would only
+# test the stub. The auto-merge blocks are different — their effect is which rung
+# they reach and whether they arm at all, which is the block's own logic — so a
+# `gh` on PATH answers their probes and records what they called.
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -55,6 +55,7 @@ PUSH_BLOCK=$(section "$SHIP" "Push the session branch")
 BASE_BLOCK=$(section "$SHIP" "Resolve the PR base")
 REPO_BLOCK=$(section "$SHIP" "Resolve the repository")
 AUTOMERGE_BLOCK=$(section "$SHIP" "Resolve auto-merge availability")
+ARM_BLOCK=$(section "$SHIP" "Arm auto-merge")
 # The three field idioms ship's terminal write and a later resolution are made
 # of. They are exercised on their own in tests/session-resolution-harness.sh;
 # here they are the fixture the ordering invariant is asserted through.
@@ -74,6 +75,7 @@ check_section "$SHIP" "Push the session branch" "$PUSH_BLOCK"
 check_section "$SHIP" "Resolve the PR base" "$BASE_BLOCK"
 check_section "$SHIP" "Resolve the repository" "$REPO_BLOCK"
 check_section "$SHIP" "Resolve auto-merge availability" "$AUTOMERGE_BLOCK"
+check_section "$SHIP" "Arm auto-merge" "$ARM_BLOCK"
 check_section "$HANDOFF" "Set session fields" "$WRITE_BLOCK"
 check_section "$HANDOFF" "Read a session field" "$READ_BLOCK"
 check_section "$HANDOFF" "Validate the resolved session" "$VALIDATE_BLOCK"
@@ -390,21 +392,41 @@ done
 
 # --- the auto-merge ladder --------------------------------------------------
 
-# automerge_block <allow_auto_merge> <mergeStateStatus> -> the resolution block
-# with both probe values pre-set. Each `gh` line runs only where its value is
-# unset, so seeding them is what leaves the ladder as the whole of what executes.
+# A `gh` on PATH answering the two probes the ladder makes, from the environment
+# so one stub serves every case. An empty answer exits non-zero printing nothing,
+# which is what a probe that answered nothing looks like. Every call is appended
+# to GH_CALLS, which is how the arming cases below prove what did and did not run.
+GH_DIR="$WORK/gh-stub"
+GH_CALLS="$WORK/gh-calls"
+mkdir -p "$GH_DIR"
+cat > "$GH_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$GH_CALLS"
+case "$1 $2" in
+  'api repos/owner/repo') [ -n "${GH_ALLOWED:-}" ] || exit 1; printf '%s\n' "$GH_ALLOWED" ;;
+  'pr view') [ -n "${GH_STATE:-}" ] || exit 1; printf '%s\n' "$GH_STATE" ;;
+esac
+STUB
+chmod +x "$GH_DIR/gh"
+
+# with_gh <allow_auto_merge> <mergeStateStatus> <block> -> the block's output,
+# run against the stub with GH_CALLS emptied first.
+with_gh() {
+  : > "$GH_CALLS"
+  run_block "$WORK" "export PATH='$GH_DIR':\$PATH GH_CALLS='$GH_CALLS' GH_ALLOWED='$1' GH_STATE='$2'
+$3" 2>/dev/null
+}
+
 automerge_block() {
   local block
   block=$(fill "$AUTOMERGE_BLOCK" '<repo= from the repository block>' owner/repo)
-  block=$(fill "$block" '<url= from the Create the PR block>' https://github.com/owner/repo/pull/1)
-  block=$(fill "$block" '<allow_auto_merge, empty unless already read>' "$1")
-  fill "$block" '<mergeStateStatus, empty unless already read>' "$2"
+  fill "$block" '<url= from the Create the PR block>' https://github.com/owner/repo/pull/1
 }
 
 # expect_automerge <label> <allow_auto_merge> <mergeStateStatus> <automerge> <gates>
 expect_automerge() {
   local out
-  out=$(run_block "$WORK" "$(automerge_block "$2" "$3")")
+  out=$(with_gh "$2" "$3" "$(automerge_block)")
   expect "$1: automerge=$4" "$(field "$out" automerge)" "$4"
   expect "$1: gates=$5" "$(field "$out" gates)" "$5"
 }
@@ -412,23 +434,40 @@ expect_automerge() {
 expect_automerge "repository setting off" false CLEAN off ""
 expect_automerge "blocked by a requirement" true BLOCKED deferred BLOCKED
 expect_automerge "behind its base" true BEHIND deferred BEHIND
-expect_automerge "nothing gating the PR" true CLEAN immediate ""
-expect_automerge "checks failing that do not gate the merge" true UNSTABLE immediate ""
+expect_automerge "nothing gating the PR" true CLEAN immediate CLEAN
+expect_automerge "checks failing that do not gate the merge" true UNSTABLE immediate UNSTABLE
 for state in UNKNOWN DIRTY DRAFT; do
   expect_automerge "mergeability reported as $state" true "$state" unknown "$state"
 done
 
-# The one rung no pre-set value reaches: a probe that ran and answered nothing.
-# A PATH with nothing on it is what fails `gh api` without a stub standing in
-# for it — the ladder is `[` and `printf`, both bash builtins, so everything
-# below the probe still runs. An unread setting is not a setting read as off,
-# and a PR with nothing gating it must not arm behind one.
-out=$(run_block "$WORK" "PATH=/nonexistent
-$(automerge_block "" CLEAN)" 2>/dev/null)
-expect "probe that answered nothing: unknown, not the off it never read" \
-  "$(field "$out" automerge)" unknown
-expect "probe that answered nothing: the raw state is carried through" \
-  "$(field "$out" gates)" CLEAN
+# An unread setting is not a setting read as off, and a PR with nothing gating it
+# must not arm behind one. `gates=` is empty on that rung specifically: the state
+# was read, but it is not why arming was refused, and reporting it as the reason
+# would name the PR as the obstacle when the obstacle is the permission probe.
+expect_automerge "setting unread, state read: unknown, not the off it never read" "" CLEAN unknown ""
+expect_automerge "state unread, setting read: unknown, and no state to report" true "" unknown ""
+
+# --- arming against the state the answer was given about --------------------
+
+# arm_block <the gates= value the confirmation quoted> -> the block, filled.
+arm_block() {
+  local block
+  block=$(fill "$ARM_BLOCK" '<url= from the Create the PR block>' https://github.com/owner/repo/pull/1)
+  fill "$block" '<gates= from the resolution above>' "$1"
+}
+
+# AskUserQuestion waits on a person, so the state the outcome line quoted is the
+# one thing the arm command cannot assume is still true.
+out=$(with_gh true CLEAN "$(arm_block CLEAN)")
+expect "state unchanged since the question: nothing drifted" "$(field "$out" drifted)" ""
+expect "state unchanged since the question: auto-merge is armed" \
+  "$(grep -c -- '--auto' "$GH_CALLS")" 1
+
+out=$(with_gh true BLOCKED "$(arm_block CLEAN)")
+expect "state drifted while the question was open: the new state is reported" \
+  "$(field "$out" drifted)" BLOCKED
+expect "state drifted while the question was open: nothing is armed" \
+  "$(grep -c -- '--auto' "$GH_CALLS")" 0
 
 # --- the terminal write, and what a later arming cannot undo ----------------
 

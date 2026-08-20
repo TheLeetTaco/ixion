@@ -266,31 +266,29 @@ fi
 
 That block renames only on a successful write, which carries the same weight as the guard around it: the shape it replaced truncated its temp before the write ran, so a failure plus an unconditional rename put an empty file over the session record — the one this skill is here to mark terminal. A write that raises now never opens its temp at all, and a temp orphaned by a crash mid-write is named for the pid that made it and read by nobody, so nothing sweeps up after this.
 
-This is the write every skill's Phase 0 reads as `state=complete`, and arming auto-merge below makes `completed` a stronger word rather than a looser one: the remainder is handed to GitHub, and Ixion has no step that waits on it. Without the write, a resume command pasted afterwards re-runs verification against shipped work and asks `gh` for a second PR on a branch that already has one.
+This is the write every skill's Phase 0 reads as `state=complete`, and arming auto-merge below hands the remainder to GitHub rather than to a step of ours that waits. Without the write, a resume command pasted afterwards re-runs verification against shipped work and asks `gh` for a second PR on a branch that already has one.
 
 ### Resolve auto-merge availability
 
 ```bash
 REPO='<repo= from the repository block>'
 URL='<url= from the Create the PR block>'
-ALLOWED='<allow_auto_merge, empty unless already read>'
-STATE='<mergeStateStatus, empty unless already read>'
 
-[ -n "$ALLOWED" ] || ALLOWED=$(gh api "repos/$REPO" -q '.allow_auto_merge')
-[ -n "$STATE" ] || STATE=$(gh pr view "$URL" --json mergeStateStatus -q '.mergeStateStatus')
+ALLOWED=$(gh api "repos/$REPO" -q '.allow_auto_merge')
+STATE=$(gh pr view "$URL" --json mergeStateStatus -q '.mergeStateStatus')
 
 if [ "$ALLOWED" = false ]; then
   AUTOMERGE=off
   GATES=
 elif [ "$ALLOWED" != true ]; then
   AUTOMERGE=unknown
-  GATES=$STATE
+  GATES=
 elif [ "$STATE" = BLOCKED ] || [ "$STATE" = BEHIND ]; then
   AUTOMERGE=deferred
   GATES=$STATE
 elif [ "$STATE" = CLEAN ] || [ "$STATE" = UNSTABLE ]; then
   AUTOMERGE=immediate
-  GATES=
+  GATES=$STATE
 else
   AUTOMERGE=unknown
   GATES=$STATE
@@ -300,16 +298,16 @@ printf 'automerge=%s\ngates=%s\n' "$AUTOMERGE" "$GATES"
 
 `gh pr merge --auto` cannot be called blind: it merges on the spot, without erroring, both when the repository setting is off (cli/cli#8792) and when nothing gates the PR (cli/cli#13880), landing the unreviewed diff the PR flow exists to hold back.
 
-`unknown` covers a mergeability GitHub has not finished computing — the usual state of a PR seconds old — a conflicted tree, a draft, and a probe that returned nothing. A probe that answered nothing did not answer `false`, so an unread setting lands here and not on `off`: no message may claim a setting this skill never read. `gates=` carries the raw state and no more, because `gh` cannot say which requirement blocks a BLOCKED PR (cli/cli#10775). Each probe runs only where its value is unset, which is what makes the ladder exercisable offline.
+`unknown` covers a mergeability GitHub has not finished computing, a conflicted tree, a draft, and a probe that returned nothing. An unread setting lands here and not on `off`: no message may claim a setting this skill never read — and `gates=` is empty there, because a mergeability code is not why arming was refused. Where set it carries the raw state and no more, since `gh` cannot say which requirement blocks a BLOCKED PR (cli/cli#10775).
 
 ### Arm auto-merge
 
-`off` and `unknown` ask nothing: there is nothing to arm. Both report the PR URL, and:
+`off` and `unknown` ask nothing. Both report the PR URL, and:
 
-- `off` — name where the disabled setting lives, **Settings → General → Pull Requests → Allow auto-merge**. Print no command that changes it; that setting is not this skill's to flip.
-- `unknown` — report the raw `gates=` state and the arming command below, for the user to run once the state settles. Print it; do not run it, and do not sleep and re-probe for it.
+- `off` — name where the setting lives, **Settings → General → Pull Requests → Allow auto-merge**, and print no command that changes it; it is not this skill's to flip.
+- `unknown` — report `gates=` where it names a state and that availability could not be confirmed where it is empty, with the command below to run once it settles. Print it; do not run it, and do not sleep and re-probe for it.
 
-`deferred` and `immediate` ask. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` first — it carries the shape, the Why-you slot, and the Irreversible rule that leads with the non-destructive option.
+`deferred` and `immediate` ask. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` first — it carries the shape, the Why-you slot, and the Irreversible rule.
 
 ```
 Question: "Auto-merge: arm `--auto --squash --delete-branch` on this PR?"
@@ -323,21 +321,28 @@ Options:
 Only the outcome line varies:
 
 - `immediate` — "Nothing is gating this PR, so arming it squashes and merges it now, not once checks pass"
-- `deferred` — "The PR is `<gates= from the resolution above>`, so arming it squashes and merges it unattended the moment that clears — and an approval you cannot give your own PR never clears"
+- `deferred` — "The PR is `<gates= from the resolution above>`, so arming it squashes and merges it unattended the moment that clears — and `gh` cannot say what would clear it, including an approval you cannot give your own PR"
 
-On approval, arm it. Only `deferred` and `immediate` reach here, so nothing re-tests `automerge=`:
+On approval, re-read the state the answer was given about:
 
 ```bash
-gh pr merge --auto --squash --delete-branch '<url= from the Create the PR block>'
+URL='<url= from the Create the PR block>'
+QUOTED='<gates= from the resolution above>'
+STATE=$(gh pr view "$URL" --json mergeStateStatus -q '.mergeStateStatus')
+if [ "$STATE" = "$QUOTED" ]; then
+  gh pr merge --auto --squash --delete-branch "$URL"
+else
+  printf 'drifted=%s\n' "$STATE"
+fi
 ```
 
-Declining arms nothing and reports the PR URL.
+`AskUserQuestion` waits on a person, and a PR reading `CLEAN` when the question goes out and `BLOCKED` when it returns turns "merges now" into an unattended merge later. `drifted=` armed nothing: report it with the PR URL and ask again against it — one read spent where it is used is not the poll the user excluded. Declining arms nothing either.
 
-A non-zero exit reports what `gh` said, the PR URL, and that same command to run again; GitHub has answered HTTP 422 `Failed enabling auto-merge for pull request` while requirements settle since March 2026 (community#190610, open), so a failed first attempt is documented rather than broken. This is the one failure here that continues rather than halting: the PR is open and the session already terminal, so stopping protects nothing and only withholds the lines the user needs to finish by hand.
+A non-zero exit reports what `gh` said, the PR URL, and that command to run again; GitHub has answered HTTP 422 `Failed enabling auto-merge` while requirements settle since March 2026 (community#190610, open). This is the one failure here that continues rather than halting: the PR is open and the session terminal, so stopping only withholds the lines the user needs to finish by hand.
 
 ### Retire the session worktree once the PR merges
 
-Whether the branch outlives its merge is not knowable from here: `--delete-branch` is reported not to fire on the deferred path (cli/cli#9073). Either way this tree is the one checkout holding the branch, and review may still ask for changes that belong there, so its removal is a command the user runs once the PR lands.
+`--delete-branch` is reported not to fire on the deferred path (cli/cli#9073), and review may ask for changes that belong on this branch — in the one tree that has it checked out. So the tree stays standing and its removal is a command the user runs when the PR lands.
 
 Print the "Remove the session worktree" block from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` with Phase 0's `repo_root=` and `worktree=` substituted in, under a line saying to run it once the PR merges. Print it; do not run it.
 
