@@ -57,9 +57,24 @@ Carry the Failure/Fix asymmetry into the dispatch itself. Three things made it w
 
 And accept the outcome when it comes back: both chunks returned `outcomes` explaining why they had not done what was asked. That is the mechanism working.
 
+## Amendment (2026-08-20, session `ship-auto-merge`): the Failure's *reason* is checkable too
+
+A third instance, and it moves the line. This pattern says the Failure is binding and the Fix is a guess. That is right about the *conclusion* — but a Failure paragraph carries a conclusion **and the reason offered for it**, and the reason can be false while the conclusion holds.
+
+A P3 said the CHANGELOG's 4.2.0 entry sat under `## Unreleased` while the manifests bumped, and gave as its reason that "the 4.0.0 and 4.1.0 entries share the same heading and would have to move together." There are no such entries: `git show --stat 7180f37 1b2a054` shows both release commits touched `CHANGELOG.md` not at all. The synthesizer propagated the false premise into the dispatch prompt verbatim. The subagent checked git history, contradicted both the finding and the prompt, and was right — and the conclusion survived for a *stronger* reason than the one given: cutting the block requires first authoring two missing entries from history, which is harder than a retitle, not easier.
+
+What this adds:
+
+- **Verify the reason, not just the conclusion.** A fix pass that inherits a Failure's supporting facts inherits its errors. The reason is usually one command away — this one was a `git show --stat`.
+- **The orchestrator is a propagation path.** Composing a dispatch from a finding means re-asserting its premises in your own voice, where they read as instructions rather than as claims. That is a second place for a wrong reason to harden.
+- **Invite the contradiction explicitly, about the premises.** The dispatch that caught this carried: *"If your reading of the history contradicts my instruction here … do the correct thing instead and say so in `outcomes`."* Without that sentence the subagent had a direct instruction and a plausible reason to follow it.
+
+Same mechanism as the two original cases, one layer up: the party with more context finds the real cause, but only takes the trouble when contradicting is framed as a deliverable.
+
 ## Prevention
 
 - Dispatch the **Failure**, not the Fix. The Fix rides along as context.
+- Check the Failure's stated reason before repeating it in a dispatch — and tell the subagent it may contradict your premises, not just your proposed fix.
 - Before writing a Fix into a finding, ask what it would cost if the cause is something else. If the answer is "adds a duplicate" or "adds a parameter," say so in the finding.
 - Treat a subagent's contradicting diagnosis as signal. Two for two here; both survived independent verification.
 - When a finding's Fix says "add X to N files," check first whether N files already have a pointer to one X. In this repo that is usually the case, and adding is usually wrong.
