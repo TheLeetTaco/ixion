@@ -144,9 +144,9 @@ Procedure:
 
    `base_ref` is optional in `session.schema.json`, and the read block prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
 
-   The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence to derive its merge target from `base_ref` instead.
+   The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence as its signal to base the PR on production, which is what `base_ref` was measured against.
 
-   `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one merge target.
+   `work` is the only skill that writes either field — Phase 3, Phase 4, `work-review` and `ship` are separate invocations that share no variables, so these two fields are how they agree on one base commit and one PR base.
 
    These two, plus step 3's `active_skill` and `last_checkpoint_at`, are every field `work` writes to `session.json`; the set is closed. `session.schema.json` sets `additionalProperties: false`, and nothing validates the file at write time, so a field added on your own initiative makes the artifact invalid silently rather than loudly.
 
@@ -371,7 +371,7 @@ All chunks complete, verified, and committed on <branch>.
 What's next?
 **Why you:** Preference. Every chunk's verification already passed, so a review round is worth its cost only against how much scrutiny you want on this particular change.
 1. Review the work (Recommended for substantive changes)
-2. Ship it — push the branch, merge it into the integration branch, compound learnings
+2. Ship it — push the branch, open the PR, compound learnings
 3. "You pick what's best" - Let me decide
 ```
 
@@ -384,7 +384,7 @@ Print both onward commands under it, so choosing later — after a `/clear` — 
 After the user's choice:
 
 1. `progress.json.status = "completed"`, via 2.3 step 5's block with `status '"completed"'` as its only pair.
-2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"` and the removal of this session's worktree — it owns the merge that makes the tree disposable, and you are standing inside the tree.
+2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"`; the worktree stays standing, because ship's PR is not yet merged and review changes belong on this branch.
 
 ---
 

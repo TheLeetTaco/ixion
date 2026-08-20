@@ -2,7 +2,7 @@
 
 A plugin for Claude Code and OpenCode that runs a plan → work → review → ship workflow, with six-perspective agent review at the plan and code boundaries.
 
-Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to merge. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
+Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to send a PR. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -134,7 +134,7 @@ Plan → Work → Review → Fix → Ship
 | `/ixion:work-review`       | Multi-agent code review on a session's work, a branch, or the current changes |
 | `/ixion:debug`             | Iterative fix-verify cycle for a specific reported issue |
 | `/ixion:compound`          | Capture a solved problem as searchable documentation |
-| `/ixion:ship`              | Branch → commit → merge into the integration branch; compounds learnings on the way out |
+| `/ixion:ship`              | Branch → commit → push → PR; compounds learnings on the way out |
 
 Every skill but `plan` also answers to its bare name on Claude Code, which is how the prose below refers to them.
 
@@ -167,7 +167,7 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### A worktree per session
 
-`/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/ship` removes the worktree once the merge makes it disposable; the branch survives.
+`/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/ship` leaves the worktree standing — its PR is not yet merged, and review changes belong on that branch — and prints the one command that retires it once the PR lands.
 
 The path is derived from the session id, never recorded, so any skill can recompute it. What that costs is real: **each worktree installs its own dependencies and produces its own build output.** Ixion does not configure a shared build cache — `docs/adrs/0001-skill-design-as-negotiation.md` records why.
 
@@ -175,11 +175,11 @@ Session state does not follow the worktree. `.ixion/plugin/sessions/` hangs off 
 
 ### Branching in a two-branch repo
 
-`/work` creates the session branch from the integration branch, and `/ship` merges it back into that same branch with `--no-ff`, running the merge against the main checkout because git allows a branch in only one worktree at a time. Start `/work` from production while a distinct integration branch exists and the new worktree is still cut from integration — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release. Your own checkout is left on whatever branch it was on.
+`/work` creates the session branch from the integration branch, and `/ship` pushes it and opens its PR against that same branch. Start `/work` from production while a distinct integration branch exists and the new worktree is still cut from integration — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release. Your own checkout is left on whatever branch it was on.
 
-The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither gets one the first time it ships** — `/ship` creates `dev` off the default branch, pushes it, and merges into that, behind the same confirmation the merge itself carries. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets a `dev` alongside it.
+The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. A repo with neither has no integration branch distinct from production, and every branch decision collapses onto production. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets the single-branch behavior.
 
-The resolution itself, the protected set, the command that cuts a session's worktree off the integration branch, and the error states every skill handles identically (detached HEAD, an integration branch deleted between `work` and `ship`, an integration branch another worktree already holds) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
+The resolution itself, the protected set, the command that cuts a session's worktree off the integration branch, and the error states every skill handles identically (detached HEAD, an integration branch deleted between `work` and `ship`) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
 
 ## Components
 
