@@ -784,4 +784,26 @@ else
 fi
 rm "$lintbed/stray.md"
 
+# A .json fixture, because both cases above are .md and would pass with
+# --include='*.json' deleted - verified by deleting it and watching the suite stay
+# green at 93. The real ixion/schemas/*.json carry no citations any more, so the
+# corpus check above cannot exercise this glob either.
+printf '{\n  "$id": "ixion/schemas/stray.schema.json",\n  "description": "see ixion/skills/ixion-conventions/references/git-branches.md"\n}\n' > "$lintbed/stray.json"
+if [ -n "$(lint_source_checkout_paths "$lintbed")" ]; then
+  note_pass "lint: a citation inside a .json file is caught"
+else
+  note_fail "lint: a citation inside a .json file went unnoticed"
+fi
+rm "$lintbed/stray.json"
+
+# ... and a self-identifier alone must still be ignored, or the filter is switched
+# off rather than scoped.
+printf '{\n  "$id": "ixion/schemas/stray.schema.json"\n}\n' > "$lintbed/stray.json"
+if [ -z "$(lint_source_checkout_paths "$lintbed")" ]; then
+  note_pass "lint: a schema's own id self-identifier is not reported as a citation"
+else
+  note_fail "lint: a schema's own id self-identifier was reported as a citation"
+fi
+rm "$lintbed/stray.json"
+
 finalize
