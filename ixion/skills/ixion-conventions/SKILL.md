@@ -51,7 +51,7 @@ Bash is only for: git commands, `bun` commands, and system operations with no de
 
 ## Output Rules
 
-**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings in the shape of `ixion/skills/ixion-conventions/references/finding-format.md`. The orchestrating skill (plan-review or work-review) parses your prose into `ixion/schemas/findings.schema.json`. Do NOT emit JSON.
+**Limits**: Locators 500 words. Analyzers 1500. Reviewers: prose findings in the shape of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md`. The orchestrating skill (plan-review or work-review) parses your prose into `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`. Do NOT emit JSON.
 
 **Format**: Structured sections (End Goal, Key Findings, Files Identified). Paths only, never file contents. Flag ambiguities with "OPEN QUESTION:".
 
@@ -103,7 +103,7 @@ If you can't lead with a principle name, the finding is observational only — m
 
 ### Runtime claims carry Evidence
 
-When the Failure asserts the code misbehaves *when it runs* — wrong output, panic, hang, race, N+1, leak — add an **Evidence** slot naming the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose the command; they never run it. Read `ixion/skills/ixion-conventions/references/finding-format.md` and extract the "Why Evidence exists" section for what the synthesizer then does with it.
+When the Failure asserts the code misbehaves *when it runs* — wrong output, panic, hang, race, N+1, leak — add an **Evidence** slot naming the command that would demonstrate it, or `unproven: <reason>`. Reviewers propose the command; they never run it. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and extract the "Why Evidence exists" section for what the synthesizer then does with it.
 
 Structural findings need no Evidence — a God Class is visible in the source. Plan review has no code to run, so the slot doesn't apply there at all.
 

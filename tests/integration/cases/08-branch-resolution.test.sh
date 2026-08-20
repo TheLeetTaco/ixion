@@ -36,9 +36,22 @@ LIB="$REPO_ROOT/tests/integration/lib"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 SESSION_ID="branchcheck-2026-08-04"
 INTEGRATION="develop"
+
+# `work` runs every session in a worktree of its own at `<repo>-<slug>` beside
+# the repository root, and never switches the checkout it was invoked from. The
+# session branch and its commits are therefore in the worktree, not the sandbox,
+# and every branch assertion below has to look there. The slug is session_id
+# minus its date, the same derivation
+# ixion/skills/ixion-conventions/references/session-handoff.md's "Derive the
+# session worktree" block makes.
+SLUG=${SESSION_ID%-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]}
+session_worktree() {
+  printf '%s/%s-%s\n' "$(dirname "$1")" "$(basename "$1")" "$SLUG"
+}
 
 TWO_SESSION="ixion-int-branch-two"
 ONE_SESSION="ixion-int-branch-one"
@@ -55,8 +68,11 @@ cleanup() {
     pane_save_history "$s"
     tmux_kill "$s"
   done
-  preserve_sandbox "$TWO_SBOX"
-  preserve_sandbox "$ONE_SBOX"
+  for sbox in "$TWO_SBOX" "$ONE_SBOX"; do
+    [ -n "$sbox" ] || continue
+    preserve_sandbox "$sbox"
+    preserve_sandbox "$(session_worktree "$sbox")"
+  done
 }
 trap cleanup EXIT
 
@@ -67,9 +83,10 @@ trap cleanup EXIT
 # work writes progress.json in Phase 1 step 2, three steps before it resolves
 # branches at all, so waiting on it would sample the repo mid-decision.
 #
-# The fixture is deliberately one phase over one file. work offers a worktree
-# above ten files or three phases, and taking that path would put the session
-# branch in a sibling directory where none of the assertions below are looking.
+# The fixture is deliberately one phase over one file, so the plan is cheap; it
+# is never expected to finish, because the branch point is recorded long before
+# the work is. Its size no longer selects a code path — every session gets a
+# worktree — it just keeps the run short.
 run_work() {
   local session="$1" sbox="$2"
   local sdir="$sbox/.ixion/plugin/sessions/$SESSION_ID"
@@ -78,7 +95,7 @@ run_work() {
   cat > "$sdir/spec.json" <<'EOF'
 {
   "schema_version": 1,
-  "summary": "Fixture for the branch-resolution integration case. One phase over one file, small enough that work takes its in-place branch path rather than offering a worktree. The plan is never expected to finish — the case reads the repo's branch state as soon as work Phase 1 has recorded where it branched from.",
+  "summary": "Fixture for the branch-resolution integration case. One phase over one file. The plan is never expected to finish — the case reads the session worktree's branch state as soon as work Phase 1 has recorded where it branched from.",
   "context": { "key_files": ["hello.sh"], "patterns": [], "constraints": [] },
   "phases": [
     {
@@ -131,7 +148,7 @@ EOF
 
   local i=0 last_fire=0 now
   while [ "$i" -lt 420 ]; do
-    if jq -e '.integration_branch // empty' "$sdir/session.json" >/dev/null 2>&1; then
+    if [ "$(json_field "$sdir/session.json" integration_branch)" != null ]; then
       return 0
     fi
     now=$(date +%s)
@@ -168,11 +185,21 @@ if ! run_work "$TWO_SESSION" "$TWO_SBOX"; then
 fi
 note_pass "work recorded a branch point on the two-branch repo"
 
-SESSION_BRANCH=$(git -C "$TWO_SBOX" branch --show-current)
+TWO_WORKTREE=$(session_worktree "$TWO_SBOX")
+SESSION_BRANCH=$(git -C "$TWO_WORKTREE" branch --show-current 2>/dev/null)
 if [ -n "$SESSION_BRANCH" ] && [ "$SESSION_BRANCH" != "$PRODUCTION" ] && [ "$SESSION_BRANCH" != "$INTEGRATION" ]; then
-  note_pass "work left HEAD on a session branch ($SESSION_BRANCH)"
+  note_pass "work checked a session branch out in its own worktree ($SESSION_BRANCH at $TWO_WORKTREE)"
 else
-  note_fail "HEAD is on '$SESSION_BRANCH' — work did not create a session branch"
+  note_fail "no session branch at $TWO_WORKTREE — work did not create the session worktree"
+fi
+
+# The other half of the same claim: the tree work was invoked from is never
+# touched, which is what lets a session start while it is dirty.
+INVOKED_ON=$(git -C "$TWO_SBOX" branch --show-current)
+if [ "$INVOKED_ON" = "$PRODUCTION" ]; then
+  note_pass "the invoking checkout is still on $PRODUCTION — work never switched it"
+else
+  note_fail "the invoking checkout is on '$INVOKED_ON' — work switched the tree it was invoked from"
 fi
 
 # The load-bearing assertion. A branch forked from production meets develop
@@ -188,7 +215,7 @@ else
   echo "----- end -----"
 fi
 
-RECORDED=$(jq -r '.integration_branch // ""' "$TWO_SDIR/session.json" 2>/dev/null || echo "")
+RECORDED=$(json_field "$TWO_SDIR/session.json" integration_branch)
 if [ "$RECORDED" = "$INTEGRATION" ]; then
   note_pass "session.json records integration_branch=$INTEGRATION"
 else
@@ -198,7 +225,7 @@ fi
 # base_ref and integration_branch have to describe one branch point, so the
 # check is equality with develop's tip rather than mere resolvability — that
 # also rules out the literal string "null" reaching the field.
-BASE_REF=$(jq -r '.base_ref // ""' "$TWO_SDIR/session.json" 2>/dev/null || echo "")
+BASE_REF=$(json_field "$TWO_SDIR/session.json" base_ref)
 if [ "$BASE_REF" = "$INTEGRATION_TIP" ]; then
   note_pass "base_ref is $INTEGRATION's tip"
 else
@@ -227,18 +254,19 @@ if ! run_work "$ONE_SESSION" "$ONE_SBOX"; then
   finalize
 fi
 
-RECORDED=$(jq -r '.integration_branch // ""' "$ONE_SDIR/session.json" 2>/dev/null || echo "")
+RECORDED=$(json_field "$ONE_SDIR/session.json" integration_branch)
 if [ "$RECORDED" = "$ONE_PRODUCTION" ]; then
   note_pass "single-branch repo records integration_branch=$ONE_PRODUCTION (collapses to production)"
 else
   note_fail "single-branch repo recorded integration_branch='$RECORDED', expected $ONE_PRODUCTION"
 fi
 
-SESSION_BRANCH=$(git -C "$ONE_SBOX" branch --show-current)
+ONE_WORKTREE=$(session_worktree "$ONE_SBOX")
+SESSION_BRANCH=$(git -C "$ONE_WORKTREE" branch --show-current 2>/dev/null)
 if [ -n "$SESSION_BRANCH" ] && [ "$SESSION_BRANCH" != "$ONE_PRODUCTION" ]; then
-  note_pass "single-branch repo still branches off production ($SESSION_BRANCH)"
+  note_pass "single-branch repo still branches off production ($SESSION_BRANCH at $ONE_WORKTREE)"
 else
-  note_fail "single-branch repo left HEAD on '$SESSION_BRANCH' — work stopped branching"
+  note_fail "no session branch at $ONE_WORKTREE — work stopped branching in the single-branch shape"
 fi
 
 finalize

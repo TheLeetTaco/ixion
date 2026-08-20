@@ -81,4 +81,4 @@ Before reviewing, load the `language-standards` skill. Focus on the Type-Driven 
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, or a quality canonical like "Unwrap in Library Code", "Untested Path", "Test Debt".
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, or a quality canonical like "Unwrap in Library Code", "Untested Path", "Test Debt".

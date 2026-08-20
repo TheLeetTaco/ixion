@@ -27,7 +27,7 @@ Conduct comprehensive research using a two-phase locate-then-analyze approach th
 
 ## Input
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 Research question via `$ARGUMENTS`. If empty, ask what to research.
 
@@ -62,7 +62,7 @@ If no matches or no `docs/research/` directory, proceed to Phase 1.
 
 Run the canonical research workflow: all four locators in parallel → consolidate → all four analyzers in parallel.
 
-Read `ixion/skills/ixion-conventions/references/research-workflow.md` before proceeding — it contains locator templates, the consolidation rule (top-N selection per analyzer), and analyzer templates.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/research-workflow.md` before proceeding — it contains locator templates, the consolidation rule (top-N selection per analyzer), and analyzer templates.
 
 ---
 

@@ -115,7 +115,7 @@ for (const f of process.argv.slice(1)) {
       const t=blk.join("\n");
       const used=new Set([...t.matchAll(/\$\{?([A-Z][A-Z0-9_]{2,})\}?/g)].map(m=>m[1]));
       const asgn=new Set([...t.matchAll(/^\s*([A-Z][A-Z0-9_]{2,})=/gm)].map(m=>m[1]));
-      const env=new Set(["PWD","HOME","PATH","IFS","PIPESTATUS","TMPDIR","ARGUMENTS"]);
+      const env=new Set(["PWD","HOME","PATH","IFS","PIPESTATUS","TMPDIR","ARGUMENTS","CLAUDE_PLUGIN_ROOT"]);
       const bad=[...used].filter(v=>!asgn.has(v)&&!env.has(v));
       if(bad.length) console.log(`${f}:${start}  consumes without assigning: ${bad.join(", ")}`);
       inb=false;return;

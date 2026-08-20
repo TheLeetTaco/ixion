@@ -20,6 +20,7 @@ SCHEMAS="$REPO_ROOT/ixion/schemas"
 . "$LIB/assert.sh"
 . "$LIB/sandbox.sh"
 . "$LIB/tmux.sh"
+. "$LIB/json.sh"
 
 pass=0
 fail=0
@@ -135,7 +136,7 @@ else
 fi
 
 # mode must be "plan" since we seeded a spec.json without findings.
-if [ -f "$SDIR/progress.json" ] && jq -e '.mode == "plan"' "$SDIR/progress.json" >/dev/null 2>&1; then
+if [ "$(json_field "$SDIR/progress.json" mode)" = plan ]; then
   note_pass "progress.json mode == plan"
 else
   note_fail "progress.json mode is not 'plan'"

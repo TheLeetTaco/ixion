@@ -3,3 +3,11 @@
 
 # Shell scripts must stay LF — CRLF breaks them on macOS/Linux and inside hooks
 *.sh text eol=lf
+
+# Skill markdown and schemas are executable content too: their fenced blocks get
+# pasted and run, and their headings are matched by exact title - by the harnesses
+# and by the skills that extract a section by name. A CRLF checkout leaves a
+# carriage return on every heading, extraction then finds nothing, and the agent
+# improvises its own version. Same reason as *.sh above.
+*.md   text eol=lf
+*.json text eol=lf

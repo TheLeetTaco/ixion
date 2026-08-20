@@ -1,6 +1,6 @@
 # Spec Content Guidelines
 
-Session ids, the session directory layout, the `active.json` pointer and the collision tiebreak live in `ixion/skills/ixion-conventions/references/session-handoff.md` — every skill in the pipeline resolves sessions from that file, so the format has one home rather than one per skill. Read it for the id you claim and the directory you write into; what follows is only about what goes *inside* `spec.json`.
+Session ids, the session directory layout, the `active.json` pointer and the collision tiebreak live in `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` — every skill in the pipeline resolves sessions from that file, so the format has one home rather than one per skill. Read it for the id you claim and the directory you write into; what follows is only about what goes *inside* `spec.json`.
 
 ## Repo-relative file paths
 

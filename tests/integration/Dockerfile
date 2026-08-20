@@ -4,7 +4,7 @@
 # pane scrollback. That rules out running it natively on Windows, which is what
 # this image exists to solve.
 #
-# run.sh's pre-flight demands tmux, claude, jq, bunx and cargo; the final RUN
+# run.sh's pre-flight demands tmux, claude, python3, bunx and cargo; the final RUN
 # fails the build if any is missing, so a broken image never reaches a test run.
 FROM ubuntu:24.04
 
@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git unzip xz-utils \
-      tmux jq \
+      tmux python3 \
       build-essential \
       procps less \
     && rm -rf /var/lib/apt/lists/*
@@ -60,8 +60,8 @@ RUN printf '%s\n' \
 
 WORKDIR /work
 
-RUN for t in tmux jq bunx cargo claude; do \
+RUN for t in tmux python3 bunx cargo claude; do \
       command -v "$t" >/dev/null 2>&1 || { echo "MISSING: $t"; exit 1; }; \
     done \
     && [ "$(id -u)" -ne 0 ] || { echo "image must not run as root"; exit 1; } \
-    && tmux -V && jq --version && cargo --version && claude --version
+    && tmux -V && python3 --version && cargo --version && claude --version

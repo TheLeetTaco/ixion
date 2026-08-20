@@ -61,8 +61,9 @@ make_sandbox() {
     cd "$dir"
     git init -q -b "$production"
     fixture_git_config .
-    # Session state is tool output, not source. Untracked .ixion/ would read
-    # as a dirty tree to work's pre-switch probe and halt the session.
+    # Session state is tool output, not source. Untracked .ixion/ would
+    # otherwise surface in every `git status` a skill runs, and make
+    # `git worktree remove` refuse to retire a session's worktree.
     printf '%s\n' '.ixion/' > .gitignore
     git add .gitignore
     git commit -q -m "init"

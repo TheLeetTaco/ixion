@@ -20,7 +20,7 @@ allowed-tools:
 An input naming an existing session routes to review; anything else starts a new plan. Resolve it with the shared rules rather than pattern-matching the string — a bare slug and a full session id both name a session, and only the exact-match rung tells a full id apart from its own `-2` collision sibling:
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
 - `session=` names a directory holding `spec.json` → start with `plan-review`, passing that id
@@ -74,7 +74,7 @@ Check for the file before moving on. If it is not there, the skill has not run y
 [Input] → plan-creation → plan-review → plan-consolidation → [Present]
 ```
 
-After plan-creation, the session dir at `.ixion/plugin/sessions/<session-id>/` contains the spec.json and session.json that subsequent skills read. The active pointer `.ixion/plugin/active.json` is the glue for bare interactive invocations only — as the orchestrator, capture the session id plan-creation prints and pass it to plan-review and plan-consolidation explicitly (`skill: plan-review` with the id as input). A concurrent Claude Code session can retarget active.json mid-run; the id you captured is this run's identity.
+After plan-creation, the session dir at `<repo root>/.ixion/plugin/sessions/<session-id>/` contains the spec.json and session.json that subsequent skills read. The active pointer `.ixion/plugin/active.json` is the glue for bare interactive invocations only — as the orchestrator, capture the session id plan-creation prints and pass it to plan-review and plan-consolidation explicitly (`skill: plan-review` with the id as input). A concurrent Claude Code session can retarget active.json mid-run; the id you captured is this run's identity.
 
 1. **plan-creation** → writes `spec.json`, `session.json` into the session dir; updates `active.json`
 2. **plan-review** → reads the active session's spec.json, writes `review.findings.json`
@@ -131,7 +131,7 @@ Scale it to the spec: a two-phase spec gets a shorter version of the same shape,
 **3. The command that resumes this session.** This is the outer boundary of planning and the point I am most likely to `/clear` at before implementing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
 ```
 
 ---

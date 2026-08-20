@@ -26,7 +26,7 @@ Document solved problems to build searchable institutional knowledge.
 
 **Organization:** Single-file per problem in category directory (e.g., `docs/solutions/performance-issues/n-plus-one-query.md`).
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 ---
 
@@ -73,7 +73,7 @@ Extract from conversation history:
 - **Solution** - Code/config changes that fixed it
 - **Prevention** - How to avoid in future
 
-**When invoked from `ship` Phase 5**, a second source arrives alongside the conversation: the session harvest (what plan review reshaped, which principle names recurred in `review.findings.json`, what the fix pass undid). Treat it the same as conversation context — it fills the same slots:
+**When invoked from `ship` Phase 6**, a second source arrives alongside the conversation: the session harvest (what plan review reshaped, which principle names recurred in `review.findings.json`, what the fix pass undid). Treat it the same as conversation context — it fills the same slots:
 
 | Harvest signal | Slot it fills |
 |---|---|
@@ -81,7 +81,7 @@ Extract from conversation history:
 | Principle name recurring across sessions | Category `pattern` or `mistake`; feeds Step 5.5 |
 | Fix pass fighting the original structure | Investigation — the approach that was tried and cost something |
 
-Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the PR is the verification.
+Session-sourced entries are usually `pattern`, `mistake`, `best_practice`, or `workflow_issue` rather than the error-shaped types. The "verified solution" precondition still holds: the merge is the verification.
 
 **If critical context missing**, ask user, in this order:
 

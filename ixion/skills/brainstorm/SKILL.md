@@ -35,7 +35,7 @@ Transform ideas into validated designs through natural collaborative dialogue. O
 - Presenting design without incremental validation
 - Writing full design then asking "does this look good?"
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding -- it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding -- it contains the question template, the mandatory Why-you slot, and the four reasons that gate whether to ask at all.
 
 ---
 

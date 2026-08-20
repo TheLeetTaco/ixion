@@ -1,6 +1,6 @@
 ---
 name: work-review
-description: Perform exhaustive code reviews using multi-agent analysis. Reviews PRs, branches, or current changes. Writes review.findings.json to the active session. Triggers on "review", "code review", "check PR".
+description: Perform exhaustive code reviews using multi-agent analysis. Reviews a session's work, a branch, or the current changes. Writes review.findings.json to the active session. Triggers on "review", "code review", "check the diff".
 allowed-tools:
   - Read
   - Write
@@ -22,8 +22,6 @@ Perform exhaustive code reviews using multi-agent analysis. Collect each reviewe
 
 The review target is provided via `$ARGUMENTS`. Can be:
 
-- PR number (numeric): `123`
-- GitHub URL: `https://github.com/org/repo/pull/123`
 - Branch name: `feature/my-branch`
 - Session locator: a full session id or a bare slug
 - Empty: review the current branch's changes against the active session
@@ -34,44 +32,62 @@ The review target is provided via `$ARGUMENTS`. Can be:
 
 ### Resolve the session
 
-Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 3 cites it again for the resume command.
 
-`$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk:
-
-```bash
-<paste the "Does a token name a session?" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
-```
-
-`names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a PR number, a URL, or a branch this repo has no session for.
+`$ARGUMENTS` here may be a review target rather than a session locator, and one shape is genuinely both: `fix-login-2026-08-06` is a legal branch name *and* a legal session id. **An existing session directory wins the tiebreak** — the session is what supplies the `spec.json` reviewers are dispatched with, whereas a branch name only says which diff to read, and Phase 1 derives that from the session's `base_ref` anyway. So the argument is a locator only when it names a session on disk — under the repository root, which the block above resolves once for every session path this skill builds:
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Does a token name a session?" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with TOKEN set to the whole of $ARGUMENTS>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
+`names_session=yes` — `LOCATOR` is that whole argument. `names_session=no` — leave `LOCATOR` empty, which sends resolution to the pointer instead of erroring on a session that was never named, and leaves the argument free to be what it is: a branch this repo has no session for.
+
+```bash
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
+<paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. Only `state=usable` continues.
 
 ### Determine review target
 
+Phase 0 already settled this. `names_session=yes`, or an empty `$ARGUMENTS`, makes the target the resolved session's own work — the pipeline case, and the diff Phase 1 measures from that session's `base_ref`.
+
+Otherwise the argument is a branch, and it has to actually be one:
+
 ```bash
-git branch --show-current
-# If PR number:
-gh pr view <PR_NUM> --json title,body,files
+TARGET='<the whole of $ARGUMENTS>'
+KIND=unknown
+if git show-ref --verify --quiet "refs/heads/$TARGET" || git show-ref --verify --quiet "refs/remotes/origin/$TARGET"; then KIND=branch; fi
+printf 'target=%s\nkind=%s\n' "$TARGET" "$KIND"
 ```
 
-### Setup environment
+`kind=unknown` — stop and say the argument names neither a session on disk nor a ref in this repo. A bare number lands here rather than in a lookup of its own.
 
-- If already on target branch: proceed with analysis.
-- If different branch: offer to check out the target branch or create a worktree with `git worktree add`.
+### Stand where the work is
 
-Ensure the code is ready for analysis before dispatching reviewers.
+A session under review has its own worktree — `work` gives every session one — and its branch is checked out there and nowhere else. Derive that path rather than reviewing whatever the invoking checkout happens to hold:
+
+```bash
+<paste the "Derive the session worktree" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+`present=yes` — `cd` into `worktree=` and run the rest of this skill from there, so the diff below and the reviewers' file reads see the session's own tree.
+
+`present=no` — say which path was expected and stop. A session that reached review has a worktree; its absence means `ship` already retired it, and the checkout you are standing in holds a different branch's work that no reviewer should be handed as this session's.
+
+This applies when the review target is the resolved session's own work, which is the pipeline case. A `kind=branch` argument names a target that is not this session's; review that one where you stand.
 
 ### Discover project context
 
-Run the "Project context discovery" step from `ixion/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
+Run the "Project context discovery" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
 
 ---
 
@@ -79,7 +95,7 @@ Run the "Project context discovery" step from `ixion/skills/ixion-conventions/re
 
 Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST include:
 
-1. The diff / PR content inline (or a reference the reviewer can read)
+1. The diff inline (or a path the reviewer can read)
 2. Code-scope location format: `<repo-relative-path>` or `<repo-relative-path>:<line>`
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
 4. The active session's spec rationale (inlined from `spec.context`) — reviewers must distinguish *implementer error* from *plan-prescribed shape*
@@ -89,12 +105,12 @@ Read the active session's `spec.json` before composing the dispatch. Extract `sp
 **Standard reviewer prompt shape:**
 
 ```
-<paste the "Dispatch preamble" from ixion/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
+<paste the "Dispatch preamble" from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md verbatim>
 
 Review this change.
 
 CHANGE:
-[diff or PR content, or path the reviewer should Read]
+[diff, or the path the reviewer should Read]
 
 PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
 [list of paths from the Discover-project-context step in Phase 0, or "none" if no docs exist]
@@ -118,11 +134,12 @@ Do NOT write to any files. The synthesizer owns all file writes.
 Determine the diff size before dispatching:
 
 ```bash
-<paste the "Resolve the branch roles" block from ixion/skills/ixion-conventions/references/git-branches.md verbatim>
+<paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
 ```bash
-BASE_REF=$(jq -r .base_ref .ixion/plugin/sessions/<session= from Phase 0>/session.json)
+<paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
+BASE_REF=$VALUE
 [ "$BASE_REF" = null ] && BASE_REF=$(git merge-base HEAD '<integration branch>')
 git diff "$BASE_REF"..HEAD --shortstat
 # Use the "<n> insertions(+), <m> deletions(-)" line; sum = total lines changed.
@@ -132,7 +149,7 @@ git diff "$BASE_REF"..HEAD --shortstat
 
 `work` recorded `base_ref` in Phase 1 as this branch's starting commit, and committed each chunk as it verified it — so the session's work is in commits on this branch, and only a diff against `base_ref` sees it. Measuring against `HEAD` alone, or against production, sizes the reviewer set off the wrong number.
 
-The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and `jq -r` prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the integration branch is the same base `work` would have recorded.
+The field is optional in `session.schema.json` — a review of a session that predates checkpoint commits, or of a branch `work` never touched, finds it absent, and the read block prints the four-character string `null` for that, which `git diff` rejects. The merge-base against the integration branch is the same base `work` would have recorded.
 
 Choose the set:
 
@@ -151,19 +168,19 @@ Dispatch the chosen reviewers in parallel.
 
 ## Phase 2: Synthesize Findings
 
-The synthesizer reads each reviewer's prose output and structures it into `ixion/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
+The synthesizer reads each reviewer's prose output and structures it into `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
 
 ### 2.1 Read each reviewer's prose output
 
-Run the "Read each reviewer's prose output" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Read each reviewer's prose output" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.2 Validate location format
 
-Run the "Validate the location tier" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
+Run the "Validate the location tier" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`. This is work-review context, so code-scope is the required tier and a plan-scope location is the violation.
 
 ### 2.3 Semantic dedup
 
-Run the "Semantic dedup" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`.
+Run the "Semantic dedup" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
 ### 2.3a Drift arbitration (files outside spec scope)
 
@@ -193,7 +210,7 @@ The synthesizer applies this judgment once at merge time.
 
 ### 2.3b Tag contradictions with the verbatim prompt; scale findings to the change's actual surface
 
-Run the "Tag contradictions, then scale findings to the target's actual size" step from `ixion/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and 2.3a (arbitration), then run the empirical gate (2.3c) on what's left, before 2.4. Trimming first keeps me from spending commands on findings I was going to drop anyway.
 
 ### 2.3c Empirical gate on runtime claims
 
@@ -224,7 +241,7 @@ Two guardrails. Run only what the Evidence slot names — this is a review, so n
 
 Every finding that survived 2.3c persists — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding it receives, which now means every finding whose runtime claim wasn't refuted. Contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
 
-Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
+Compose the final JSON, conforming to `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`:
 
 ```json
 {
@@ -234,12 +251,12 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 }
 ```
 
-Validate against `ixion/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry.
+Validate against `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry.
 
 Write into the session Phase 0 resolved:
 
 ```
-.ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
+<dir= from Phase 0>/review.findings.json
 ```
 
 Write atomically: write to `review.findings.json.tmp` then rename.
@@ -265,18 +282,18 @@ Top findings:
 - <title> (P1)
 - <title> (P2)
 
-Review written to: .ixion/plugin/sessions/<session= from Phase 0>/review.findings.json
+Review written to: <dir= from Phase 0>/review.findings.json
 ```
 
 The "Top findings" list shows 3-5 highest-severity finding titles, ordered by severity then by appearance.
 
 ### Next-step prompt
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
 ```
 What's next?
-**Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the PR is a judgment about this change's risk, not about the findings.
+**Why you:** Preference. The findings are on disk either way; whether they earn a fix pass before the merge is a judgment about this change's risk, not about the findings.
 1. Implement review findings (Recommended)
 2. Ship as-is
 3. "You pick what's best" - Let me decide
@@ -287,7 +304,7 @@ If a finding this round repeats one from a previous review of the same codebase,
 Option 1 is `work` again — it detects fix-findings mode from the completed plan-mode `progress.json` plus the `review.findings.json` just written, so it takes the same session id as every other invocation and no path argument. Print both onward commands under the prompt, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
-<paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work ship'>
+<paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work ship'>
 ```
 
 **No markdown write to `docs/reviews/`.** The durable artifact is `review.findings.json` in the session dir.
@@ -307,7 +324,7 @@ Option 1 is `work` again — it detects fix-findings mode from the completed pla
 
 - **Session resolution failures**: Phase 0 halts on them with the `session-handoff.md` "Error states" messages.
 - **Reviewer failures**: emit synthetic P1 against that reviewer, continue with others. Minimum 50% reviewer success before proceeding.
-- **Git/GitHub failures**: if PR not found, verify number. If branch inaccessible, suggest worktree. If gh CLI not authenticated, surface setup instructions.
+- **Unresolvable target**: `kind=unknown` halts before dispatch, naming the argument and the two things it failed to be.
 - **File write failure**: retry once with the `.tmp` pattern; if still failing, include full findings in the chat summary rather than losing them.
 
 ---

@@ -11,7 +11,7 @@ When asked to plan a feature, run the `plan` skill rather than producing an ad-h
 The chain test (`tests/integration/cases/07-chain-smoke.test.sh`) drives the full pipeline against the real Anthropic API, invoking each skill as its own command (`/ixion:plan` → `/work` → `/work-review` → `/work`). Only `plan` carries the plugin prefix, because only `plan` is shadowed by a Claude Code built-in. The other three stay bare deliberately: bare is what a user types, `05-parallel-sessions` sends bare `/work feata` and would be the only case left covering that form, and prefixing them for cosmetic uniformity would buy realism in one place by deleting coverage in another. Prerequisites:
 
 - A credential: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`. A Claude subscription has no API key, and buying pay-as-you-go access purely to run tests is a tax nobody should pay — the token draws on the subscription instead.
-- `tmux`, `claude`, `jq`, `bunx`, `cargo` on PATH (the fixture builds and tests a Rust crate)
+- `tmux`, `claude`, `python3`, `bunx`, `cargo` on PATH (the fixture builds and tests a Rust crate)
 - The plugin installed via `bash install_claude_code.sh < /dev/null` (non-TTY stdin skips the Context7 prompt)
 
 A typical run takes about 10 minutes on haiku. Cost: real API tokens.
@@ -50,7 +50,7 @@ Smaller tests:
 - `05-parallel-sessions.test.sh`, `06-parallel-chunks.test.sh` — concurrency behavior
 - `08-branch-resolution.test.sh` — `work` branches off the integration branch, not production; two TUI runs, one two-branch repo and one single-branch (~4–8min). Topology correctness is proven offline by `tests/branch-resolution-harness.sh`, which needs no credential and runs in seconds — start there.
 
-`tests/session-resolution-harness.sh` is the same idea for session handoff: it extracts `session-handoff.md`'s own fenced blocks and runs them against throwaway session trees, then lints `ixion/` for the `/ixion:` spelling `install_opencode.py`'s rewrite matches on. Credential-free, seconds long, and it substitutes a python-backed `jq -r .key file` shim on hosts without `jq` so the reference's text runs unchanged — run it before spending API tokens on anything session-resolution shaped.
+`tests/session-resolution-harness.sh` is the same idea for session handoff: it extracts `session-handoff.md`'s own fenced blocks and runs them against throwaway session trees, then lints `ixion/` for the `/ixion:` spelling `install_opencode.py`'s rewrite matches on. Credential-free, seconds long, and it runs the reference's own python field idioms rather than a stand-in for them — run it before spending API tokens on anything session-resolution shaped.
 
 `tests/finding-synthesis-harness.sh` does the same for `references/finding-synthesis.md`: it catches a re-authored copy of the shared synthesis text left behind in one review skill, and the retired `Deferred` tier vocabulary coming back. Credential-free and seconds long — run it after any edit to `finding-synthesis.md` or to either review skill's Phase 2.
 
@@ -111,7 +111,15 @@ Why the dual signal: an AskUserQuestion-pattern monitor alone misses silent stop
 
 The monitor catches *failure shapes* (PASS/FAIL/INFO, deadlock, silent stop). It does not tell you whether the artifacts are any good. **That's your job.** Each `PASS:` milestone is a ping to read the artifact that just landed and audit it against the bar — surface concerns immediately, don't wait for the test to finish. A spec missing an elegance criterion, or a findings.json missing the 4-slot Failure format, is a real signal about the prompt tuning, and the earliest place to catch it is the milestone where it lands.
 
-Find the active session: `find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git'`, then `<sbox>/.ixion/plugin/sessions/<session_id>/`. The exclusion skips the bare origin `make_sandbox` parks beside each sandbox — it matches the same glob and holds no session state.
+Find the session directory itself rather than the sandbox, because the sandbox is no longer the only directory matching its own name:
+
+```bash
+SDIR=$(find ${TMPDIR:-/tmp} -maxdepth 5 -type d -path '*/.ixion/plugin/sessions/*' | head -1)
+SBOX="${SDIR%/.ixion/plugin/sessions/*}"   # the sandbox — the repository root
+ls -d "$SBOX"-*/                            # the session worktrees beside it
+```
+
+The sessions tree hangs off the repository root shared by every checkout, so it stays in the sandbox. `work` runs each session in a worktree named `<sandbox>-<slug>` beside it, so **the code under audit is in the worktree, not the sandbox** — that is where the diff, the source files and the build output are. The bare origin `make_sandbox` parks alongside is `<sandbox>.git`, which the hyphen in `"$SBOX"-*/` already excludes. `active.json` is per-checkout, so the sandbox and each worktree carry their own; the session directories they all point into are shared.
 
 | Milestone | Artifact to read | What to audit |
 |---|---|---|
@@ -131,18 +139,22 @@ The audit is *evidence-based*: cite file paths, line numbers, or specific JSON p
 After a failed run:
 
 ```bash
-# Find the sandbox the failed test left behind
-SBOX=$(find ${TMPDIR:-/tmp} -maxdepth 2 -type d -name 'ixion-int-chain*' ! -name '*.git' | head -1)
-SDIR="$SBOX/.ixion/plugin/sessions/<session-id>"
+# Find the session the failed test left behind, and the sandbox holding it
+SDIR=$(find ${TMPDIR:-/tmp} -maxdepth 5 -type d -path '*/.ixion/plugin/sessions/*' | head -1)
+SBOX="${SDIR%/.ixion/plugin/sessions/*}"
+
+# Pick an interpreter before using one — Windows' python3 is often a stub
+# that resolves on PATH and executes nothing. Same probe the skills use.
+for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
 
 # Session artifacts
 ls -la "$SDIR"
-jq '.' "$SDIR/spec.json"
-jq '.' "$SDIR/progress.json"
-jq '.findings | length' "$SDIR/review.findings.json"
+"$PY" -m json.tool "$SDIR/spec.json"
+"$PY" -m json.tool "$SDIR/progress.json"
+"$PY" -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["findings"]))' "$SDIR/review.findings.json"
 
-# Implementation files
-find "$SBOX" -name "*.py" -not -path "*/.git/*" -not -path "*/.ixion/*"
+# Implementation files — in the session's worktree, not the sandbox
+find "$SBOX"-* -type f \( -name '*.rs' -o -name '*.py' \) -not -path '*/target/*'
 
 # Pane history (auto-saved on test exit)
 ls -la /tmp/ixion-int-*.pane.txt | tail -1

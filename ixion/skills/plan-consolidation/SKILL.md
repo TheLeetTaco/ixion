@@ -13,7 +13,7 @@ allowed-tools:
 
 # Plan Consolidation Skill
 
-Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin uses `.ixion/plugin/sessions/`.
+Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin sessions live under the repository root Phase 0 resolves.
 
 ## Input
 
@@ -23,17 +23,21 @@ Optional `$ARGUMENTS`: a session locator — a full session id, or a bare slug. 
 
 ## Phase 0: Load Session
 
-Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 6 cites it again for the resume command.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` now and hold its blocks — Phase 6 cites it again for the resume command.
 
 ```bash
-<paste the "Resolve the session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
 ```bash
-<paste the "Validate the resolved session" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim>
+<paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
-`via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, read the two inputs from `dir=`:
+```bash
+<paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, read the two inputs from `dir=`:
 
 - `spec.json` (the pre-refinement spec)
 - `review.findings.json` (written by plan-review)
@@ -48,8 +52,8 @@ Read `ixion/skills/ixion-conventions/references/session-handoff.md` now and hold
 ## Phase 1: Back Up to Sidecar (D7)
 
 ```bash
-cp .ixion/plugin/sessions/<id>/spec.json \
-   .ixion/plugin/sessions/<id>/spec.json.pre-consolidation
+SDIR='<dir= from Phase 0>'
+cp "$SDIR/spec.json" "$SDIR/spec.json.pre-consolidation"
 ```
 
 Cleaned on `ship`.
@@ -67,7 +71,7 @@ If `review.findings.json` has zero findings and zero open questions:
 
 ## Phase 3: Surface Open Questions
 
-Read `ixion/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
 Questions to surface:
 
@@ -103,7 +107,7 @@ The bar: a fresh implementer who reads only `spec.json` (no conversation history
 
 **Structural failures replace, don't patch.** Match the leading word(s) of each finding's Failure paragraph against the catalog below — string comparison, not judgment. Match → reshape the affected phase. No match → fold the fix into the task description.
 
-Catalog of names that route to redesign (from `ixion/skills/ixion-conventions/references/elegance.md`):
+Catalog of names that route to redesign (from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`):
 
 - Universal Principles: Single Source of Truth, Working with the Grain, Depth over Indirection, Narrow Interfaces, One-Direction Data Flow, Dead Code Is Debt
 - Structural: God Class, Shallow Wrapper, Forwarding Chain, Parallel State, Speculative Code, Config Soup, Stubborn Duplication
@@ -155,11 +159,11 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 
 ## Phase 6: Write Refined Spec & Hand Off
 
-1. Validate the refined spec against `ixion/schemas/spec.schema.json`.
-2. Atomic write `.ixion/plugin/sessions/<id>/spec.json` (`.tmp` → `mv`).
+1. Validate the refined spec against `${CLAUDE_PLUGIN_ROOT}/schemas/spec.schema.json`.
+2. Atomic write `<dir= from Phase 0>/spec.json` (`.tmp` → `mv`).
 3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/work` that no unhandled review remains.
    ```bash
-   rm .ixion/plugin/sessions/<id>/review.findings.json
+   rm '<dir= from Phase 0>/review.findings.json'
    ```
 4. Print summary:
    ```
@@ -175,7 +179,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 6. Print the command that starts it, so "done for now" and a `/clear` cost nothing:
 
    ```bash
-   <paste the "Resume command" block from ixion/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
+   <paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work'>
    ```
 
 ---

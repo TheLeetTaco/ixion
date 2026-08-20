@@ -58,4 +58,4 @@ When evaluating language-specific patterns, load the `language-standards` skill.
 
 ## Output Format
 
-Read `ixion/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, "Convention Drift", "Reinvented Wheel", or a framework-specific anti-pattern.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-format.md` and return findings exactly in that shape. Domain principle names to lead the Failure with: elegance catalog, SOLID, DRY, "Convention Drift", "Reinvented Wheel", or a framework-specific anti-pattern.

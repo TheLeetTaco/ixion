@@ -2,7 +2,7 @@
 
 A plugin for Claude Code and OpenCode that runs a plan → work → review → ship workflow, with six-perspective agent review at the plan and code boundaries.
 
-Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to send a PR. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
+Everything is a skill. On Claude Code the skills are plugin-qualified — `/ixion:plan` to plan, `/ixion:work` to implement, `/ixion:work-review` to review, `/ixion:ship` to merge. On OpenCode the installer strips the prefix and the same skills answer to `/plan`, `/work`, and so on. Reviewer, locator, and analyzer subagents do the heavy lifting in fresh contexts so the main thread stays compact.
 
 ## Install
 
@@ -131,10 +131,10 @@ Plan → Work → Review → Fix → Ship
 | `/ixion:plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
 | `/ixion:plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
 | `/ixion:work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
-| `/ixion:work-review`       | Multi-agent code review on PRs, branches, or current changes |
+| `/ixion:work-review`       | Multi-agent code review on a session's work, a branch, or the current changes |
 | `/ixion:debug`             | Iterative fix-verify cycle for a specific reported issue |
 | `/ixion:compound`          | Capture a solved problem as searchable documentation |
-| `/ixion:ship`              | Branch → commit → PR; compounds learnings on the way out |
+| `/ixion:ship`              | Branch → commit → merge into the integration branch; compounds learnings on the way out |
 
 Every skill but `plan` also answers to its bare name on Claude Code, which is how the prose below refers to them.
 
@@ -159,19 +159,27 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Execution with recovery
 
-`/work` uses a probe-dispatch-checkpoint pattern, so you can clear context mid-work and pick the session back up. Every stage ends by printing the whole line that resumes it — `/ixion:work <session-id>`, preceded by a `cd` when the session moved into a worktree. Paste that line into the fresh context and you land on the session you just left, whatever else has happened since. Invoking `/work` with no arguments still works and falls back to `active.json`, but that pointer belongs to whichever session was planned most recently, so it is the convenience path rather than the reliable one. It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and picks the mode itself from session state: a completed plan-mode `progress.json` alongside a present `review.findings.json` means the next bare `/work` is a fix pass.
+`/work` uses a probe-dispatch-checkpoint pattern, so you can clear context mid-work and pick the session back up. Every stage ends by printing the whole line that resumes it — `/ixion:work <session-id>`, preceded by a `cd` unless you are already standing in the session's own worktree. Paste that line into the fresh context and you land on the session you just left, whatever else has happened since. Invoking `/work` with no arguments still works and falls back to `active.json`, but that pointer belongs to whichever session was planned most recently, so it is the convenience path rather than the reliable one. It runs in two modes — `plan` (executing `spec.json`) and `fix-findings` (executing `review.findings.json`) — and picks the mode itself from session state: a completed plan-mode `progress.json` alongside a present `review.findings.json` means the next bare `/work` is a fix pass.
 
 ### Multi-agent review
 
 `/work-review` runs all reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and writes a structured `review.findings.json` ready for `/work` to consume in fix-findings mode.
 
+### A worktree per session
+
+`/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/ship` removes the worktree once the merge makes it disposable; the branch survives.
+
+The path is derived from the session id, never recorded, so any skill can recompute it. What that costs is real: **each worktree installs its own dependencies and produces its own build output.** Ixion does not configure a shared build cache — `docs/adrs/0001-skill-design-as-negotiation.md` records why.
+
+Session state does not follow the worktree. `.ixion/plugin/sessions/` hangs off the repository root that every checkout shares, so one session has one record no matter which tree reads it. The `.ixion/plugin/active.json` pointer stays per-checkout on purpose: it is what a bare `/work` with no arguments falls back to, and a shared pointer would let two parallel sessions retarget each other's. Name the session explicitly — that is what the resume line exists to make effortless.
+
 ### Branching in a two-branch repo
 
-`/work` creates the session branch from the integration branch, and `/ship` opens its PR against that same branch. Start `/work` on production while a distinct integration branch exists and it switches to integration first, then branches — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release.
+`/work` creates the session branch from the integration branch, and `/ship` merges it back into that same branch with `--no-ff`, running the merge against the main checkout because git allows a branch in only one worktree at a time. Start `/work` from production while a distinct integration branch exists and the new worktree is still cut from integration — so checkpoint commits never land on a shared branch, and the session's diff covers the session rather than everything since the last release. Your own checkout is left on whatever branch it was on.
 
-The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither is unchanged** — integration resolves to the repo's default branch and every skill behaves exactly as it did before. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets the single-branch behavior.
+The integration branch is detected from git state; there is nothing to configure. A local or remote-tracking `dev` or `develop` is the integration branch, `dev` winning if a repo carries both. **A repo with neither gets one the first time it ships** — `/ship` creates `dev` off the default branch, pushes it, and merges into that, behind the same confirmation the merge itself carries. Detection is by those two names only, so a team whose integration branch is `staging` or `next` gets a `dev` alongside it.
 
-The resolution itself, the protected set, and the error states every skill handles identically (dirty tree, detached HEAD, an integration branch deleted between `work` and `ship`) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
+The resolution itself, the protected set, the command that cuts a session's worktree off the integration branch, and the error states every skill handles identically (detached HEAD, an integration branch deleted between `work` and `ship`, an integration branch another worktree already holds) live in `ixion/skills/ixion-conventions/references/git-branches.md`.
 
 ## Components
 
@@ -219,7 +227,7 @@ Understand HOW things work via full file reads. Documentarian mode — no sugges
 
 ## Schemas
 
-Session artifacts live in `.ixion/plugin/sessions/<id>/` and validate against schemas in `ixion/schemas/`:
+Session artifacts live in `.ixion/plugin/sessions/<id>/` under the repository root and validate against schemas in `ixion/schemas/`:
 
 | Artifact                  | Schema                  | Written by |
 |---------------------------|-------------------------|------------|
@@ -227,7 +235,7 @@ Session artifacts live in `.ixion/plugin/sessions/<id>/` and validate against sc
 | `review.findings.json`    | `findings.schema.json`  | `plan-review` / `work-review` |
 | `progress.json`           | `progress.schema.json`  | `work` |
 | `session.json`            | `session.schema.json`   | `plan-creation` |
-| `active.json`             | `active.schema.json`    | `plan-creation` (pure pointer — run state lives in `session.json`) |
+| `active.json`             | `active.schema.json`    | `plan-creation` (pure pointer, per checkout — run state lives in `session.json`) |
 
 Two sidecars also land in the session dir and are audit trails, not inputs: `spec.json.pre-consolidation` (the pre-refinement spec, written by `plan-consolidation`) and `progress.json.plan-mode` (the completed plan-mode progress, renamed by `work` when it enters fix-findings mode).
 
@@ -271,7 +279,7 @@ bash tests/integration/run.sh plugin-loads    # filter by name
 IXION_TEST_JOBS=2 bash tests/integration/run.sh   # run 2 cases concurrently
 ```
 
-Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `jq`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
+Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `python3`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
 
 Two env vars tune a run: `IXION_TEST_MODEL` overrides the model (cases default to haiku; the runner's default is `claude-sonnet-4-6`), and `IXION_TEST_JOBS` runs N cases concurrently — 2–3 is a sensible ceiling, since parallel cases multiply concurrent API spend and rate-limit pressure.
 
