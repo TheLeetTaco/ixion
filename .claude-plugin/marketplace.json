@@ -1,6 +1,6 @@
 {
   "name": "ixion-marketplace",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "Ixion - plan, implement, review, and ship with multi-agent review",
   "owner": {
     "name": "Wesley Sauret"
@@ -10,7 +10,7 @@
       "name": "ixion",
       "source": "./ixion",
       "description": "Plan, implement, review, and ship — with six-perspective agent review at the plan and code boundaries",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "author": {
         "name": "Wesley Sauret"
       },
