@@ -81,7 +81,7 @@ A session under review has its own worktree — `work` gives every session one �
 
 `present=yes` — `cd` into `worktree=` and run the rest of this skill from there, so the diff below and the reviewers' file reads see the session's own tree.
 
-`present=no` — say which path was expected and stop. A session that reached review has a worktree; its absence means `ship` already retired it, and the checkout you are standing in holds a different branch's work that no reviewer should be handed as this session's.
+`present=no` — say which path was expected and stop. A session that reached review has a worktree; its absence means it was retired after its PR merged, and the checkout you are standing in holds a different branch's work that no reviewer should be handed as this session's.
 
 This applies when the review target is the resolved session's own work, which is the pipeline case. A `kind=branch` argument names a target that is not this session's; review that one where you stand.
 

@@ -274,7 +274,7 @@ cd "$REPO_ROOT" && git worktree remove "$WORKTREE" && printf 'removed=%s\n' "$WO
 
 The undo of the block above, and it lives beside it: it reads that block's `worktree=` and this file's `repo_root=`, and nothing else. Cutting the tree needs a branch to cut it from, which is why `git-branches.md` owns that half; removing it needs no branch at all.
 
-`ship` is the only caller: it owns the merge that makes the worktree disposable, so it owns the disposal. The session branch survives — this removes the checkout, not the work.
+`ship` prints this filled in rather than running it: the PR it opens is not yet merged, so the tree still holds the branch any review changes belong on. The user runs it once the PR lands. The session branch survives either way — this removes the checkout, not the work.
 
 The `cd` is load-bearing rather than tidy. Every session runs in a worktree, so the agent is standing inside the very directory it is removing, and git refuses to remove the current working directory. `REPO_ROOT` is the one directory guaranteed to exist and to be outside every session worktree. Continue from there afterwards: the directory the shell started in is gone.
 
