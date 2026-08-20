@@ -239,8 +239,10 @@ PRODUCTION='<production= from the branch-roles block>'
 TARGET='<target= from the merge-target block>'
 CREATE='<create= from the merge-target block>'
 
+LOCK="$REPO_ROOT/.git/ixion-ship.lock"
+mkdir "$LOCK" 2>/dev/null || { printf 'merged=lock-held\n'; exit 1; }
 WAS=$(git -C "$REPO_ROOT" branch --show-current)
-trap '[ -z "$WAS" ] || git -C "$REPO_ROOT" switch -q "$WAS"' EXIT
+trap '[ -z "$WAS" ] || git -C "$REPO_ROOT" switch -q "$WAS"; rmdir "$LOCK"' EXIT
 
 git -C "$REPO_ROOT" push -u origin "$FEATURE" || exit 1
 if [ "$CREATE" = yes ]; then
@@ -270,6 +272,8 @@ printf 'merged=%s\n' "$(git -C "$REPO_ROOT" rev-parse "$TARGET")"
 ```
 
 The first push publishes the session branch itself, so the branch name the merge commit records resolves to a ref anyone who clones can check out. `--no-ff` is what makes the session legible afterwards: the checkpoint commits `work` made stay as themselves, and the merge commit is the one place the whole session appears as a unit.
+
+The `mkdir` is the borrow made exclusive, and it comes before `WAS` is captured rather than after. Reproduced without it: two ships overlapping, the second captures `WAS` after the first has already switched the tree to `TARGET`, so its trap "restores" the checkout to the integration branch the user never put it on. Capturing under the lock is what makes `WAS` mean what the trap assumes it means. `mkdir` is the same atomic claim the "Claim a session id" block uses — it fails rather than races when the directory exists — and the lock lives in the common `.git`, so every worktree of this repo contends for the one main checkout they all borrow. `merged=lock-held` means another ship is mid-merge: re-run when it finishes. A lock left behind by a killed process is removed with `rmdir` on that path.
 
 The `trap` is what makes "the tree this phase borrows is the tree it hands back" a property of the block rather than a promise in prose: it fires on the success path and on all five failures below, so no exit leaves the main checkout on a branch the user did not put it on. What it restores is a branch name, and a checkout that was already on a detached HEAD has none — `git branch --show-current` prints nothing, `WAS` is empty and the guard makes the trap a no-op, so the tree is left on `TARGET`. That is where this block left it before the trap existed; the guard is what keeps the difference to that, instead of a `fatal: invalid reference` printed at exit for a condition nobody diagnosed.
 

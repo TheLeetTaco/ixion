@@ -503,4 +503,37 @@ expect "blocks issued from the main checkout: it is handed back on the branch it
 expect "blocks issued from the main checkout: the session worktree is untouched" \
   "$(git -C "$wt" branch --show-current)" feata
 
+# Two ships overlapping on the one main checkout they both borrow. Reproduced before the
+# lock existed: the second captures WAS after the first has switched the tree to TARGET,
+# so its trap restores the checkout to the integration branch the user never put it on.
+# Every other ship case here drives the two sessions start-to-finish in turn, which is
+# exactly why this went unnoticed - the overlap is the whole defect.
+start_ship ship-concurrent dev feata
+repo_a=$repo; wt_a=$wt
+wt_b=$WORK/ship-concurrent-featb
+create_worktree "$repo_a" featb "$wt_b" "$integration" >/dev/null
+printf 'b work\n' > "$wt_b/b.txt"
+git -C "$wt_b" add b.txt
+git -C "$wt_b" commit -qm "add b"
+
+started_on=$(git -C "$repo_a" branch --show-current)
+lock="$repo_a/.git/ixion-ship.lock"
+
+# A holds the lock and the tree, mid-merge.
+mkdir "$lock"
+git -C "$repo_a" switch -q "$integration"
+out=$(ship_merge "$wt_b" "$repo_a" featb "$production" "$integration" no)
+expect "a second ship while one holds the lock: refused rather than borrowing the tree" \
+  "$(field "$out" merged)" lock-held
+
+# A finishes: releases the lock and puts the tree back.
+git -C "$repo_a" switch -q "$started_on"
+rmdir "$lock"
+out=$(ship_merge "$wt_b" "$repo_a" featb "$production" "$integration" no)
+expect "once the lock is free: the second ship merges" "$(field "$out" merged | cut -c1-6)" \
+  "$(git -C "$repo_a" rev-parse --short=6 "$integration")"
+expect "and hands the main checkout back to the branch it started on" \
+  "$(git -C "$repo_a" branch --show-current)" "$started_on"
+expect "and leaves no lock behind" "$([ -d "$lock" ] && echo held || echo free)" free
+
 finalize
