@@ -8,7 +8,11 @@
   "required": ["schema_version", "session_id", "slug", "status", "started_at", "active_skill"],
   "properties": {
     "schema_version": { "const": 1 },
-    "session_id": { "type": "string", "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}(-[2-9])?$" },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}(-[2-9])?$",
+      "description": "Session identity, formatted <slug>-<YYYY-MM-DD> with an optional collision tiebreak. The tiebreak range is not free-form: session-handoff.md's 'Claim a session id' block loops over \"\" -2 -3 ... -9, so those are the only suffixes a claimed session can carry and this pattern encodes exactly that set. Widening the loop means widening this pattern; tests/session-resolution-harness.sh asserts the two still agree. A live run that improvised -1, and another that improvised an -e46e60fd hex suffix, are why that check exists."
+    },
     "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
     "status": { "enum": ["active", "paused", "completed"] },
     "started_at": { "type": "string", "format": "date-time" },

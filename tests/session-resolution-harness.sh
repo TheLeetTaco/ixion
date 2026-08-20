@@ -812,8 +812,10 @@ rm "$lintbed/stray.json"
 # first validated against the loose pattern and the second was never validated at all.
 # Python reads the pattern instead of sed because the schema stores it JSON-escaped, and
 # unescaping that in shell is where the first attempt at this check silently matched all.
-for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
-idcheck=$("$PY" -c 'import json, re, sys
+if [ -z "$PY" ]; then
+  echo "SKIPPED: the schema/claim-loop agreement check is a python program, and no python interpreter on PATH runs one"
+else
+  idcheck=$("$PY" -c 'import json, re, sys
 pattern = json.load(open(sys.argv[1]))["properties"]["session_id"]["pattern"]
 loop = [l for l in open(sys.argv[2], encoding="utf-8") if l.startswith("for n in ")]
 if not loop: sys.exit("claim loop not found")
@@ -824,12 +826,13 @@ for s in [""] + emits:
 for s in ["-1", "-e46e60fd", "-10", "-0"]:
     if re.match(pattern, "demo-2026-08-20" + s): bad.append("accepts " + s)
 print("; ".join(bad) if bad else "agree")' \
-  "$ROOT/ixion/schemas/session.schema.json" \
-  "$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md")
-if [ "$idcheck" = agree ]; then
-  note_pass "session id: the schema accepts exactly the tiebreaks the claim loop emits"
-else
-  note_fail "session id: schema and claim loop disagree -> $idcheck"
+    "$ROOT/ixion/schemas/session.schema.json" \
+    "$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md")
+  if [ "$idcheck" = agree ]; then
+    note_pass "session id: the schema accepts exactly the tiebreaks the claim loop emits"
+  else
+    note_fail "session id: schema and claim loop disagree -> $idcheck"
+  fi
 fi
 
 finalize
