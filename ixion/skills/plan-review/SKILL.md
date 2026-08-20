@@ -101,7 +101,7 @@ When in doubt, run the default set. The slim set exists only to cut latency on s
 
 ## Phase 2: Synthesize Findings
 
-The synthesizer reads each reviewer's prose output and structures it into `ixion/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
+The synthesizer reads each reviewer's prose output and structures it into `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
 
 ### 2.1 Read each reviewer's prose output
 
@@ -121,7 +121,7 @@ Run the "Tag contradictions, then scale findings to the target's actual size" st
 
 ### 2.4 Structure into schema
 
-Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
+Compose the final JSON, conforming to `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`:
 
 ```json
 {
@@ -133,7 +133,7 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 
 ### 2.5 Validate and write
 
-Validate the structured JSON against `ixion/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry. Reviewers are not at fault for synthesizer bugs.
+Validate the structured JSON against `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry. Reviewers are not at fault for synthesizer bugs.
 
 Atomic write to `<dir= from Phase 0>/review.findings.json`:
 

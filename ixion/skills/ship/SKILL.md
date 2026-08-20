@@ -240,13 +240,13 @@ TARGET='<target= from the merge-target block>'
 CREATE='<create= from the merge-target block>'
 
 WAS=$(git -C "$REPO_ROOT" branch --show-current)
-trap 'git -C "$REPO_ROOT" switch -q "$WAS"' EXIT
+trap '[ -z "$WAS" ] || git -C "$REPO_ROOT" switch -q "$WAS"' EXIT
 
 git -C "$REPO_ROOT" push -u origin "$FEATURE" || exit 1
 if [ "$CREATE" = yes ]; then
   git -C "$REPO_ROOT" switch -q -c "$TARGET" "origin/$PRODUCTION" || exit 1
   git -C "$REPO_ROOT" push -u origin "$TARGET" || {
-    git -C "$REPO_ROOT" switch -q "$WAS"
+    git -C "$REPO_ROOT" switch -q --detach
     git -C "$REPO_ROOT" branch -D "$TARGET"
     printf 'merged=create-rejected\n'
     exit 1
@@ -271,13 +271,13 @@ printf 'merged=%s\n' "$(git -C "$REPO_ROOT" rev-parse "$TARGET")"
 
 The first push publishes the session branch itself, so the branch name the merge commit records resolves to a ref anyone who clones can check out. `--no-ff` is what makes the session legible afterwards: the checkpoint commits `work` made stay as themselves, and the merge commit is the one place the whole session appears as a unit.
 
-The `trap` is what makes "the tree this phase borrows is the tree it hands back" a property of the block rather than a promise in prose: it fires on the success path and on all five failures below, so no exit leaves the main checkout somewhere the user did not put it.
+The `trap` is what makes "the tree this phase borrows is the tree it hands back" a property of the block rather than a promise in prose: it fires on the success path and on all five failures below, so no exit leaves the main checkout on a branch the user did not put it on. What it restores is a branch name, and a checkout that was already on a detached HEAD has none — `git branch --show-current` prints nothing, `WAS` is empty and the guard makes the trap a no-op, so the tree is left on `TARGET`. That is where this block left it before the trap existed; the guard is what keeps the difference to that, instead of a `fatal: invalid reference` printed at exit for a condition nobody diagnosed.
 
 Five ways this stops, each leaving the shared branch as it found it:
 
 - **`switch` refuses with `already used by worktree at <path>`** — surface it per `git-branches.md`'s "Integration branch checked out in another worktree". Nothing has been merged.
 - **`merge --ff-only` refuses** — the local integration branch has commits its remote does not, so fast-forwarding it would be a merge of its own. Report the divergence and stop; merging on top of it would push somebody's unreviewed local work along with this session's.
-- **Publishing a created `dev` is rejected** — the `create=yes` path only reaches the push after the branch exists locally, and two sessions both finding no integration branch in the same window is precisely the concurrency worktrees enable. The local branch is deleted before the exit, because a `dev` that was never published is not a branch anyone can pull and leaving it behind makes the next resolution answer `integration=dev` from a ref that only this checkout has. This is the one exit that switches back ahead of the trap rather than leaving it to fire: git refuses to delete a branch that is checked out, so the restore has to happen first. Re-run; the fetch above then finds the `dev` that won.
+- **Publishing a created `dev` is rejected** — the `create=yes` path only reaches the push after the branch exists locally, and two sessions both finding no integration branch in the same window is precisely the concurrency worktrees enable. The local branch is deleted before the exit, because a `dev` that was never published is not a branch anyone can pull and leaving it behind makes the next resolution answer `integration=dev` from a ref that only this checkout has. This is the one exit that moves HEAD ahead of the trap rather than leaving it to fire: git refuses to delete a branch that is checked out, so HEAD detaches first and the trap then restores `WAS` as it does on every other exit. Re-run; the fetch above then finds the `dev` that won.
 - **The merge conflicts** — the unmerged paths are printed and the merge is aborted, which leaves the target clean. The feature branch is untouched in the tree Phase 0 left you standing in; resolve there and re-run.
 - **The push is rejected** — another session pushed to the target between the fetch and this push, which is the ordinary outcome of two sessions shipping minutes apart. `reset --keep` puts the local branch back on its remote, so the branch every worktree shares is not left carrying a merge commit nobody else has; it refuses rather than discarding uncommitted work if the main checkout has any. Re-run `/ixion:ship`, and the fetch above picks up what landed first.
 

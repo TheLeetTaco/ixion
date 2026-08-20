@@ -159,7 +159,7 @@ If the user wants to drop an integrated finding after seeing it, they can edit t
 
 ## Phase 6: Write Refined Spec & Hand Off
 
-1. Validate the refined spec against `ixion/schemas/spec.schema.json`.
+1. Validate the refined spec against `${CLAUDE_PLUGIN_ROOT}/schemas/spec.schema.json`.
 2. Atomic write `<dir= from Phase 0>/spec.json` (`.tmp` → `mv`).
 3. **Delete `review.findings.json`** — it has been consumed. This is the signal to `/work` that no unhandled review remains.
    ```bash

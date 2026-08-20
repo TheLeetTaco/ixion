@@ -78,7 +78,7 @@ Procedure:
    }
    ```
 
-   Atomic write (`.tmp` → `mv`). Same shape for both modes — only `mode` differs. Resume path skips this step (file already exists).
+   Write it to `progress.json.tmp.$$` and `mv` it into place. This is the one `progress.json` write that does not paste the "Set session fields" block every later one does — that block reloads the document it is updating, and there is none yet — so the temp-and-rename is spelled out here instead, and spelled the same way: a resume finds either no file or a complete one, never a half-written one Phase 1 step 1 would then have to parse. Same shape for both modes — only `mode` differs. Resume path skips this step (file already exists).
 
 3. **Session update** — `active_skill` and `last_checkpoint_at`, in one write:
 
@@ -159,7 +159,13 @@ Procedure:
 
    Step 6 wrote that field a moment ago, so it is a commit id here and needs no fallback of its own. The range still earns its place: chunk ids are phase ids, so an earlier session on this same branch can have committed a `Ixion-Chunk: phase-1` trailer of its own, and an unbounded `--grep` would hand back that stranger's sha to record as this chunk's work.
 
-   A sha means only the record was lost: append `{ "chunk_id": "<id>", "sha": "<sha>" }` and leave the id in `completed[]`. Re-dispatching it instead would spend a subagent re-deriving work already in history and then record an empty commit as though it were the chunk. Empty output means the commit never landed: drop the id so 2.0 picks the chunk up again. Atomic write either way.
+   A sha means only the record was lost: append `{ "chunk_id": "<id>", "sha": "<sha>" }` and leave the id in `completed[]`. Re-dispatching it instead would spend a subagent re-deriving work already in history and then record an empty commit as though it were the chunk. Empty output means the commit never landed: drop the id so 2.0 picks the chunk up again. Either way, write the result back:
+
+   ```bash
+   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/progress.json" and the field/value pairs set to completed '<the reconciled array>' artifacts '<the reconciled artifacts object>'>
+   ```
+
+   Every `progress.json` write from here on is that block. Each value is the complete new value of a top-level field — the block replaces what it is given rather than merging into it, so `artifacts` always carries `files_modified[]`, `commands_run[]` and `checkpoint_commits[]` together, and naming it with one of them missing deletes the others.
 
    2.0 takes `completed[]` as its exclusion set and makes no such check of its own, so a chunk this step doesn't rescue is skipped forever — silently, with no error. A fresh session has both arrays empty and this is a no-op.
 
@@ -258,7 +264,12 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 2. **Manual verification** — if `phase.manual_verification` is non-empty (plan mode), **you (the orchestrating agent) perform these checks yourself.** Do not surface them to the user. Do not call `AskUserQuestion`. You have full tool access — run the commands via Bash, start servers in tmux, curl endpoints, verify TUI output by capturing tmux panes, read output, inspect the browser. The `manual_verification` field describes what to check and how; execute those steps, read the results, and judge pass/fail yourself. If the check fails, treat it the same as a failed automated verification: do not checkpoint that member, diagnose and fix.
 3. Append every **verified** member's ID to `progress.completed[]` in one write. Set `in_progress: null`. If all chunks are now complete set `status: "completed"`, otherwise `status: "in_progress"`. Do NOT append an ID whose verification failed.
 4. Append `files_modified[]` (de-duped) and `commands_run[]` to `progress.artifacts`.
-5. Atomic write `progress.json` via `.tmp` → `mv`.
+5. Write steps 3 and 4 back in one call:
+
+   ```bash
+   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/progress.json" and the field/value pairs set to completed '<the full array>' in_progress null status '"<in_progress|completed>"' artifacts '<the full artifacts object>'>
+   ```
+
 6. **Commit and record each verified member, one member at a time.** A session that stays uncommitted until `ship` puts a whole multi-phase feature one destructive command away from gone; per-chunk grain means a revert costs one phase rather than a whole wave.
 
    A member's commit and its record are one unit. Run this to completion for one member before starting the next, so an interruption costs only the member in flight:
@@ -269,7 +280,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
    git rev-parse HEAD
    ```
 
-   then append `{ "chunk_id": "<id>", "sha": "<sha>" }` to `progress.artifacts.checkpoint_commits[]` and write `progress.json` atomically (`.tmp` → `mv`, exactly as step 5) before touching the next member. Yes, that's a write per member on top of step 5's — the sha doesn't exist until the commit does, and batching them into one write at the end of the wave would leave every member already committed by then recorded nowhere.
+   then append `{ "chunk_id": "<id>", "sha": "<sha>" }` to `progress.artifacts.checkpoint_commits[]` and write `progress.json` with step 5's block again, naming `artifacts` alone, before touching the next member. Yes, that's a write per member on top of step 5's — the sha doesn't exist until the commit does, and batching them into one write at the end of the wave would leave every member already committed by then recorded nowhere.
 
    Stage the paths the member **returned**, not the `files[]` it was dispatched with: a fix-findings chunk is allowed to drift onto files outside its list (the fix-findings addendum says so), and that drift belongs in the same commit as the rest of the chunk. Explicit paths only: staging the whole tree instead would sweep in `.ixion/`, which some repos don't ignore, plus any sibling member's work.
 
@@ -330,7 +341,7 @@ Criteria not expressible as a command (e.g., "No new helper added without first 
 ]
 ```
 
-Criteria you resolved from the cumulative diff ran no command and get no entry — the cited diff line is their evidence. Then atomic write `progress.json` via `.tmp` → `mv`, exactly as 2.3 step 5. Do it before starting Phase 4: the self-check there can send you into a polish chunk that runs commands of its own, and the record of what proved the criteria should already be on disk by then.
+Criteria you resolved from the cumulative diff ran no command and get no entry — the cited diff line is their evidence. Then write `progress.json` with 2.3 step 5's block, naming `artifacts` alone. Do it before starting Phase 4: the self-check there can send you into a polish chunk that runs commands of its own, and the record of what proved the criteria should already be on disk by then.
 
 ---
 
@@ -372,7 +383,7 @@ Print both onward commands under it, so choosing later — after a `/clear` — 
 
 After the user's choice:
 
-1. `progress.json.status = "completed"` (atomic write).
+1. `progress.json.status = "completed"`, via 2.3 step 5's block with `status '"completed"'` as its only pair.
 2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"` and the removal of this session's worktree — it owns the merge that makes the tree disposable, and you are standing inside the tree.
 
 ---
@@ -408,4 +419,4 @@ Test failures fix before checkpointing — never append a chunk ID to `completed
 
 - `references/plan-mode.md`, `references/fix-findings-mode.md` — the chunk definition and dispatch template for each mode. Phase 1 loads exactly one.
 - `references/verification-gates.md` — Evidence-before-claim protocol and banned phrases.
-- `ixion/schemas/progress.schema.json`, `session.schema.json` — authoritative shapes for the artifacts this skill writes.
+- `${CLAUDE_PLUGIN_ROOT}/schemas/progress.schema.json`, `session.schema.json` — authoritative shapes for the artifacts this skill writes.

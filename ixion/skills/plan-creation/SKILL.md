@@ -14,7 +14,7 @@ allowed-tools:
 
 # Plan Creation Skill
 
-Research the codebase, validate technical claims, and emit a work-ready `spec.json` in a single pass. Output validates against `ixion/schemas/spec.schema.json`.
+Research the codebase, validate technical claims, and emit a work-ready `spec.json` in a single pass. Output validates against `${CLAUDE_PLUGIN_ROOT}/schemas/spec.schema.json`.
 
 ## Core Principles
 
@@ -125,7 +125,7 @@ Every spec MUST emit at least one `context.constraints[]` entry recording the de
 
 ## Phase 4: Compose and Write Artifacts
 
-Spec is a structured JSON document validated against `ixion/schemas/spec.schema.json`. Namespace: plugin sessions live under the repository root the block below resolves.
+Spec is a structured JSON document validated against `${CLAUDE_PLUGIN_ROOT}/schemas/spec.schema.json`. Namespace: plugin sessions live under the repository root the block below resolves.
 
 ### Step 1 + 2: Derive session id by claiming the directory
 
@@ -194,7 +194,7 @@ fi
 
 Path: `<dir= from the claim block>/spec.json`
 
-Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `ixion/schemas/spec.schema.json` for the authoritative shape.
+Required top-level fields: `schema_version: 1`, `summary` (100–5000 chars; the system-level goal and what we're building), `context`, `phases`, `success_criteria`. Optional: `open_questions` (array of strings). See `${CLAUDE_PLUGIN_ROOT}/schemas/spec.schema.json` for the authoritative shape.
 
 **BLOCKING: top-level fields are exactly the set above.** `additionalProperties: false` rejects anything else — do NOT emit `risks`, `notes`, `assumptions`, or any field not listed in the schema. Risk discussion belongs in `context.constraints[]`; uncertainty belongs in `open_questions[]`.
 

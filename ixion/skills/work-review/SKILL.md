@@ -168,7 +168,7 @@ Dispatch the chosen reviewers in parallel.
 
 ## Phase 2: Synthesize Findings
 
-The synthesizer reads each reviewer's prose output and structures it into `ixion/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
+The synthesizer reads each reviewer's prose output and structures it into `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json` shape. Reviewers do NOT emit JSON; the synthesizer is the single schema enforcer.
 
 ### 2.1 Read each reviewer's prose output
 
@@ -241,7 +241,7 @@ Two guardrails. Run only what the Evidence slot names — this is a review, so n
 
 Every finding that survived 2.3c persists — P1, P2, and P3 alike. There is no triage prompt; the fix pass applies every finding it receives, which now means every finding whose runtime claim wasn't refuted. Contradictions are already tagged `[Contradicts user]` for the fix pass to skip.
 
-Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
+Compose the final JSON, conforming to `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`:
 
 ```json
 {
@@ -251,7 +251,7 @@ Compose the final JSON, conforming to `ixion/schemas/findings.schema.json`:
 }
 ```
 
-Validate against `ixion/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry.
+Validate against `${CLAUDE_PLUGIN_ROOT}/schemas/findings.schema.json`. If validation fails, the synthesizer's structuring step had a bug — fix and retry.
 
 Write into the session Phase 0 resolved:
 

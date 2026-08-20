@@ -747,8 +747,17 @@ rm "$lintbed/typo.md"
 # agent told to paste a block it cannot read invents one instead. Requiring a
 # name character after the slash is what keeps prose *about* that mistake from
 # matching the mistake itself.
+#
+# `schemas` is in the set for the same reason and on the same evidence: the
+# marketplace ships `./ixion` whole, so the installed plugin carries `schemas/`
+# beside `skills/` and `${CLAUDE_PLUGIN_ROOT}/schemas/...` resolves there.
 lint_source_checkout_paths() {
-  grep -rnE 'ixion/(skills|agents)/[A-Za-z]' "$1" --include='*.md'
+  # .json too: a citation inside a schema description resolves no better than one in
+  # a skill. The schemas' own "$id" values are self-identifiers, not citations, so
+  # they are filtered - matched on the whole key-and-value so a description sharing
+  # that line is still caught.
+  grep -rnE 'ixion/(skills|agents|schemas)/[A-Za-z]' "$1" --include='*.md' --include='*.json' \
+    | grep -vE '"[$]id": *"ixion/schemas/[a-z.]+\.json",?$'
 }
 
 strays=$(lint_source_checkout_paths "$ROOT/ixion")
@@ -764,6 +773,14 @@ if [ -n "$(lint_source_checkout_paths "$lintbed")" ]; then
   note_pass "lint: a citation left pointing at the source checkout is caught"
 else
   note_fail "lint: a citation left pointing at the source checkout went unnoticed"
+fi
+rm "$lintbed/stray.md"
+
+printf 'Validates against `ixion/schemas/spec.schema.json`.\n' > "$lintbed/stray.md"
+if [ -n "$(lint_source_checkout_paths "$lintbed")" ]; then
+  note_pass "lint: a schema citation left pointing at the source checkout is caught"
+else
+  note_fail "lint: a schema citation left pointing at the source checkout went unnoticed"
 fi
 rm "$lintbed/stray.md"
 
