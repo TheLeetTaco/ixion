@@ -5,8 +5,11 @@
 # for origin, so the fetch and the push are exercised for real — under a temp dir,
 # and torn down on exit: no network, no API credential, no residue. The blocks are
 # extracted by heading title, so the harness runs the same text callers paste into
-# their own Bash calls. `gh pr create` is the one step not covered: it needs a
-# GitHub remote and a credential, and a stub would only test the stub.
+# their own Bash calls. `gh pr create` is not covered: it needs a GitHub remote
+# and a credential, and its whole effect is the PR it opens, so a stub would only
+# test the stub. The auto-merge blocks are different — their effect is which rung
+# they reach and whether they arm at all, which is the block's own logic — so a
+# `gh` on PATH answers their probes and records what they called.
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -51,6 +54,14 @@ FETCH_BLOCK=$(section "$SHIP" "Refresh the remote-tracking refs")
 PUSH_BLOCK=$(section "$SHIP" "Push the session branch")
 BASE_BLOCK=$(section "$SHIP" "Resolve the PR base")
 REPO_BLOCK=$(section "$SHIP" "Resolve the repository")
+AUTOMERGE_BLOCK=$(section "$SHIP" "Resolve auto-merge availability")
+ARM_BLOCK=$(section "$SHIP" "Arm auto-merge")
+# The three field idioms ship's terminal write and a later resolution are made
+# of. They are exercised on their own in tests/session-resolution-harness.sh;
+# here they are the fixture the ordering invariant is asserted through.
+WRITE_BLOCK=$(section "$HANDOFF" "Set session fields")
+READ_BLOCK=$(section "$HANDOFF" "Read a session field")
+VALIDATE_BLOCK=$(section "$HANDOFF" "Validate the resolved session")
 
 check_section() {
   [ -n "$3" ] || note_fail "no bash block under section \"$2\" in $1"
@@ -63,6 +74,11 @@ check_section "$SHIP" "Refresh the remote-tracking refs" "$FETCH_BLOCK"
 check_section "$SHIP" "Push the session branch" "$PUSH_BLOCK"
 check_section "$SHIP" "Resolve the PR base" "$BASE_BLOCK"
 check_section "$SHIP" "Resolve the repository" "$REPO_BLOCK"
+check_section "$SHIP" "Resolve auto-merge availability" "$AUTOMERGE_BLOCK"
+check_section "$SHIP" "Arm auto-merge" "$ARM_BLOCK"
+check_section "$HANDOFF" "Set session fields" "$WRITE_BLOCK"
+check_section "$HANDOFF" "Read a session field" "$READ_BLOCK"
+check_section "$HANDOFF" "Validate the resolved session" "$VALIDATE_BLOCK"
 [ "$fail" = 0 ] || finalize
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-branch-XXXXXX")
@@ -373,6 +389,145 @@ for url in https://github.com/owner/repo.git git@github.com:owner/repo.git https
   expect "repository resolved from origin at $url" \
     "$(field "$(run_block "$repo" "$REPO_BLOCK")" repo)" owner/repo
 done
+
+# --- the auto-merge ladder --------------------------------------------------
+
+# A `gh` on PATH answering the two probes the ladder makes, from the environment
+# so one stub serves every case. An empty answer exits non-zero printing nothing,
+# which is what a probe that answered nothing looks like. Every call is appended
+# to GH_CALLS, which is how the arming cases below prove what did and did not run.
+GH_DIR="$WORK/gh-stub"
+GH_CALLS="$WORK/gh-calls"
+mkdir -p "$GH_DIR"
+cat > "$GH_DIR/gh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$GH_CALLS"
+case "$1 $2" in
+  'api repos/owner/repo') [ -n "${GH_ALLOWED:-}" ] || exit 1; printf '%s\n' "$GH_ALLOWED" ;;
+  'pr view') [ -n "${GH_STATE:-}" ] || exit 1; printf '%s\n' "$GH_STATE" ;;
+esac
+STUB
+chmod +x "$GH_DIR/gh"
+
+# with_gh <allow_auto_merge> <mergeStateStatus> <block> -> the block's output,
+# run against the stub with GH_CALLS emptied first.
+with_gh() {
+  : > "$GH_CALLS"
+  run_block "$WORK" "export PATH='$GH_DIR':\$PATH GH_CALLS='$GH_CALLS' GH_ALLOWED='$1' GH_STATE='$2'
+$3" 2>/dev/null
+}
+
+automerge_block() {
+  local block
+  block=$(fill "$AUTOMERGE_BLOCK" '<repo= from the repository block>' owner/repo)
+  fill "$block" '<url= from the Create the PR block>' https://github.com/owner/repo/pull/1
+}
+
+# expect_automerge <label> <allow_auto_merge> <mergeStateStatus> <automerge> <gates>
+expect_automerge() {
+  local out
+  out=$(with_gh "$2" "$3" "$(automerge_block)")
+  expect "$1: automerge=$4" "$(field "$out" automerge)" "$4"
+  expect "$1: gates=$5" "$(field "$out" gates)" "$5"
+}
+
+expect_automerge "repository setting off" false CLEAN off ""
+expect_automerge "blocked by a requirement" true BLOCKED deferred BLOCKED
+expect_automerge "behind its base" true BEHIND deferred BEHIND
+expect_automerge "nothing gating the PR" true CLEAN immediate CLEAN
+expect_automerge "checks failing that do not gate the merge" true UNSTABLE immediate UNSTABLE
+for state in UNKNOWN DIRTY DRAFT; do
+  expect_automerge "mergeability reported as $state" true "$state" unknown "$state"
+done
+
+# An unread setting is not a setting read as off, and a PR with nothing gating it
+# must not arm behind one. `gates=` is empty on that rung specifically: the state
+# was read, but it is not why arming was refused, and reporting it as the reason
+# would name the PR as the obstacle when the obstacle is the permission probe.
+expect_automerge "setting unread, state read: unknown, not the off it never read" "" CLEAN unknown ""
+expect_automerge "state unread, setting read: unknown, and no state to report" true "" unknown ""
+
+# --- arming against the state the answer was given about --------------------
+
+# arm_block <the gates= value the confirmation quoted> -> the block, filled.
+arm_block() {
+  local block
+  block=$(fill "$ARM_BLOCK" '<url= from the Create the PR block>' https://github.com/owner/repo/pull/1)
+  fill "$block" '<gates= from the resolution above>' "$1"
+}
+
+# AskUserQuestion waits on a person, so the state the outcome line quoted is the
+# one thing the arm command cannot assume is still true.
+out=$(with_gh true CLEAN "$(arm_block CLEAN)")
+expect "state unchanged since the question: nothing drifted" "$(field "$out" drifted)" ""
+expect "state unchanged since the question: auto-merge is armed" \
+  "$(grep -c -- '--auto' "$GH_CALLS")" 1
+
+out=$(with_gh true BLOCKED "$(arm_block CLEAN)")
+expect "state drifted while the question was open: the new state is reported" \
+  "$(field "$out" drifted)" BLOCKED
+expect "state drifted while the question was open: nothing is armed" \
+  "$(grep -c -- '--auto' "$GH_CALLS")" 0
+
+# --- the terminal write, and what a later arming cannot undo ----------------
+
+# session_field <cwd> <session.json> <field> -> that field's value.
+session_field() {
+  local block
+  block=$(fill "$READ_BLOCK" '<the JSON file to read>' "$2")
+  block=$(fill "$block" '<the top-level key to read>' "$3")
+  field "$(run_block "$1" "$block")" "$3"
+}
+
+# session_state <repo root> <session-id> -> state=, as a ship invoked fresh
+# against that id reads it.
+session_state() {
+  local block
+  block=$(fill "$VALIDATE_BLOCK" '<repo_root= from the session-root block>' "$1")
+  block=$(fill "$block" '<checkout_root= from the session-root block>' "$1")
+  block=$(fill "$block" '<session= from the resolution block>' "$2")
+  block=$(fill "$block" '<via= from the resolution block>' exact)
+  field "$(run_block "$1" "$block")" state
+}
+
+# Both blocks are python programs, so absence of an interpreter the reference's
+# own two-candidate probe would trust is reported rather than passed.
+PY=
+for py in python3 python; do "$py" -c '' 2>/dev/null && { PY=$py; break; }; done
+
+if [ -z "$PY" ]; then
+  echo "SKIPPED: the terminal write and the session validation are python programs, and no python interpreter on PATH runs one"
+else
+  root="$WORK/terminal-write"
+  id=feata-2026-08-20
+  sdir="$root/.ixion/plugin/sessions/$id"
+  mkdir -p "$sdir"
+
+  # ship_tail <arming outcome>: the write, then that outcome, in one shell —
+  # which is what makes the assertions below about ordering rather than about
+  # two unrelated steps. `gh pr merge` is not run for the reason `gh pr create`
+  # is not, and all the invariant needs from it is its exit status.
+  ship_tail() {
+    local write
+    printf '{"schema_version": 1, "session_id": "%s", "status": "active"}\n' "$id" > "$sdir/session.json"
+    write=$(fill "$WRITE_BLOCK" '<the JSON file to update>' "$sdir/session.json")
+    write=$(fill "$write" "<field> '<JSON value>'" "status '\"completed\"' active_skill null")
+    run_block "$root" "$write
+$1" >/dev/null 2>&1
+  }
+
+  ship_tail ':'
+  expect "declined arming: session.json is still completed" \
+    "$(session_field "$root" "$sdir/session.json" status)" completed
+  expect "declined arming: a fresh resolution reports the session complete" \
+    "$(session_state "$root" "$id")" complete
+
+  ship_tail 'printf "failed enabling auto-merge\n" >&2; exit 1'
+  expect "failed arming: session.json is still completed" \
+    "$(session_field "$root" "$sdir/session.json" status)" completed
+  expect "failed arming: a fresh resolution reports the session complete, not usable" \
+    "$(session_state "$root" "$id")" complete
+fi
 
 # --- t3: removal, which ship now hands to the user --------------------------
 

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+<!-- Deliberate, not an oversight: the whole 4.x line accumulates here. 4.0.0 and
+4.1.0 bumped both manifests without adding entries of their own, so cutting this
+block into versioned headings means first writing those two entries from git
+history — a release pass, not a retitle. -->
+
+### Added
+
+- **`ship` can arm GitHub auto-merge on the PR it just opened.** After `gh pr create` succeeds, Phase 4 resolves a four-valued `automerge=` — `off`, `deferred`, `immediate`, `unknown` — from the repository's `allow_auto_merge` flag and the PR's `mergeStateStatus`, then asks **once**, tagged Irreversible, before running `gh pr merge --auto --squash --delete-branch`. **Arming is confirmed, never automatic**, and the confirmation's outcome line says which of the two things will happen: `deferred` merges unattended once the gate clears, `immediate` merges on the spot because nothing is gating the PR. On approval the state is read once more, since `AskUserQuestion` waits on a person: arming happens only where it still matches what the confirmation quoted, and a state that drifted while the question was open is reported instead of armed. `off` and `unknown` ask nothing and arm nothing — `off` names the repository setting's location without offering to flip it, `unknown` reports the state where it read one and says availability could not be confirmed where it did not, printing the arming command for later either way. There is no poller and no session held open; the session is still marked `status: completed` and the session worktree is still the user's to remove. `gh pr merge --auto` cannot be called blind: with the repository setting off (cli/cli#8792) or with nothing gating the PR (cli/cli#13880) it merges immediately without erroring, which is why the probe exists. See the amendment in `docs/adrs/0001-skill-design-as-negotiation.md`.
+
 ### Changed
 
 - **The empirical Evidence gate applies at every severity.** 3.0.0 ran the Evidence command only for P1s, so an unreproducible P1 was deleted while an unreproducible P2 went straight to `work`'s fix pass, which fixes P1 through P3 without triage. `work-review` 2.3c now gates any finding whose Failure claims runtime misbehavior and whose Evidence names a command; structural findings and `[Contradicts user]` findings are still exempt, and plan review still skips the stage. Refuted findings are dropped at every severity; ones whose command won't run drop exactly one tier (a P3 stays P3). The gate spends at most 12 commands a round, cycling one P1, one P2, one P3 and round again, so a long P1 list can't drain the budget before the lower tiers the widening was for are reached; the summary reports what went unattempted. Before deleting a refuted finding it writes the title, location and refuting output into `open_questions[]` under a `Refuted and dropped:` marker, which separates a settled record from the open questions around it and keeps a deletion auditable after the summary scrolls away.
