@@ -131,7 +131,7 @@ Plan → Work → Review → Fix → Ship
 | `/ixion:plan-review`       | All reviewer agents in parallel; deduplicates findings into `review.findings.json` |
 | `/ixion:plan-consolidation`| Resolve open questions with the user; merge findings into the spec |
 | `/ixion:work`              | Execute `spec.json` (plan mode) or `review.findings.json` (fix-findings mode) |
-| `/ixion:work-review`       | Multi-agent code review on a session's work, a branch, or the current changes |
+| `/ixion:work-review`       | Multi-agent code review on a session's work, a checked-out branch, or the current changes |
 | `/ixion:debug`             | Iterative fix-verify cycle for a specific reported issue |
 | `/ixion:compound`          | Capture a solved problem as searchable documentation |
 | `/ixion:ship`              | Branch → commit → push → PR; compounds learnings on the way out |
@@ -163,7 +163,11 @@ This costs a fraction of an all-in-one research agent for the same fidelity.
 
 ### Multi-agent review
 
-`/work-review` runs all reviewer agents in parallel, deduplicates findings, detects conflicts between reviewers, and writes a structured `review.findings.json` ready for `/work` to consume in fix-findings mode.
+`/work-review` runs all reviewer agents in parallel, deduplicates findings, runs the Evidence command behind every surviving runtime claim, and writes a structured `review.findings.json`.
+
+Name a session and it reviews that session's diff against its own `spec.json`, writes into the session dir, and offers the fix pass — `/work` reads those findings and switches to fix-findings mode. Name a checked-out branch, or nothing at all in a repo with no active session, and it is an **ad-hoc review**: the diff is measured from the integration branch, reviewers are told there is no plan to judge against, and the findings land under `.ixion/plugin/reviews/<branch>-<date>/` — never in a session the invocation didn't name, because a `review.findings.json` appearing in a session dir is exactly what starts that session's next `/work` on a fix pass. An ad-hoc review is a report; the fix pass needs a session, which is what `/ixion:plan` creates.
+
+A branch has to be checked out in some worktree to be reviewable. The empirical gate runs the commands reviewers name, and a tree with no dependencies installed answers "won't run" to all of them — so `git worktree add <path> <branch>` first.
 
 ### A worktree per session
 
@@ -237,7 +241,9 @@ Session artifacts live in `.ixion/plugin/sessions/<id>/` under the repository ro
 | `session.json`            | `session.schema.json`   | `plan-creation` |
 | `active.json`             | `active.schema.json`    | `plan-creation` (pure pointer, per checkout — run state lives in `session.json`) |
 
-Two sidecars also land in the session dir and are audit trails, not inputs: `spec.json.pre-consolidation` (the pre-refinement spec, written by `plan-consolidation`) and `progress.json.plan-mode` (the completed plan-mode progress, renamed by `work` when it enters fix-findings mode).
+Two sidecars also land in the session dir and are audit trails, not inputs: `spec.json.pre-consolidation` (the pre-refinement spec, written by `plan-consolidation`) and `progress.json.plan-mode` (the completed plan-mode progress, renamed by `work` when it enters fix-findings mode). `work-review` also stages the diff it dispatched as `review.diff`, so a finding's anchors can be checked against the same bytes the reviewers read.
+
+An ad-hoc `work-review` writes the same two files — `review.diff` and `review.findings.json` — into `.ixion/plugin/reviews/<branch>-<date>/` instead, which no skill reads.
 
 ## Client differences
 
@@ -279,7 +285,7 @@ bash tests/integration/run.sh plugin-loads    # filter by name
 IXION_TEST_JOBS=2 bash tests/integration/run.sh   # run 2 cases concurrently
 ```
 
-Requirements: `ANTHROPIC_API_KEY` set; `tmux`, `claude`, `python3`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed).
+Requirements: a credential — `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` for subscription users; `tmux`, `claude`, `python3`, `bunx` on PATH, plus `cargo` for `07` (its fixture builds and tests a Rust crate). Schema validation uses `bunx ajv-cli` (no install needed). On Windows, `tests/integration/docker-run.sh` supplies the Linux userspace.
 
 Two env vars tune a run: `IXION_TEST_MODEL` overrides the model (cases default to haiku; the runner's default is `claude-sonnet-4-6`), and `IXION_TEST_JOBS` runs N cases concurrently — 2–3 is a sensible ceiling, since parallel cases multiply concurrent API spend and rate-limit pressure.
 
