@@ -63,15 +63,18 @@ REPO_ROOT='<repo_root= from the session-root block>'
 [ -n "$REPO_ROOT" ] || { printf 'repo_root=\n'; exit 1; }
 SESSIONS="$REPO_ROOT/.ixion/plugin/sessions"
 mkdir -p "$SESSIONS"
+TODAY=$(date -u +%F)
 SESSION_ID=
 SDIR=
 for n in "" -2 -3 -4 -5 -6 -7 -8 -9; do
-  if mkdir "$SESSIONS/<slug>-<YYYY-MM-DD>$n" 2>/dev/null; then
-    SESSION_ID="<slug>-<YYYY-MM-DD>$n"; SDIR="$SESSIONS/$SESSION_ID"; break
+  if mkdir "$SESSIONS/<slug>-$TODAY$n" 2>/dev/null; then
+    SESSION_ID="<slug>-$TODAY$n"; SDIR="$SESSIONS/$SESSION_ID"; break
   fi
 done
 printf 'session=%s\ndir=%s\n' "$SESSION_ID" "$SDIR"
 ```
+
+Only `<slug>` is filled in. The date comes from `date -u +%F`, not from the caller, because it is the one half of the id nobody has to choose: a model-supplied date is right until the day it is not, and a session id carrying yesterday's date — or last year's, in the first week of January — sorts wrong in the prefix scan's most-recent tiebreak and names a session that appears to predate work it postdates. UTC rather than local time so two checkouts in different zones cannot claim two ids for one day.
 
 Creation *is* the probe: plain `mkdir` (no `-p`) fails atomically when the slot is taken, so two sessions planning the same slug on the same day can never both land in one directory — a `test -d` probe followed by a separate create would race. `dir=` is the claimed directory, printed here because the caller's next act is to write artifacts into it and re-spelling the sessions path at each write is how the root stops being resolved in one place. An empty `session=` means all ten slots are taken; that is ten sessions for one slug on one day, so stop and ask the user to clean up rather than widening the suffix range.
 
@@ -110,6 +113,10 @@ The temp is `<path>.tmp.<pid>`, and each half of that name answers a different f
 What the suffix does not buy is a transaction. Each write reloads the whole file, applies the fields it names and writes the document back, so two writers overlapping across that window both succeed and the later one's copy is what remains — the earlier one's fields are dropped with nothing reported. The record assumes **one active skill per session at a time**, which is exactly what `active_skill` names: `plan-creation` and `work` set it on entry and clear it on exit, and `debug` reads it to warn before working alongside a live session.
 
 Both blocks are cited rather than restated. One home means the interpreter probe, the `null` spelling and the temp path are decided once.
+
+**Two shapes say you reconstructed this block from memory instead of reading it, and both destroy the artifact.** `jq` is not one of these idioms and is not on these hosts — 4.0 removed the dependency, and the only occurrences left under `ixion/` are this sentence and the line in `work` Phase 1 that repeats it — a third one is a call site to delete. And `<something> > "$FILE"` truncates the target *before* the command on the left runs, so a command that then fails — because `jq` is not installed, say — leaves a zero-byte session artifact where the original was. That exact pair cost a live run its session record on 2026-08-21: an improvised `jq` line emptied `session.json`, and recovering it displaced the worktree step that should have followed.
+
+`wrote=` is the receipt. A write step that printed nothing did not use this block; the fix is to come back and read it, never to hand-author a replacement.
 
 The blocks below this one are the exception: they carry the read inline rather than citing it, and the resume block carries the worktree derivation the same way. A caller pastes each of them as a single self-contained unit, and a citation nested inside a pasted block would make every caller's paste two levels deep and interleave the inner block's own printed line into the outer block's `session=` / `state=` / `cd` output, which is the whole of what the next call reads.
 
@@ -254,6 +261,8 @@ printf 'slug=%s\nworktree=%s\npresent=%s\n' "$SLUG" "$WORKTREE" "$PRESENT"
 ```
 
 `slug=` is also the session branch's name, so `work` creates the branch and the directory from one derivation and `git worktree list --porcelain` reports the same path back.
+
+`worktree=` is a sibling of the repository root, which puts it outside the directory Claude Code was launched in, and two things follow that every caller is written to. A `cd` into it does not survive to the next Bash call: the harness keeps a working-directory change only while it stays inside the project, and resets the shell to the project root otherwise. So every Bash call that must run in the tree begins with `cd '<worktree=>' || exit 1` — or addresses it with `git -C` — and no block assumes a `cd` from an earlier call is still in force, which is the same premise every block here already holds about variables. And a dispatched subagent starts at the project root, not where its caller stands, so every dispatch carries the absolute `worktree=` and every path handed to a file tool is absolute under it.
 
 The parent is absolutized rather than the worktree itself, because the parent always exists and the worktree does not yet on the invocation that creates it. That keeps `worktree=` a single clean absolute path in both states, with `present=` carrying the existence answer instead of an empty string overloading it. A read site that finds `present=no` reports the path it expected rather than working against whatever checkout it is standing in.
 

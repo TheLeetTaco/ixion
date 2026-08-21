@@ -18,10 +18,22 @@ jobs:
           shellcheck --severity=error \
             install_claude_code.sh \
             tests/cleanup.sh \
+            tests/branch-resolution-harness.sh \
+            tests/session-resolution-harness.sh \
+            tests/finding-synthesis-harness.sh \
             tests/integration/run.sh \
             tests/integration/cases/*.test.sh
           # lib files are sourced, not executed — tell shellcheck the dialect
           shellcheck --severity=error --shell=bash tests/integration/lib/*.sh
+
+      # Credential-free and seconds long: these run the reference files' own
+      # fenced blocks against throwaway repos, so a renamed heading, a broken
+      # block or a drifted schema fails here rather than in front of a user.
+      - name: offline harnesses
+        run: |
+          bash tests/branch-resolution-harness.sh
+          bash tests/session-resolution-harness.sh
+          bash tests/finding-synthesis-harness.sh
 
       - name: compile JSON schemas
         run: |

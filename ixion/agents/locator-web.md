@@ -3,14 +3,13 @@ name: locator-web
 description: "Find relevant URLs and summaries from web search. Returns URLs with descriptions - does not fetch full content."
 model: sonnet
 tools: [WebSearch]
-skills: [ixion-conventions]
 ---
 
-**The current year is 2026.** Find relevant URLs via web search. Return URLs with descriptions — do not fetch full page content.
+Find relevant URLs via web search. Return URLs with descriptions — do not fetch full page content.
 
 ## Search Strategy
 
-1. **Craft targeted queries** — include framework/library name, specific topic, add "2026" or "latest" for recency
+1. **Craft targeted queries** — include framework/library name, specific topic, add the current year or "latest" for recency
 2. **Search multiple angles**:
    - Official docs: `"[framework] official docs [topic]"`
    - Examples: `"[framework] [topic] example github"`

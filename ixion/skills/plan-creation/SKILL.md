@@ -29,6 +29,8 @@ Feature description via `$ARGUMENTS`. If empty, ask user. Read `${CLAUDE_PLUGIN_
 
 **Why you:** Missing fact. The repo can tell me what exists, but not what you want built next or what would make it done — and a spec is nothing without both.
 
+`$ARGUMENTS` may instead be the path of a `*-design.md` that `brainstorm` wrote. Read it in full: its Problem Statement, Success Criteria, Constraints, Out of Scope and selected approach are the feature description, and Phase 3 treats the selected approach as already decided — record its Selection Rationale as the `Considered: … Rejected because: …` entry rather than re-deriving one. `constraints[0]` still carries `$ARGUMENTS` verbatim, because the path is what the user typed; append the design's Problem Statement and selected approach as `constraints[1]`, prefixed `Design document (authoritative, from brainstorm): `, so the words the pipeline reasons from are the design's and not a filename.
+
 ---
 
 ## Phase 0: Check for Existing Knowledge
@@ -129,7 +131,7 @@ Spec is a structured JSON document validated against `${CLAUDE_PLUGIN_ROOT}/sche
 
 ### Step 1 + 2: Derive session id by claiming the directory
 
-Pick a kebab-case slug for the feature, then claim it:
+Pick a kebab-case slug for the feature — the id's date half is the claim block's own `date -u +%F`, so the slug is the only part to choose — then claim it:
 
 ```bash
 <paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>

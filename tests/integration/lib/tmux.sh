@@ -162,6 +162,29 @@ wait_for_file_with_autopilot() {
   return 1
 }
 
+# drain_dialogs <session> [budget-seconds]
+# Answer any open AskUserQuestion and wait until no dialog chrome is visible.
+#
+# Call this between "the artifact I was waiting for exists" and "send the next
+# slash command". The two are not the same moment: a skill writes its terminal
+# artifact and then asks what to do next, so a poll that breaks on the file can
+# reach send-keys while a dialog still owns the input box — and the command
+# lands in the dialog instead of the prompt. Returns 0 once the pane is clear,
+# 1 if the budget expires with one still up (which is a deadlock worth seeing).
+drain_dialogs() {
+  local session="$1"
+  local budget="${2:-30}"
+  local i=0
+  while [ "$i" -lt "$budget" ]; do
+    if ! autopilot_respond "$session"; then
+      return 0
+    fi
+    sleep "$AUTOPILOT_COOLDOWN"
+    i=$((i + AUTOPILOT_COOLDOWN))
+  done
+  return 1
+}
+
 # wait_for_prompt <session> <timeout-seconds>
 # Block until claude has printed its initial prompt and is ready for input.
 # We look for the "?" or ">" prompt boundary the TUI shows when idle.
@@ -173,19 +196,40 @@ wait_for_prompt() {
 }
 
 # pane_has_skill_invocation <session> <skill-name>
-# Returns 0 if the pane scrollback shows the agent invoking the named
-# skill via the Skill tool. The TUI emits "Skill(<name>)" when a skill
-# is loaded; absence means the skill wasn't invoked even if the agent
-# claimed otherwise. Plugin-installed skills appear with a "ixion:"
-# namespace prefix (Skill(ixion:plan-creation)); skills loaded directly
-# via --plugin-dir without an installed marketplace may appear bare. We
-# accept either form. Captures the FULL scrollback (-S -), not just the
-# visible window, so milestones that scrolled out are still found.
+# Returns 0 if the pane shows the AGENT invoking the named skill via the
+# Skill tool. The TUI emits "Skill(<name>)" for a model-made tool call;
+# plugin skills appear namespaced (Skill(ixion:plan-creation)) and skills
+# loaded via --plugin-dir without an installed marketplace may appear
+# bare, so both forms are accepted.
+#
+# **Only meaningful for a skill the model chose to load** — one orchestrated
+# by another skill, as `plan` loads plan-creation. A skill the harness types
+# as a slash command is loaded by the command itself and emits no tool call,
+# so asserting this marker for it fails on a correct run. Observed 2026-08-21
+# in case 08: `/ixion:work` ran the skill block by block with every printed
+# value correct and no `Skill(` string anywhere in the pane. Use
+# pane_ran_command for those; the artifact on disk is what proves execution.
 pane_has_skill_invocation() {
   local session="$1"
   local skill="$2"
   tmux capture-pane -t "$session" -p -S - 2>/dev/null \
     | grep -qE "Skill\((ixion:)?${skill}\)"
+}
+
+# pane_ran_command <session> <skill-name>
+# Returns 0 if the pane shows the slash command for <skill-name> echoed at a
+# prompt — accepting the bare and namespaced spellings, since the TUI resolves
+# a typed `/work` to `/ixion:work` when the plugin is loaded.
+#
+# This is the invocation-side evidence for a skill the harness types, and it
+# catches a failure the artifact assertions cannot: a command swallowed by an
+# open AskUserQuestion instead of reaching the prompt. The trailing class stops
+# `work` from matching `/ixion:work-review`.
+pane_ran_command() {
+  local session="$1"
+  local skill="$2"
+  tmux capture-pane -t "$session" -p -S - 2>/dev/null \
+    | grep -qE "/(ixion:)?${skill}([^-A-Za-z]|$)"
 }
 
 # pane_save_history <session> [label]

@@ -12,7 +12,7 @@ Use Glob to find the project's architectural docs once at the orchestrator level
 - `docs/adrs/**/*.md`
 - `docs/coding-guidelines*.md`
 
-Collect the matching paths into `PROJECT_CONTEXT_PATHS`. Inline them in every reviewer dispatch under "PROJECT CONTEXT PATHS." If no docs match, pass `none` — reviewers skip discovery and apply universal principles only.
+Glob with `path` set to the tree under review — the session worktree for `work-review`, the repository root for `plan-review` — and collect the matches as absolute paths into `PROJECT_CONTEXT_PATHS`: a reviewer starts in whatever directory the session was launched from, and a relative path would have it read that checkout's copy rather than the tree's own. Inline them in every reviewer dispatch under "PROJECT CONTEXT PATHS." If no docs match, pass `none` — reviewers skip discovery and apply universal principles only.
 
 ## Shared reference sections (each reviewer reads by path)
 
@@ -28,7 +28,7 @@ Before assessing your domain, read the reference sections and the project contex
 ## Reference sections to read first
 - the "Elegance Dispatch Bar" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`
 - the "Anti-Pattern Catalog" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/elegance.md`
-- the "Finding Quality: Lead with the Failure" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/SKILL.md`
+- the "Finding Quality: Lead with the Failure" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/SKILL.md` — already preloaded into your context as the `ixion-conventions` skill, so apply it from there rather than Reading the file again
 
 If your search exceeds ~30 tool calls, return what you have — partial results beat exhaustive ones.
 

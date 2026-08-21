@@ -45,7 +45,7 @@ When you see multiple small issues clustered in one area, they usually point at 
 - **File search**: Use **Glob**, not `find`/`ls` via Bash
 - **File reading**: Use **Read**, not `cat`/`head`/`tail` via Bash
 
-Bash is only for: git commands, `bun` commands, and system operations with no dedicated tool.
+Bash is only for: git commands, `cargo` commands, and system operations with no dedicated tool.
 
 ---
 
@@ -120,7 +120,7 @@ Before emitting `spec.json`, verify each phase contains:
 
 A spec is ready when an implementer can start confidently without needing to infer.
 
-If any phase fails the bar, loop back: read the codebase, ask the user, or defer the phase explicitly as `status: deferred` with rationale.
+If any phase fails the bar, loop back: read the codebase, ask the user, or record the gap in `open_questions[]` — a phase carries no `status` field, and `spec.schema.json` rejects one.
 
 ---
 

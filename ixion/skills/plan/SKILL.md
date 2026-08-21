@@ -20,6 +20,10 @@ allowed-tools:
 An input naming an existing session routes to review; anything else starts a new plan. Resolve it with the shared rules rather than pattern-matching the string — a bare slug and a full session id both name a session, and only the exact-match rung tells a full id apart from its own `-2` collision sibling:
 
 ```bash
+<paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+```
+
+```bash
 <paste the "Resolve the session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with LOCATOR set to $ARGUMENTS>
 ```
 
@@ -41,8 +45,6 @@ skill: plan-review
 ```
 
 <input> #$ARGUMENTS </input>
-
-**Note: The current year is 2026.**
 
 ---
 

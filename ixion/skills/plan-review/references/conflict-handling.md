@@ -7,11 +7,12 @@ Scan findings for contradictions:
 | Conflict Type | Example |
 |---------------|---------|
 | Opposite recommendations | Agent A: "use caching" vs Agent B: "avoid caching overhead" |
-| Priority disagreement | Agent A marks P1, Agent B marks same issue P3 |
 | Pattern assessment | Agent A: "pattern appropriate" vs Agent B: "anti-pattern" |
 | Trade-off framing | Agent A: "security risk" vs Agent B: "acceptable for performance" |
 
 ---
+
+A severity disagreement is not a conflict: semantic dedup already takes the maximum, and consolidation integrates every surviving finding whatever its tier.
 
 ## Convert to Open Question Format
 
