@@ -264,15 +264,17 @@ For phases that are genuinely hard to automate (HTTP servers, GUI changes, proce
 
 The smoke command starts the process, greps for a startup signal, and exits cleanly via `|| true`. Other minimal-smoke patterns: `cargo check` (verifies the code compiles), `cargo build` (verifies it links). `manual_verification` is for supplementary checks **the orchestrating agent performs itself** (not the user) — things like curling an endpoint, inspecting browser output, capturing tmux panes to verify TUI behavior, or reading server logs. The orchestrator has full tool access and will execute these steps directly. `manual_verification` is allowed to be `null` but `verification` is not.
 
-**Rust phases chain the per-phase gates**, because a single smoke command is the minimum, not the target. Rust has a canonical gate list with a tier assigned to each gate — **before composing a `verification` string for a Rust phase, load the `language-standards` skill and read its Tooling Gates section.** The commands below are a snapshot of that list, written out because `verification` must be runnable and a pointer is not: nothing keeps the flags here in sync with the canonical list, so when the two disagree, language-standards is right.
+**Rust phases chain the per-phase gates**, because a single smoke command is the minimum, not the target. Rust has a canonical gate list with a tier assigned to each gate — **before composing a `verification` string for a Rust phase, load the `language-standards` skill and read its Tooling Gates section.**
 
-An interior phase chains the per-phase gates:
+An interior phase chains the per-phase gates. **Copy this line.**
 
 ```json
-"verification": "cargo test --locked && cargo clippy --all-targets --all-features --locked -- -D warnings && cargo fmt --check"
+"verification": "cargo test --locked && cargo clippy --all-targets --locked -- -D warnings && cargo fmt --check"
 ```
 
-On the phases where language-standards places the feature-combination checks — the final phase, and any phase whose `files[]` includes `Cargo.toml` or a feature-gated module — append them to that chain:
+If you believe it disagrees with the Tooling Gates section you just read, copy the chain from *there* instead. What neither case licenses is composing your own from memory — that is how a phase ends up verified by `cargo test --lib` alone, with nothing linting or formatting the code it accepts. Two live runs did exactly that, in different ways, and neither reproduced the list: one dropped `--locked`, the other dropped clippy and `cargo fmt` outright. Tailoring the command to the crate is the instinct to resist here; the flags are chosen against failures the list names, not against this crate's shape.
+
+On a crate that declares features, three flags come back — clippy takes `--all-features` too, and the two feature-combination checks below join the chain on the final phase and on any phase whose `files[]` includes `Cargo.toml` or a feature-gated module. On a crate with no `[features]` table all three are exactly nothing, and omitting them is correct:
 
 ```json
 " && cargo check --all-features --locked && cargo check --no-default-features --locked"
