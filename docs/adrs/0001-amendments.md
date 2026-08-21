@@ -182,3 +182,32 @@ A third change, made while proving the first: **Principle 12's pane-marker half 
 Worth stating plainly: this was found by running the suite, not by reading it. The offline harnesses were green through every change in this session and could not have caught it — they never start a TUI. Principle 9 in the other direction.
 
 The second: this file. `CLAUDE.md` inlines ADR-001 with `@`, so all 80 KB of it entered every turn of every session in this repository — and 46 KB of that was amendments. Rationale Discipline says rationale belongs out of the loaded path when it does not change what the agent does at runtime, and that is exactly the split: the fourteen principles bind while you work, the narrative of how each mechanism reached its shape binds while you change one. *Rejected: moving "Considered and deferred" out with the amendments.* It is 5.5 KB and it is the one section a reader is most likely to need *without* going looking — someone about to add a per-project config file or a PostToolUse validator should meet the existing rejection before they write it, not after.
+
+### Amendment: the resume command is what stops the orchestrator
+
+Three consecutive live runs of `07` failed at three different points, and the third named a cause the first two only hinted at.
+
+Run 3, 2026-08-21: `/ixion:plan` completed `plan-creation` and `plan-review`, printed
+
+```
+Next step to consolidate findings and refine the spec:
+  /ixion:plan-consolidation rust-double-library-2026-08-21
+```
+
+and stopped at an empty prompt with `plan-consolidation` never run. No dialog was open, so the harness autopilot had nothing to answer and the case timed out on its consolidation wait. Runs 1 and 2 had both continued past this point, so it is not constant — one occurrence in three.
+
+**The cause is a closing block, not a lapse.** Every skill in the pipeline ends by printing the command that resumes the session. That block was added deliberately, for the case a user runs `plan-review` on its own and then clears context, and it is correct there. Under `plan` it is a *closing gesture*: the child says "here is how to continue", the orchestrator's "do not stop between them" sits thousands of tokens earlier, and Principle 11 says plainly which of the two wins. The resume block is itself a directive, and it is the one being read last.
+
+Nothing changed yet, and the options are worth recording because the obvious one is the worst of them.
+
+*Rejected: suppress the resume block when the skill is orchestrated.* It requires the child to know that it is, and Principle 11's whole point is that there is no wire to carry that on — orchestrator and child are one context reading successive instructions, not two processes with a channel between them. `plan` passes a session id, not a mode. Adding an "orchestrated" flag means new state threaded through four skills to describe a distinction the runtime does not make, and every skill then carries a branch nothing can verify it took.
+
+*Rejected: delete the resume blocks from the children and print once from `plan` Phase 4.* That restores exactly the gap the blocks were introduced to close — a standalone `/ixion:plan-review` would end with no way to resume, which is the case they exist for.
+
+*Untried, and the cheapest: change what the closing block says rather than whether it prints.* It reads as terminal because it is phrased as a next step. Phrased as a fallback — the command is there **if** you are stopping here — it stops being a hand-off and becomes a footnote, with no new state and no branch. Anticipation over abstraction, per Principle 1, applied to the thing the agent actually reads last.
+
+*Untried, and complementary: have `plan` re-assert between children* — a line the orchestrator emits after each child returns, close enough in context to compete with the child's own ending. Principle 11 already says this is what retention is built from; nothing in `plan` currently does it at the seam where it is needed.
+
+Neither is being done on one occurrence. The honest position is that the failure is understood and the fix is not yet earned: `07` fails loudly when it happens, and a second occurrence makes the wording change worth spending. What should not happen in the meantime is the first rejected option — it is the one that looks most like a real fix and would put a flag in the pipeline to paper over a property of how skills load.
+
+One thing this run did settle, separately: `plan-creation` emitted the canonical Rust gate chain character-for-character, against 0 for 2 before the template stopped telling the planner it might be wrong. The entry above records that sequence; this one records where the same run died instead.

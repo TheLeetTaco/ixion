@@ -124,6 +124,8 @@ What makes the orchestrator's directives survive reading conflicting child-skill
 
 This reshapes how to write orchestrator skills. Don't give the agent a rule to interpret at runtime; give them a pre-decided answer to a specific situation they'll recognize. Trust that the agent will retain the answer through the child skill load, but build that retention by writing in the voice and specificity that retains.
 
+One concrete instance, because the mechanism is structural rather than random. Every pipeline skill closes by printing a resume command — right for a standalone invocation, and exactly what stops an orchestrated one. On 2026-08-21 `plan` finished `plan-review`, printed `/ixion:plan-consolidation <id>`, and stopped at an empty prompt with two skills left to run. The closing gesture is concrete, local and most recent; `plan`'s "do not stop between them" is thousands of tokens earlier. When you add a closing block to a skill something else orchestrates, that block is a directive too, and it is the one being read last. `0001-amendments.md` carries what was considered and why nothing changed yet.
+
 ### Principle 12: Pane markers and disk artifacts are complementary evidence
 
 Tests should verify two distinct claims about a skill execution:
