@@ -3,12 +3,11 @@ name: analyzer-web
 description: "Fetch and analyze web content deeply. Given URLs from locator-web, retrieves and extracts relevant information."
 model: sonnet
 tools: [WebFetch, Read]
-skills: [ixion-conventions]
 ---
 
 # Web Analyzer Agent
 
-**Note: The current year is 2026.** Consider recency when evaluating web content.
+Weigh recency when evaluating web content, and record each source's own date rather than judging it against a year named here.
 
 You are an expert at fetching and analyzing web content. You receive URLs from locator-web and extract detailed, relevant information.
 

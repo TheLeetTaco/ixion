@@ -22,13 +22,13 @@ Run ALL available reviewer agents in parallel, collect their prose findings, str
 
 ## Input
 
-`$ARGUMENTS` is either a path to a standalone plan document or a session locator — a full session id, or a bare slug. Empty falls back to the active pointer.
+`$ARGUMENTS` is a session locator — a full session id, or a bare slug. Empty falls back to the active pointer.
 
 ---
 
 ## Phase 0: Load Target & Project Context
 
-1. A `$ARGUMENTS` that is a readable path is the review target directly; skip to step 3. Otherwise it is the `LOCATOR`, and the session's `spec.json` is the target:
+1. `$ARGUMENTS` is the `LOCATOR`, and the session's `spec.json` is the target. A readable path is not a second input shape: a plan document becomes reviewable by running `/ixion:plan <path>`, which turns it into the `spec.json` this skill reviews and consolidation then refines. Say that and stop, rather than reviewing a document whose findings no consolidation step can read.
 
    ```bash
    <paste the "Resolve the session root" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
@@ -39,12 +39,15 @@ Run ALL available reviewer agents in parallel, collect their prose findings, str
    ```
 
    ```bash
-   <paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
+   <paste the "
+
+Those five keys are the whole of a finding and the names are not negotiable: `failure` and `fix` carry the four-slot paragraph and the proposed change, and a synthesizer that writes `description` and `feedback` instead produces a file the schema rejects and the fix pass cannot read. Observed 2026-08-21. `${CLAUDE_PLUGIN_ROOT}/schemas/findings.example.json` is a filled-in copy if you want one.
+
+Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
    ```
 
-2. An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, load `<dir>/spec.json`.
-3. The review target (plan content or spec content) is passed inline to the reviewers.
-4. Run the "Project context discovery" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`.
+2. An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim. On `state=usable`, `<dir>/spec.json` is the review target — Phase 1 hands reviewers its path rather than its content.
+3. Run the "Project context discovery" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/reviewer-dispatch.md` to collect `PROJECT_CONTEXT_PATHS`, with the repository root as the tree it Globs from.
 
 **Plan reviewers:** reviewer-architecture, reviewer-code-quality, reviewer-patterns, reviewer-performance, reviewer-data-integrity, reviewer-elegance.
 
@@ -56,7 +59,7 @@ Reviewers may catch external claim issues (version mismatches, anti-patterns, se
 
 Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST include:
 
-1. The plan content inline
+1. The absolute path of the plan — `<dir= from Phase 0>/spec.json` — which the reviewer Reads in full; never the content inline
 2. Plan-scope location format: `<phase_id>` or `<phase_id>/<task_id>`
 3. The no-file-write constraint (reviewers return prose; synthesizer handles all file writes)
 
@@ -67,8 +70,7 @@ Launch Task for every reviewer in a SINGLE message. Each Task prompt MUST includ
 
 Review this plan.
 
-PLAN:
-[full plan content or spec.json content]
+PLAN: Read <dir= from Phase 0>/spec.json in full — no limit or offset — before assessing anything. That file is the review target; everything you cite is a phase or task id in it.
 
 PROJECT CONTEXT PATHS (read these for the project's grain — do not re-discover):
 [list of paths from Phase 0, or "none" if no docs exist]
@@ -83,6 +85,8 @@ Do NOT write to any files. The synthesizer owns all file writes.
 ```
 
 Dispatch the same prompt shape (adapted to each reviewer's focus) to the chosen reviewers in one message with parallel Task calls.
+
+The spec travels by path for the reason `reviewer-dispatch.md` gives for the reference sections: inlined, a 40 KB spec is emitted six times into this skill's own context — more than the rest of the pipeline's dispatch text put together — where a Read costs each reviewer one round-trip it already spends on `finding-format.md`.
 
 ### Reviewer set selection (cost vs. coverage)
 
@@ -115,9 +119,13 @@ Run the "Validate the location tier" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixi
 
 Run the "Semantic dedup" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`.
 
-### 2.3a Tag contradictions with the verbatim prompt; scale findings to the spec's actual size
+### 2.3a Convert opposing recommendations to open questions
 
-Run the "Tag contradictions, then scale findings to the target's actual size" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3 (dedup) and before 2.4 (structure into schema).
+Two findings that prescribe opposite changes to the same phase — one reviewer says cache, another says avoid the cache — are not one issue for dedup and not two for consolidation, which would integrate both. Detect them per `references/conflict-handling.md`, replace the pair with one `open_questions[]` entry in that file's Open Question shape naming both perspectives and the trade-off, and leave the choice to plan-consolidation's Phase 3. Don't pick a winner: the user decides, and consolidation's Phase 4 carries the answer into the spec.
+
+### 2.3b Tag contradictions with the verbatim prompt; scale findings to the spec's actual size
+
+Run the "Tag contradictions, then scale findings to the target's actual size" step from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/finding-synthesis.md`, after 2.3a and before 2.4 (structure into schema).
 
 ### 2.4 Structure into schema
 
@@ -126,7 +134,15 @@ Compose the final JSON, conforming to `${CLAUDE_PLUGIN_ROOT}/schemas/findings.sc
 ```json
 {
   "schema_version": 1,
-  "findings": [ /* deduped findings + synthetic P1s for incomplete reviewers + synthetic P1s for wrong location tier */ ],
+  "findings": [
+    {
+      "title": "<short scannable phrase>",
+      "severity": "P1",
+      "location": "<phase_id>/<task_id>",
+      "failure": "<Principle name>. <Intent>. <Observation>. <Reasoning>.",
+      "fix": "<concrete proposed change>"
+    }
+  ],
   "open_questions": [ /* union of any open questions reviewers raised */ ]
 }
 ```

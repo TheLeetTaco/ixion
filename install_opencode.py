@@ -28,11 +28,6 @@ class TransformConfig(TypedDict):
 
 
 TRANSFORMS: dict[str, TransformConfig] = {
-    "commands": {
-        "remove": ["name", "argument-hint"],
-        "add": {},
-        "apply_body_transforms": True,
-    },
     "agents": {
         "remove": ["name", "tools", "skills"],
         "add": {"mode": "subagent"},
@@ -44,14 +39,6 @@ TRANSFORMS: dict[str, TransformConfig] = {
         "apply_body_transforms": False,
     },
 }
-
-BODY_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"#\$ARGUMENTS"), "$ARGUMENTS"),
-    (re.compile(r"/fly:(\w+)"), r"/fly/\1"),
-    (re.compile(r"^skill:\s*([\w-]+)\s*$", re.MULTILINE), r'skill({ name: "\1" })'),
-    (re.compile(r"^See `ixion/skills/.*$\n?", re.MULTILINE), ""),
-    (re.compile(r"(references/[\w-]+)\.md"), r"\1.txt"),
-]
 
 # Path replacements applied to ALL text files (skills, agents, commands, references).
 # Order matters: longer/more-specific patterns first to avoid partial matches.
@@ -229,13 +216,6 @@ def transform_paths(content: str) -> str:
     return content
 
 
-def transform_body(content: str) -> str:
-    """Apply regex replacements to body content."""
-    for pattern, replacement in BODY_PATTERNS:
-        content = pattern.sub(replacement, content)
-    return content
-
-
 def is_safe_path(path: Path, base: Path) -> bool:
     """Check path is within base directory and not a symlink."""
     if path.is_symlink():
@@ -309,10 +289,6 @@ def transform_file(src: Path, dest: Path, transform_type: str) -> None:
             fm_lines = transform_frontmatter(fm_lines, config)
             frontmatter = "---\n" + "".join(fm_lines) + "---\n"
 
-            # Transform body if needed
-            if config.get("apply_body_transforms"):
-                body = transform_body(body)
-
             content = frontmatter + body
 
     # Always apply path transforms
@@ -330,10 +306,6 @@ def get_transform_type(rel_path: Path) -> str | None:
     if rel_path.name in SKIP_EXTENSIONS or rel_path.name.startswith("."):
         return None
 
-    if parts[0] == "commands":
-        if "references" in parts:
-            return "copy_as_txt" if rel_path.suffix == ".md" else "copy"
-        return "commands" if rel_path.suffix == ".md" else None
     if parts[0] == "agents":
         return "agents" if rel_path.suffix == ".md" else None
     if parts[0] == "skills":
@@ -468,20 +440,19 @@ def main() -> int:
 
     print("Step 2: Installing Ixion files...")
 
-    # Paths we manage (relative to output), only these will be replaced.
-    # agents/fly and commands/fly are namespaced subfolders so we don't
-    # clobber agents/commands from other sources.  skills use per-skill
-    # directories so the whole skills/ tree is ours to manage.
-    managed_paths = [
-        Path("agents") / "fly",
-        Path("commands") / "fly",
-        Path("skills"),
-    ]
+    # Paths we manage (relative to output); only these are replaced. agents/fly
+    # is a namespaced subfolder so agents from other sources are untouched, and
+    # skills are managed one directory per Ixion skill for the same reason —
+    # ~/.config/opencode/skills/ is shared with every other skill the user has
+    # installed, and swapping the whole tree would delete them.
+    managed_paths = [Path("agents") / "fly"] + sorted(
+        Path("skills") / d.name for d in (args.source / "skills").iterdir() if d.is_dir()
+    )
 
     # Use temp directory for atomic swap of each subdir
     temp_base = args.output.parent / f".{args.output.name}.tmp" if not args.dry_run else None
 
-    counts = {"commands": 0, "agents": 0, "skills": 0, "copied": 0, "skipped": 0}
+    counts = {"agents": 0, "skills": 0, "copied": 0, "skipped": 0}
 
     for src in args.source.rglob("*"):
         if src.is_dir():
@@ -503,9 +474,6 @@ def main() -> int:
         elif transform_type == "agents":
             # Namespace agents under fly/ subfolder
             dest_rel = Path("agents") / "fly" / rel.relative_to("agents")
-        elif transform_type == "commands":
-            # Keep commands/fly/ subfolder structure (source already has it)
-            dest_rel = rel
         else:
             dest_rel = rel
 
@@ -544,8 +512,8 @@ def main() -> int:
             shutil.rmtree(temp_base)
 
     print(
-        f"  \u2713 {counts['commands']} commands, {counts['agents']} agents, "
-        f"{counts['skills']} skills, {counts['copied']} copied, {counts['skipped']} skipped"
+        f"  \u2713 {counts['agents']} agents, {counts['skills']} skills, "
+        f"{counts['copied']} copied, {counts['skipped']} skipped"
     )
 
     # Step 3: Context7 MCP configuration

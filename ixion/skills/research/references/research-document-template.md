@@ -83,7 +83,7 @@ else
 fi
 ```
 
-**Freshness heuristic:** `docs/` is gitignored, so use file mtime only:
+**Freshness heuristic:** by file mtime:
 - `-mtime -14` (2 weeks): Fresh — offer to reuse
 - `-mtime -30` (1 month): Stale — offer to refresh or reuse
 - Older: Treat as reference only, recommend new research

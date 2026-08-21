@@ -132,8 +132,7 @@ Question: "Next: the design is validated and saved. What now?"
 **Why you:** Scope. Planning turns this design into committed work, and how much of it to build now is yours to size.
 Options:
 1. Create implementation plan (Recommended) - `/ixion:plan .ixion/plugin/designs/[topic]-design.md`
-2. Start implementing directly - `/ixion:work`, only if the design is S effort
-3. Continue refining - Revisit specific sections
-4. Done for now - Save and come back later
-5. "You pick what's best" - Let me decide
+2. Continue refining - Revisit specific sections
+3. Done for now - Save and come back later
+4. "You pick what's best" - Let me decide
 ```

@@ -3,7 +3,6 @@ name: analyzer-docs
 description: "Extract insights from documentation. Given paths from locator-docs, reads and synthesizes key information."
 model: sonnet
 tools: [Read, Grep, Glob]
-skills: [ixion-conventions]
 ---
 
 # Documentation Analyzer Agent

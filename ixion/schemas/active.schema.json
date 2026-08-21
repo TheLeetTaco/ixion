@@ -8,6 +8,6 @@
   "required": ["schema_version", "session_id"],
   "properties": {
     "schema_version": { "const": 1 },
-    "session_id": { "type": "string", "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}(-\\d+)?$" }
+    "session_id": { "type": "string", "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}(-[2-9])?$" }
   }
 }

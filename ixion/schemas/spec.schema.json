@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ixion/schemas/spec.schema.json",
-  "title": "Task list (spec.json)",
+  "title": "Spec (spec.json)",
   "description": "Plan output consumed by work. Tasks live inside phases for grouping; no behavioral contracts, no fulfills claims, no origin metadata.",
   "type": "object",
   "additionalProperties": false,

@@ -2,8 +2,7 @@
 name: locator-docs
 description: "Find WHERE documentation lives. Searches README, CLAUDE.md, docs/, and inline comments."
 model: haiku
-tools: [Grep, Glob, LS]
-skills: [ixion-conventions]
+tools: [Grep, Glob]
 ---
 
 Find WHERE documentation lives. Return paths only — no summaries, no suggestions.

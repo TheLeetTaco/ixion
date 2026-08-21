@@ -64,6 +64,8 @@ Procedure:
 
    Then Read this session's mode reference — `references/plan-mode.md` or `references/fix-findings-mode.md`, whichever branch above matched, and only that one. It carries what counts as a chunk in this mode and the dispatch template 2.2 sends; every phase below is the same in both modes.
 
+Steps 2, 3, 4, 6 and 7 each write a session artifact, and every one of them is the same block pasted from `session-handoff.md` — read it there rather than recalling it. If you are typing `jq`, or redirecting into the file you are updating, you are writing that block from memory: there is no `jq` on these hosts, and the redirect empties the artifact before the command that would have filled it runs. Each of these writes prints `wrote=`, so a step that printed nothing did not happen.
+
 2. **Declare you've started — write `progress.json` immediately.** Before reading the spec, before dispatching any subagent, before opening any source file, write the initial `progress.json`. This is your declaration to the rest of the pipeline that work has begun.
 
    ```json
@@ -83,7 +85,7 @@ Procedure:
 3. **Session update** — `active_skill` and `last_checkpoint_at`, in one write:
 
    ```bash
-   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pairs set to active_skill '"work"' last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pairs set to active_skill '"work"' last_checkpoint_at "\"$(date -u +%FT%TZ)\"">
    ```
 
 4. **Skill-exit trap** to clear `active_skill`:
@@ -125,7 +127,7 @@ Procedure:
 
    Every one of those is derived, and the derivation is the blocks' rather than yours. If you find yourself parking the tree under a `.worktrees/` subdirectory, prefixing the branch with `work/`, appending a timestamp to keep it unique, or recording either value anywhere — those are other tools' conventions, and reaching for one is this step being skipped rather than pasted. Step 6 lists every field `work` writes to `session.json` and neither value is among them, because every later reader re-derives `<repo>-<slug>`: a tree parked anywhere else is reported missing for the rest of the session, whatever a recorded path says.
 
-   `branch=` matching `slug=` is the go-ahead: `cd` into `worktree=` and run the whole rest of the session from there — every phase below, and `work-review` and `ship` after it. A resumed session finds the tree already built and reuses it; that is the same printed answer and needs no branch of its own here.
+   `branch=` matching `slug=` is the go-ahead: the whole rest of the session runs in `worktree=` — every phase below, and `work-review` and `ship` after it. It is a sibling of the repository root, so a `cd` into it does not survive to the next Bash call and a dispatched subagent does not start there — `session-handoff.md`'s "Derive the session worktree" section says why. So every block below that reads HEAD or the working tree begins with `cd '<worktree= from this step>' || exit 1`, the dispatch in 2.2 carries the absolute path, and nothing relies on a `cd` issued earlier. A resumed session finds the tree already built and reuses it; that is the same printed answer and needs no branch of its own here.
 
    Nothing about the session is copied into it. The sessions tree hangs off the repository root every checkout of this repo shares, so `dir=` from Phase 0 names the same directory from the worktree as it does from the checkout you started in, and there is one record of this session rather than one per tree.
 
@@ -134,6 +136,7 @@ Procedure:
 6. **Record the base ref and the integration branch.**
 
    ```bash
+   cd '<worktree= from step 5>' || exit 1
    <paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
    BASE_REF=$VALUE
    if [ "$BASE_REF" = null ]; then
@@ -142,7 +145,7 @@ Procedure:
    fi
    ```
 
-   `base_ref` is optional in `session.schema.json`, and the read block prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
+   The `cd` is what makes `HEAD` the worktree's: from the checkout you were invoked from, `merge-base` would measure against whatever branch that checkout happens to be on and record a base the session's diff was never cut from. `base_ref` is optional in `session.schema.json`, and the read block prints the four-character string `null` — not an empty string — when it is absent: a fresh session, or one predating checkpoint commits. Reading the recorded value first is what makes resume safe: a recomputed merge-base can have moved forward past the session's own work once the integration branch has advanced and been merged in, which empties every diff measured against it.
 
    The write sits inside the fallback branch rather than after it, and the whole step is one Bash call, because both are the only shapes that hold: a resume must leave both fields exactly as recorded, and `BASE_REF` exists only for as long as the call that computed it. Where `integration_branch` is absent on a resume, the session predates the field and its `base_ref` describes the older branch point, so back-filling a freshly-resolved name would make the two name different branches, and `ship` reads the absence as its signal to base the PR on production, which is what `base_ref` was measured against.
 
@@ -153,6 +156,7 @@ Procedure:
 7. **Reconcile the checkpoint record before any wave is computed.** 2.3 writes a member into `completed[]` and its sha into `checkpoint_commits[]` in separate steps, so an interrupted session can be resumed with an id in the first and nothing in the second. For each such id, ask git whether the commit landed after all:
 
    ```bash
+   cd '<worktree= from step 5>' || exit 1
    <paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
    git log --format=%H --grep="^Ixion-Chunk: <chunk id>$" "$VALUE"..HEAD
    ```
@@ -177,6 +181,8 @@ In both modes a chunk is a **phase + bullets** structure: one logical unit of wo
 
 ### 2.0 Compute the Next Wave
 
+**First confirm Phase 1 step 5 printed `branch=` equal to `slug=`.** Every chunk below is committed in that worktree, so a wave computed without one commits onto whatever branch the checkout you were invoked from happens to hold — production, in a single-branch repo — and the session's work ends up on a shared branch with no way to tell it apart. If that step did not run, or its output is no longer in front of you, go back and run it now; a recovered `session.json` or a retried write is exactly the interruption that swallows it.
+
 Chunks that don't depend on each other and don't touch the same files run **concurrently** — one Task per chunk, all in a single message. The structure that makes this safe already exists: every chunk runs in a subagent, and the main agent is the sole writer of `progress.json`, so N parallel returns land in one context that checkpoints once per wave.
 
 From the chunks whose IDs are NOT in `progress.completed[]`:
@@ -194,6 +200,7 @@ For each wave:
 Quick check of every wave member's files. Flag missing files; warn if any single file >500 lines. Then check them for edits this session didn't make:
 
 ```bash
+cd '<worktree= from Phase 1 step 5>' || exit 1
 git status --porcelain -- <every wave member's declared files>
 ```
 
@@ -206,6 +213,12 @@ git status --porcelain -- <every wave member's declared files>
 Launch one Task per wave member in a SINGLE message. Append this to every dispatch's `## Context` section:
 
 ```
+- Working tree: <worktree= from Phase 1 step 5>. It is outside the directory this
+  session was launched in, so you start at the project root and a `cd` does not carry
+  from one of your Bash calls to the next: begin every Bash call with
+  `cd '<worktree>' &&`, and give every file tool an absolute path under it. Nothing in
+  the checkout you start in is this session's — an edit made there never reaches the
+  commit.
 - Run only file-scoped checks yourself: the specific test file, plus the gate the
   `language-standards` skill tags **per-chunk** in its Tooling Gates section — load the
   skill and run that gate exactly as written there, flags included. The orchestrator runs
@@ -245,6 +258,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 
    ```bash
    set -e
+   cd '<worktree= from Phase 1 step 5>'
    Q=$(mktemp -d)
    for f in <failed member's files_modified[], each path shell-quoted>; do
      mkdir -p "$Q/$(dirname "$f")" && cp "$f" "$Q/$f"   # keep the failed attempt
@@ -262,12 +276,12 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 
    A wave of one has no sibling to protect — verify and move on.
 2. **Manual verification** — if `phase.manual_verification` is non-empty (plan mode), **you (the orchestrating agent) perform these checks yourself.** Do not surface them to the user. Do not call `AskUserQuestion`. You have full tool access — run the commands via Bash, start servers in tmux, curl endpoints, verify TUI output by capturing tmux panes, read output, inspect the browser. The `manual_verification` field describes what to check and how; execute those steps, read the results, and judge pass/fail yourself. If the check fails, treat it the same as a failed automated verification: do not checkpoint that member, diagnose and fix.
-3. Append every **verified** member's ID to `progress.completed[]` in one write. Set `in_progress: null`. If all chunks are now complete set `status: "completed"`, otherwise `status: "in_progress"`. Do NOT append an ID whose verification failed.
+3. Append every **verified** member's ID to `progress.completed[]` in one write. Set `in_progress: null` and `status: "in_progress"` — `completed` is Phase 5's to write, once Phase 3's criteria and Phase 4's self-check have passed; a wave that finishes the last chunk has not finished the session. Do NOT append an ID whose verification failed.
 4. Append `files_modified[]` (de-duped) and `commands_run[]` to `progress.artifacts`.
 5. Write steps 3 and 4 back in one call:
 
    ```bash
-   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/progress.json" and the field/value pairs set to completed '<the full array>' in_progress null status '"<in_progress|completed>"' artifacts '<the full artifacts object>'>
+   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/progress.json" and the field/value pairs set to completed '<the full array>' in_progress null status '"in_progress"' artifacts '<the full artifacts object>'>
    ```
 
 6. **Commit and record each verified member, one member at a time.** A session that stays uncommitted until `ship` puts a whole multi-phase feature one destructive command away from gone; per-chunk grain means a revert costs one phase rather than a whole wave.
@@ -275,6 +289,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
    A member's commit and its record are one unit. Run this to completion for one member before starting the next, so an interruption costs only the member in flight:
 
    ```bash
+   cd '<worktree= from Phase 1 step 5>' || exit 1
    git add -- <that member's returned files_modified[], each path shell-quoted>
    git commit --allow-empty -m "<imperative one-liner naming that chunk's goal>" -m "Ixion-Chunk: <that member's chunk id>"
    git rev-parse HEAD
@@ -294,7 +309,7 @@ When all wave members have returned (set `in_progress` to the comma-joined wave 
 7. Update the session's checkpoint time:
 
    ```bash
-   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pair set to last_checkpoint_at '"<now, UTC ISO-8601>"'>
+   <paste the "Set session fields" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and the field/value pair set to last_checkpoint_at "\"$(date -u +%FT%TZ)\"">
    ```
 
 8. **Print how to resume, now that the wave's commits exist.** Long sessions are where a user clears context mid-run, and the wave boundary is the point where doing so is free.
@@ -324,6 +339,7 @@ Run the plan's `success_criteria` checks (plan mode) or full test suite + typech
 Then read the session's cumulative diff, once, here:
 
 ```bash
+cd '<worktree= from Phase 1 step 5>' || exit 1
 <paste the "Read a session field" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with FILE set to "<dir= from Phase 0>/session.json" and FIELD set to base_ref>
 git diff "$VALUE"..HEAD
 ```
@@ -365,6 +381,10 @@ This check uses the same evidence discipline as `references/verification-gates.m
 
 ## Phase 5: Summary & Next Steps
 
+Write `progress.json.status = "completed"` first, via 2.3 step 5's block with `status '"completed"'` as its only pair. This is the write the next `/work` reads to detect the fix-findings transition, so it lands before the prompt below rather than after an answer the user may never give — a `/clear` at the prompt must leave a finished session behind, not one that resumes into Phase 3 again.
+
+Then:
+
 ```
 All chunks complete, verified, and committed on <branch>.
 
@@ -381,10 +401,7 @@ Print both onward commands under it, so choosing later — after a `/clear` — 
 <paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work-review ship'>
 ```
 
-After the user's choice:
-
-1. `progress.json.status = "completed"`, via 2.3 step 5's block with `status '"completed"'` as its only pair.
-2. Phase 1 trap clears `session.json.active_skill`. ship handles `session.status = "completed"`; the worktree stays standing, because ship's PR is not yet merged and review changes belong on this branch.
+After the user's choice, Phase 1's trap clears `session.json.active_skill` on exit. `ship` handles `session.status = "completed"`; the worktree stays standing, because ship's PR is not yet merged and review changes belong on this branch.
 
 ---
 

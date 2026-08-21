@@ -13,7 +13,7 @@
     "completed": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
-      "description": "Item IDs completed. In plan mode: phase IDs. In fix-findings mode: finding IDs (or array indices as strings)."
+      "description": "Chunk IDs completed. In plan mode: phase IDs from spec.phases[]. In fix-findings mode: theme IDs (`theme-<slug>`) as work's fix-findings-mode reference defines them."
     },
     "in_progress": { "type": ["string", "null"] },
     "artifacts": {
@@ -24,13 +24,12 @@
         "files_modified": { "type": "array", "items": { "type": "string" } },
         "commands_run": {
           "type": "array",
-          "description": "Forensic log of commands run during the chunk. Each entry may be a free-form summary string OR a structured object with command/exit_code/stdout_tail. Nothing downstream reads this programmatically; the structure is advisory.",
+          "description": "Forensic log of commands run during the chunk. Each entry may be a free-form summary string OR an object carrying at least command and exit_code. Nothing downstream reads this programmatically, so the object form is open on purpose: ADR-001 Principle 4 files this field as ceremony, and a closed object made that a lie. A run on 2026-08-21 wrote `stdout` where the example writes `stdout_tail` and failed validation over a field nothing reads.",
           "items": {
             "oneOf": [
               { "type": "string", "minLength": 1 },
               {
                 "type": "object",
-                "additionalProperties": false,
                 "required": ["command", "exit_code"],
                 "properties": {
                   "command": { "type": "string", "minLength": 1 },

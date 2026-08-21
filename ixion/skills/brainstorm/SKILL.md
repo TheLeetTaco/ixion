@@ -145,7 +145,7 @@ If user has feedback on the design: confirm understanding of changes, research i
 
 Read `references/design-document-template.md` before proceeding -- contains the handoff presentation format and AskUserQuestion options.
 
-When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/ixion:plan <what to build>`, `/ixion:work`, continue exploring, or save for later. Neither carries a session id: `/ixion:plan` is what creates one.
+When design is validated, present the design summary with problem, selected approach, and key decisions. Offer next steps: `/ixion:plan <path to the design doc>`, continue exploring, or save for later. The command carries no session id: `/ixion:plan` is what creates one, and `work` cannot start without the `spec.json` it writes.
 
 ---
 

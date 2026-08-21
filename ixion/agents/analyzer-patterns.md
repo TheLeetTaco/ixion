@@ -3,7 +3,6 @@ name: analyzer-patterns
 description: "Extract code examples with context. Given file:line references from locator-patterns, reads and documents the patterns."
 model: sonnet
 tools: [Read, Grep, Glob]
-skills: [ixion-conventions]
 ---
 
 # Pattern Analyzer Agent

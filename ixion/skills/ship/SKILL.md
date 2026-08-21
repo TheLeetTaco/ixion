@@ -50,7 +50,7 @@ Then the shared resolution:
 <paste the "Validate the resolved session" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-An empty `repo_root=`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 4's terminal write is what sets `status` there — so re-entering would re-push a branch that is already up and ask `gh` for a second PR on it.
+An empty `repo_root=`, `state=missing`, `state=schema-mismatch` and `state=complete` each halt with the message that file's "Error states" table gives, verbatim — each is a session that was named and is unusable. `state=complete` is a session this skill already shipped — Phase 5's terminal write is what sets `status` there — so re-entering would re-push a branch that is already up and ask `gh` for a second PR on it.
 
 `via=none` is the signal that does not halt. Nothing named a session, which is an ad-hoc ship: `/ixion:ship tighten the error copy` in a repo that never ran `/ixion:plan` is a supported way to use this skill, and halting there would answer it by naming two skills the user didn't ask for. Continue to Phase 1.
 
@@ -64,11 +64,11 @@ An ad-hoc ship is exactly `dir=` unprinted, and that emptiness is the only test 
 <paste the "Derive the session worktree" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim>
 ```
 
-`present=yes` — `cd` into `worktree=` and run every remaining phase from there. It is the one tree with the session's branch checked out, so it is the only tree that can describe it, commit into it or push it. Skipping this step is not a cosmetic miss: Phase 1 would read the invoking checkout's branch, Phase 2 would cut an empty branch off it, and Phase 4 would push that and open a PR for it while the session's commits sat in a worktree nobody opened.
+`present=yes` — every remaining phase runs in `worktree=`. It is the one tree with the session's branch checked out, so it is the only tree that can describe it, commit into it or push it. It is also a sibling of the repository root, so a `cd` into it does not carry to the next Bash call — `session-handoff.md`'s "Derive the session worktree" section says why — and every block below that reads HEAD or the working tree begins with `cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1`. Skipping that line is not a cosmetic miss: Phase 1 would read the invoking checkout's branch, Phase 2 would cut an empty branch off it, and Phase 5 would push that and open a PR for it while the session's commits sat in a worktree nobody opened.
 
 `present=no` with a non-empty `dir=` — the session resolved but its worktree is gone. Say which path was expected and stop; the branch is checked out nowhere, so there is no tree whose state Phase 1 could honestly assess.
 
-`present=no` with an empty `dir=` — the ad-hoc ship. There is no session and no worktree, and the branch checked out where you were invoked is the one being shipped, so stay there.
+`present=no` with an empty `dir=` — the ad-hoc ship. There is no session and no worktree, and the branch checked out where you were invoked is the one being shipped: the `cd` line each block opens with takes Phase 0's `checkout_root=` there, which is where a Bash call starts anyway.
 
 ---
 
@@ -77,6 +77,7 @@ An ad-hoc ship is exactly `dir=` unprinted, and that emptiness is the only test 
 Run these commands in parallel:
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 git status
 git diff --stat
 git diff --staged --stat
@@ -84,17 +85,19 @@ git log --oneline -5
 git rev-parse --abbrev-ref HEAD
 ```
 
-Then resolve the branch roles — which branches are off-limits to commit onto, and which one this branch's work is measured from:
+Then resolve the branch roles — which branches are off-limits to commit onto, and which one this branch's work is measured from. The block reads `current=` from the tree it runs in, so it goes after the same `cd` line, in the same call:
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 <paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
-**`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section; `on_protected=no` here is not the "already on a feature branch" case Phase 2 skips for. Commit anyway and the commits are reachable from no ref, which nothing notices until Phase 4 has no branch name to push, by which point they exist with nothing pointing at them.
+**`current=` empty** — a detached HEAD. Stop and surface it per that file's "Detached HEAD" section; `on_protected=no` here is not the "already on a feature branch" case Phase 2 skips for. Commit anyway and the commits are reachable from no ref, which nothing notices until Phase 5 has no branch name to push, by which point they exist with nothing pointing at them.
 
 Then the base — the commit `work` recorded when it created the branch:
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 SDIR='<dir= from Phase 0>'
 BASE_REF=
 if [ -n "$SDIR" ]; then
@@ -123,9 +126,10 @@ If Phase 1's resolution printed `on_protected=yes` — the current branch is in 
 2. Use format: `<type>/<short-description>` (e.g. `fix/search-pagination`, `feat/match-scoring`)
 3. Present the branch name to the user for confirmation using AskUserQuestion. Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
-   **Why you:** Irreversible. Phase 4 pushes this name and the PR takes its identity from it, so renaming afterward means deleting the remote branch and reopening the PR under everyone already subscribed.
+   **Why you:** Irreversible. Phase 5 pushes this name and the PR takes its identity from it, so renaming afterward means deleting the remote branch and reopening the PR under everyone already subscribed.
 4. Create and switch to the branch:
    ```bash
+   cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
    git switch -c <branch-name>
    ```
 
@@ -137,7 +141,7 @@ If already on a feature branch, skip this phase — which is the normal pipeline
 
 The checkpoint commits `work` already made are the branch's history and stay exactly as they are: don't re-commit them, don't amend them, and don't offer to squash them. A reviewer reading the PR chunk by chunk is the point of them.
 
-So commit only what is still uncommitted. If the tree is clean there is nothing to do here — that's the expected outcome after a full session, not an error; go to Phase 4.
+So commit only what is still uncommitted. If the tree is clean there is nothing to do here — that's the expected outcome after a full session, not an error; go to Phase 4. Every `git` call in this phase opens with the same `cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' &&` the blocks above carry.
 
 1. Review `git diff` (staged and unstaged) to understand all modifications
 2. Group related changes logically — prefer one commit unless changes are clearly separate concerns
@@ -153,9 +157,58 @@ A non-empty `hint=` from Phase 0 is the user's commit-message guidance; use it.
 
 ---
 
-## Phase 4: Push and Open a PR
+## Phase 4: Compound Learnings
 
-Every command here runs where Phase 0 left you standing: the session worktree, or on the ad-hoc path the checkout you were invoked from. Either way it is the tree holding the branch being shipped, and that is all this phase needs — opening a PR reads refs and writes to the remote, switching no branch and merging nothing, so no other checkout is borrowed.
+Two sources feed this phase. The conversation holds the debugging story. The session dir holds the *reviewed* record — what the plan got wrong before review caught it, which findings survived scrutiny, which didn't. The session dir is the one that gets skipped, and it's the one that's gitignored, so it's also the only one that disappears. Harvest it first, then hand both to `compound`.
+
+### 4a. Harvest the session record
+
+```bash
+SDIR='<dir= from Phase 0>'
+[ -n "$SDIR" ] && ls "$SDIR"
+```
+
+An empty `SDIR` prints nothing: skip to 4b with the conversation as the only source, because an ad-hoc ship has no session to distill.
+
+Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
+
+| Read | Question it answers |
+|---|---|
+| `spec.json.pre-consolidation` vs `spec.json` | What did plan review reshape? A phase deleted or restructured is a design we'd have built wrong — the most valuable thing in the session. |
+| `review.findings.json` | Which anti-patterns did six reviewers actually find in the code? A principle name appearing here that also appears in a past `docs/solutions/` entry is a recurring habit, not an incident. |
+| Surviving `review.findings.json.findings` vs its `open_questions` entries prefixed `Refuted and dropped:` | What the empirical gate (`work-review` 2.3c) killed. A killed finding's body is deleted, so that prefix is the only trace left of it. A round where nothing was killed says something about the reviewers, not the code. |
+| `progress.json.plan-mode` vs `progress.json` | What the fix pass had to undo. Fixes that fought the original structure point at a planning miss. |
+
+Most sessions yield nothing here, and that's the expected outcome — a plan that survived review intact and a fix pass that changed little is a session with no lesson in it. Distill only what a future reader would change their behavior over.
+
+### 4b. Invoke compound
+
+```
+skill: compound
+```
+
+Hand it both sources: the conversation, and the harvest from 4a stated plainly (what was reshaped, which principle names recurred, what the fix pass undid). `compound` owns the file format, category routing, and sanitization — don't write to `docs/solutions/` directly from here. If neither source yields a non-trivial lesson, compound detects that and skips gracefully.
+
+### 4c. Commit what compound wrote
+
+`docs/solutions/` is tracked, so a doc written here is an uncommitted change in the session worktree. Commit it onto the session branch before Phase 5 pushes:
+
+```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
+git status --porcelain -- docs/ AGENTS.md CLAUDE.md
+```
+
+Any output is compound's work — stage those paths explicitly and commit them with a message naming what was captured. Nothing to commit means compound found no durable lesson, which is the ordinary outcome; go to Phase 5.
+
+This phase runs *before* the push for exactly that reason. Opened first, the PR is already up when the doc is written, so the doc sits uncommitted in a tree whose removal command Phase 5 hands the user — and `git worktree remove` then refuses, which is the only thing standing between the lesson and deletion. Recovering it costs a second branch and a second PR for work that belonged in the first one.
+
+**BLOCKING: Do NOT skip this phase.** The value of shipping is not just the code — it's the institutional knowledge captured alongside it. The session dir is gitignored; whatever isn't distilled here is gone when the sandbox is cleaned.
+
+---
+
+## Phase 5: Push and Open a PR
+
+Phase 0 named the tree holding the branch being shipped — the session worktree, or on the ad-hoc path the checkout you were invoked from — and that is all this phase needs: opening a PR reads refs and writes to the remote, switching no branch and merging nothing, so no other checkout is borrowed. The blocks that read HEAD or the working tree open by standing in that tree, because a `cd` into a sibling of the repository root does not carry to the next call; the ones that only read shared refs or address GitHub by URL run from anywhere.
 
 ### Refresh the remote-tracking refs
 
@@ -168,14 +221,16 @@ Branch resolution reads local refs only — that is `git-branches.md`'s rule and
 ### Push the session branch
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 git push -u origin HEAD
 ```
 
 ### Resolve the branch roles
 
-Re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference. It reads the tree you are standing in, so `current=` is the branch the PR comes from:
+Re-issue the block held from Phase 1 rather than threading a value through, and without re-reading the reference. It reads `current=` from the tree it runs in, so it goes after the `cd` line, in the same call, and `current=` is then the branch the PR comes from:
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 <paste the "Resolve the branch roles" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim>
 ```
 
@@ -231,9 +286,12 @@ printf 'repo=%s\n' "$REPO"
 ### Create the PR
 
 ```bash
+cd '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' || exit 1
 URL=$(gh pr create --repo '<repo= from the block above>' --base '<base= from the PR-base block>' --title "<concise title>" --body "<description>")
 printf 'url=%s\n' "$URL"
 ```
+
+`gh` takes the PR's head from the branch checked out where it runs, which is why this block stands in the tree first.
 
 Without `--base`, `gh` targets `origin/HEAD` — production — so a branch cut from the integration branch opens its PR against production and shows the whole release as its diff.
 
@@ -347,42 +405,6 @@ A non-zero exit reports what `gh` said, the PR URL, and that command to run agai
 Print the "Remove the session worktree" block from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` with Phase 0's `repo_root=` and `worktree=` substituted in, under a line saying to run it once the PR merges. Print it; do not run it.
 
 Phase 0's `present=no` — an ad-hoc ship, which resolved no session to derive a worktree from — means there is nothing to retire. Skip.
-
----
-
-## Phase 5: Compound Learnings
-
-Two sources feed this phase. The conversation holds the debugging story. The session dir holds the *reviewed* record — what the plan got wrong before review caught it, which findings survived scrutiny, which didn't. The session dir is the one that gets skipped, and it's the one that's gitignored, so it's also the only one that disappears. Harvest it first, then hand both to `compound`.
-
-### 5a. Harvest the session record
-
-```bash
-SDIR='<dir= from Phase 0>'
-[ -n "$SDIR" ] && ls "$SDIR"
-```
-
-An empty `SDIR` prints nothing: skip to 5b with the conversation as the only source, because an ad-hoc ship has no session to distill.
-
-Otherwise read the artifacts and extract the durable signal. Each comparison answers a different question:
-
-| Read | Question it answers |
-|---|---|
-| `spec.json.pre-consolidation` vs `spec.json` | What did plan review reshape? A phase deleted or restructured is a design we'd have built wrong — the most valuable thing in the session. |
-| `review.findings.json` | Which anti-patterns did six reviewers actually find in the code? A principle name appearing here that also appears in a past `docs/solutions/` entry is a recurring habit, not an incident. |
-| Surviving `review.findings.json.findings` vs its `open_questions` entries prefixed `Refuted and dropped:` | What the empirical gate (`work-review` 2.3c) killed. A killed finding's body is deleted, so that prefix is the only trace left of it. A round where nothing was killed says something about the reviewers, not the code. |
-| `progress.json.plan-mode` vs `progress.json` | What the fix pass had to undo. Fixes that fought the original structure point at a planning miss. |
-
-Most sessions yield nothing here, and that's the expected outcome — a plan that survived review intact and a fix pass that changed little is a session with no lesson in it. Distill only what a future reader would change their behavior over.
-
-### 5b. Invoke compound
-
-```
-skill: compound
-```
-
-Hand it both sources: the conversation, and the harvest from 6a stated plainly (what was reshaped, which principle names recurred, what the fix pass undid). `compound` owns the file format, category routing, and sanitization — don't write to `docs/solutions/` directly from here. If neither source yields a non-trivial lesson, compound detects that and skips gracefully.
-
-**BLOCKING: Do NOT skip this phase.** The value of shipping is not just the code — it's the institutional knowledge captured alongside it. The session dir is gitignored; whatever isn't distilled here is gone when the sandbox is cleaned.
 
 ---
 

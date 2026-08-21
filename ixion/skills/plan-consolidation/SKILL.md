@@ -13,7 +13,7 @@ allowed-tools:
 
 # Plan Consolidation Skill
 
-Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable (D7). The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin sessions live under the repository root Phase 0 resolves.
+Merge review findings into the active session's `spec.json`. Pre-refinement spec is preserved as a `.pre-consolidation` sidecar so the refinement is auditable. The refined `spec.json` retains the same top-level shape as the pre-refinement spec — only the content changes. Do NOT add top-level fields like `origin`, `risks`, or `notes`; the schema rejects additional properties. Namespace: plugin sessions live under the repository root Phase 0 resolves.
 
 ## Input
 
@@ -49,14 +49,14 @@ An empty `repo_root=`, `via=none`, `state=missing`, `state=schema-mismatch` and 
 
 ---
 
-## Phase 1: Back Up to Sidecar (D7)
+## Phase 1: Back Up to Sidecar
 
 ```bash
 SDIR='<dir= from Phase 0>'
 cp "$SDIR/spec.json" "$SDIR/spec.json.pre-consolidation"
 ```
 
-Cleaned on `ship`.
+The sidecar stays for the life of the session: `ship` Phase 4 reads it against the refined spec to see what review reshaped.
 
 ---
 
@@ -73,12 +73,9 @@ If `review.findings.json` has zero findings and zero open questions:
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/question-format.md` before proceeding — it contains the question shape, the Why-you slot, and the four reasons that decide whether to ask at all.
 
-Questions to surface:
+Questions to surface: `review.findings.json.open_questions` — the entries the synthesizer could not resolve, including the opposing-recommendation pairs plan-review converted per its `references/conflict-handling.md`.
 
-1. `review.findings.json.open_questions` (entries the synthesizer could not resolve)
-2. Inter-reviewer conflicts — findings where two or more reviewers described the same issue but assigned different severities. Surface the divergence; the user decides which severity is right rather than defaulting to the more severe.
-
-Pick each question's reason from what that question actually turns on — `open_questions[]` carries whatever the synthesizer could not resolve, which is Preference for a taste call and Missing fact for an input it had no way to look up. A severity conflict is usually Scope, because the severity it settles decides how much the spec goes on to prescribe.
+Pick each question's reason from what that question actually turns on: Preference for a taste call, Missing fact for an input the synthesizer had no way to look up, Scope where the answer decides how much the spec goes on to prescribe. Severity is not a question here — dedup already took the max, and every finding that survives the consistency check integrates regardless of tier.
 
 Ask each in the reference's shape, and carry the answer into Phase 4 verbatim — including whether the user picked it or delegated it, which Phase 4's decision string records. **BLOCKING: Never proceed with unresolved questions.**
 

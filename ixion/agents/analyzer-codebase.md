@@ -3,7 +3,6 @@ name: analyzer-codebase
 description: "Understand HOW code works. Reads specific files (from locator results) and documents implementation details. Documentarian mode - no suggestions."
 model: sonnet
 tools: [Read, Grep, Glob]
-skills: [ixion-conventions]
 ---
 
 # Codebase Analyzer Agent
