@@ -29,6 +29,7 @@ pass=0
 fail=0
 SESSION="ixion-int-parchunk"
 SBOX=""
+WORKTREE=""
 
 export IXION_TEST_MODEL="${IXION_TEST_MODEL:-claude-haiku-4-5-20251001}"
 
@@ -36,12 +37,18 @@ cleanup() {
   pane_save_history "$SESSION"
   tmux_kill "$SESSION"
   preserve_sandbox "$SBOX"
+  preserve_sandbox "${WORKTREE:-}"
 }
 trap cleanup EXIT
 
 SBOX=$(make_sandbox "parchunk")
 SESSION_ID="wavetask-2026-04-24"
 SDIR="$SBOX/.ixion/plugin/sessions/$SESSION_ID"
+# `work` commits every chunk in the session's own worktree beside the repository
+# root, never in the sandbox it was invoked from. The slug is the session id
+# minus its date — the derivation session-handoff.md's "Derive the session
+# worktree" block makes.
+WORKTREE="$SBOX-${SESSION_ID%-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]}"
 mkdir -p "$SDIR"
 
 cat > "$SDIR/spec.json" <<'EOF'
@@ -184,11 +191,14 @@ else
   echo "----- progress.json -----"; cat "$SDIR/progress.json"; echo "----- end -----"
 fi
 
-# The implementation artifacts should exist and work.
-if bash -c "cd '$SBOX' && bash alpha.sh | grep -q 'hello alpha' && bash beta.sh | grep -q 'hello beta'" 2>/dev/null; then
-  note_pass "alpha.sh and beta.sh both run correctly"
+# The implementation artifacts should exist and work — in the session worktree,
+# never in the sandbox: that is the checkout `work` was invoked from, and it is
+# deliberately never switched or written to.
+if bash -c "cd '$WORKTREE' && bash alpha.sh | grep -q 'hello alpha' && bash beta.sh | grep -q 'hello beta'" 2>/dev/null; then
+  note_pass "alpha.sh and beta.sh both run correctly in the session worktree"
 else
-  note_fail "implementation artifacts missing or broken in sandbox"
+  note_fail "implementation artifacts missing or broken at $WORKTREE"
+  echo "----- worktrees -----"; git -C "$SBOX" worktree list 2>/dev/null || true; echo "----- end -----"
 fi
 
 # Best-effort, non-fatal: look for wave evidence — two Task dispatches for

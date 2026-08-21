@@ -278,7 +278,12 @@ expect "same branch demanded at a second path: reported absent, not reused" \
 # --- t1/t2: ship's push and PR base -----------------------------------------
 
 ship_fetch() { run_block "$1" "$FETCH_BLOCK" 2>&1; }
-ship_push() { run_block "$1" "$PUSH_BLOCK" 2>&1; }
+# The push block stands in the tree by name before it pushes HEAD — a cd into a
+# sibling of the repository root does not carry between Bash calls — so the
+# placeholder is filled with the worktree the case is shipping from.
+ship_push() {
+  run_block "$1" "$(fill "$PUSH_BLOCK" '<worktree= from Phase 0, or checkout_root= on the ad-hoc path>' "$1")" 2>&1
+}
 
 # ship_base <cwd> <production> <integration> <recorded_integration> <recorded=>
 ship_base() {

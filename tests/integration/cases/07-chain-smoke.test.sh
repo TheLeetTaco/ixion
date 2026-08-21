@@ -23,8 +23,10 @@
 # consolidated spec.json, generated review.findings.json, and fix-findings
 # progress.json — plus the plan-mode progress.json, the one work Phase 3
 # appends its gate record to and the one the transition renames away.
-# Asserts both halves of ADR-001 Principle 12 — artifact on disk AND
-# Skill(<name>) marker in the pane.
+# Asserts both halves of ADR-001 Principle 12 — artifact on disk AND the
+# invocation visible in the pane: a Skill(<name>) tool call for the three
+# skills `plan` loads itself, the echoed command for the two this harness
+# types (which emit no tool call — see lib/tmux.sh).
 
 set -u
 
@@ -38,6 +40,7 @@ SCHEMAS="$REPO_ROOT/ixion/schemas"
 
 SESSION="ixion-int-chain"
 SBOX=""
+WORKTREE=""
 AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
 
 # Gates are asserted by the flags language-standards adds, not by command
@@ -105,6 +108,7 @@ cleanup() {
   pane_save_history "$SESSION"
   tmux_kill "$SESSION"
   preserve_sandbox "$SBOX"
+  preserve_sandbox "$WORKTREE"
 }
 trap cleanup EXIT
 
@@ -139,11 +143,9 @@ PROMPT="Create a Rust library with one function double(n: i64) -> i64 that retur
 # conversational plan, so no session dir is ever created and the run fails at
 # the active.json wait with nothing to show for it. Observed on 2.1.220.
 #
-# This file used to say the shadowing was a plugin-naming bug to fix at the
-# source rather than route around here, and that is still the better fix. The
-# namespace is what every other invocation surface uses, though, so testing the
-# bare form was testing a path nobody drives. `02-fly-plan-creates-spec` still
-# sends bare "/plan" and still fails this way.
+# The namespace is what every other invocation surface uses, so testing the
+# bare form was testing a path nobody drives; `02-fly-plan-creates-spec` sends
+# the namespaced form for the same reason.
 tmux_send_line "$SESSION" "/ixion:plan $PROMPT"
 
 if ! wait_for_file_with_autopilot "$SESSION" "$ACTIVE" 300; then
@@ -179,6 +181,11 @@ else
   note_fail "consolidation did not complete in 15min"
   dump_pane; finalize
 fi
+
+# Each skill writes its terminal artifact and then asks what to do next, so the
+# loops above can break while a dialog still owns the input box. Clear it before
+# typing, or the next slash command is swallowed as an answer.
+drain_dialogs "$SESSION" || echo "INFO: a dialog was still up after consolidation"
 
 # Coverage carried from 03: the CONSOLIDATED spec, not just a fresh one.
 validate_artifact spec.schema.json "$SDIR/spec.json" "consolidated spec.json"
@@ -233,11 +240,32 @@ else
   dump_pane; finalize
 fi
 
+# `work` Phase 5 marks the session completed *before* it offers the next step,
+# so this poll reaches here with that prompt open by design.
+drain_dialogs "$SESSION" || echo "INFO: a dialog was still up after work plan-mode"
+
 # Phase 3 appends its gate record to THIS progress.json, and the fix-findings
 # transition below renames it away — validate the shape while the file still
 # carries its canonical name. The fix-findings copy validated at the end is
 # written fresh with empty artifacts, so it can never cover these entries.
 validate_artifact progress.schema.json "$SDIR/progress.json" "plan-mode progress.json"
+
+# The work is in the session worktree, not the sandbox: work cuts
+# `<sandbox>-<slug>` beside the repository root and commits each chunk there,
+# the slug being the session id minus its date (the derivation
+# session-handoff.md's "Derive the session worktree" block makes). That tree is
+# a sibling of the project directory, so neither the orchestrator's cd nor a
+# subagent's start there by default — a run that edited and committed in the
+# sandbox instead passes every check above and builds nothing the PR would
+# carry. This is the assertion that catches the dispatch losing the path.
+SLUG=${SESSION_ID%-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]}
+WORKTREE="$SBOX-$SLUG"
+if [ -d "$WORKTREE" ] && [ "$(git -C "$WORKTREE" log --format=%b 2>/dev/null | grep -c '^Ixion-Chunk:')" -ge 1 ]; then
+  note_pass "chunk commits landed in the session worktree ($WORKTREE)"
+else
+  note_fail "no session worktree holding Ixion-Chunk commits at $WORKTREE — work committed somewhere else"
+  echo "----- worktrees -----"; git -C "$SBOX" worktree list 2>/dev/null || true; echo "----- end -----"
+fi
 
 # Composing a gate is not running one. A subagent that loaded the per-chunk
 # gate as written leaves its flagged command text here; one that settled for a
@@ -274,6 +302,8 @@ validate_artifact findings.schema.json "$SDIR/review.findings.json" "work-review
 FINDING_COUNT=$(json_lines "$SDIR/review.findings.json" 'doc["findings"]' | wc -l)
 echo "INFO: work-review surfaced $FINDING_COUNT findings"
 
+drain_dialogs "$SESSION" || echo "INFO: a dialog was still up after work-review"
+
 # ---- Step 4: /work again -> fix-findings mode, auto-detected --------------
 # THE load-bearing assertion. work must switch modes from session state
 # alone. If this fails, removing /yolo broke something real.
@@ -306,11 +336,26 @@ fi
 validate_artifact progress.schema.json "$SDIR/progress.json" "fix-findings progress.json"
 
 # ---- Pane markers: every skill actually invoked (not compressed inline) ----
-for skill in plan-creation plan-review plan-consolidation work work-review; do
+# Split by who invokes it. The three below are loaded by `plan` on the agent's
+# own initiative, so a missing Skill() marker means it compressed the skill
+# into inline reasoning — the failure Principle 12 exists to catch.
+for skill in plan-creation plan-review plan-consolidation; do
   if pane_has_skill_invocation "$SESSION" "$skill"; then
     note_pass "pane shows Skill($skill) was invoked"
   else
     note_fail "Skill($skill) marker not found in pane — agent may have compressed the skill"
+  fi
+done
+
+# These two the harness types, so the command loads the skill and no tool call
+# is emitted; asserting a Skill() marker for them fails on a correct run. What
+# is worth asserting is that each command reached the prompt — the dialog-race
+# drain_dialogs above exists to prevent.
+for skill in work work-review; do
+  if pane_ran_command "$SESSION" "$skill"; then
+    note_pass "pane shows the $skill command reached the prompt"
+  else
+    note_fail "no /$skill command echoed in pane — the keystroke never landed"
   fi
 done
 

@@ -79,6 +79,7 @@ check_section "Resume command" "$RESUME_BLOCK"
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ixion-session-XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
+TODAY=$(date -u +%F)
 
 # --- the interpreter the reference's field idioms probe for ------------------
 
@@ -141,11 +142,16 @@ expect() {
   if [ "$2" = "$3" ]; then note_pass "$1"; else note_fail "$1 (expected '$3', got '$2')"; fi
 }
 
-# claim <cwd> <slug>-<date> [repo root] -> the session id the claim block took.
+# claim <cwd> <slug> [repo root] -> the session id the claim block took.
+#
+# Only the slug is filled: the block dates the id itself with `date -u +%F`, so
+# every expectation below is "<slug>-$TODAY" rather than a date written here.
+# TODAY is captured once, at the top, because a run straddling midnight UTC
+# would otherwise compare an id claimed yesterday against today's string.
 claim() {
   local block
   block=$(fill_root "$CLAIM_BLOCK" "${3-$1}")
-  run_block "$1" "$(fill "$block" '<slug>-<YYYY-MM-DD>' "$2")" | sed -n 's/^session=//p'
+  run_block "$1" "$(fill "$block" '<slug>' "$2")" | sed -n 's/^session=//p'
 }
 
 # seed_session <root> <session-id> <schema_version> <status>
@@ -269,7 +275,7 @@ else
   # bug is visible: an empty root under an empty tree probes a path that is
   # absent anyway, and the whole failure is that it probes one that is present.
   root=$(new_root emptyroot)
-  claim "$root" feata-2026-08-01 >/dev/null
+  claim "$root" feata >/dev/null
   for name in CLAIM RESOLVE NAMES VALIDATE DERIVE RESUME; do
     eval "block=\$${name}_BLOCK"
     out=$(run_block "$root" "$(fill_root "$block" "")" 2>&1)
@@ -286,39 +292,42 @@ fi
 
 root=$(new_root exact)
 expect "claim: the first session for a slug and date takes the unsuffixed id" \
-  "$(claim "$root" feat-foo-2026-08-06)" feat-foo-2026-08-06
-out=$(resolve "$root" "" feat-foo-2026-08-06)
-expect "full session id: resolves to the directory it names" "$(field "$out" session)" feat-foo-2026-08-06
+  "$(claim "$root" feat-foo)" "feat-foo-$TODAY"
+out=$(resolve "$root" "" "feat-foo-$TODAY")
+expect "full session id: resolves to the directory it names" "$(field "$out" session)" "feat-foo-$TODAY"
 expect "full session id: reported as an exact match" "$(field "$out" via)" exact
 
 # The regression the exact-match rung exists for: `-name "<base>-*"` matches the
 # -2 sibling and never the base, so the prefix scan alone lands on the sibling.
 root=$(new_root collision)
-claim "$root" feat-foo-2026-08-06 >/dev/null
+claim "$root" feat-foo >/dev/null
 expect "claim: a second session for the same slug and date takes the -2 suffix" \
-  "$(claim "$root" feat-foo-2026-08-06)" feat-foo-2026-08-06-2
-out=$(resolve "$root" "" feat-foo-2026-08-06)
+  "$(claim "$root" feat-foo)" "feat-foo-$TODAY-2"
+out=$(resolve "$root" "" "feat-foo-$TODAY")
 expect "base id with its -2 sibling present: resolves to the base, not the sibling" \
-  "$(field "$out" session)" feat-foo-2026-08-06
+  "$(field "$out" session)" "feat-foo-$TODAY"
 
 root=$(new_root slug)
-claim "$root" feata-2026-08-01 >/dev/null
+claim "$root" feata >/dev/null
 out=$(resolve "$root" "" feata)
-expect "bare slug: resolves by prefix scan" "$(field "$out" session)" feata-2026-08-01
+expect "bare slug: resolves by prefix scan" "$(field "$out" session)" "feata-$TODAY"
 expect "bare slug: reported as a prefix match" "$(field "$out" via)" prefix
 
-claim "$root" feata-2026-08-05 >/dev/null
+# The older sibling is made by hand rather than claimed: the block dates every
+# id it creates today, so a second date has to come from somewhere else — and a
+# past date is exactly the case the ISO-sorting tiebreak exists for.
+mkdir -p "$root/.ixion/plugin/sessions/feata-2019-12-31"
 out=$(resolve "$root" "" feata)
 expect "bare slug over two dated sessions: the most recent date wins" \
-  "$(field "$out" session)" feata-2026-08-05
+  "$(field "$out" session)" "feata-$TODAY"
 
 root=$(new_root remembered)
-claim "$root" feat-bar-2026-08-06 >/dev/null
+claim "$root" feat-bar >/dev/null
 printf '{"schema_version": 1, "session_id": "someone-elses-2026-08-06"}\n' \
   > "$root/.ixion/plugin/active.json"
-out=$(resolve "$root" feat-bar-2026-08-06 "")
+out=$(resolve "$root" "feat-bar-$TODAY" "")
 expect "id this conversation established: outranks a pointer another session moved" \
-  "$(field "$out" session)" feat-bar-2026-08-06
+  "$(field "$out" session)" "feat-bar-$TODAY"
 expect "id this conversation established: reported as remembered" "$(field "$out" via)" remembered
 
 # Every caller pastes validation straight after resolution with nothing between,
@@ -356,9 +365,9 @@ expect "no sessions directory yet: nothing resolved, so validation says so" \
 # --- asking whether a token names a session at all ---------------------------
 
 root=$(new_root token)
-claim "$root" feata-2026-08-01 >/dev/null
+id=$(claim "$root" feata)
 expect "token that is a full session id: names a session" \
-  "$(field "$(names_session "$root" feata-2026-08-01)" names_session)" yes
+  "$(field "$(names_session "$root" "$id")" names_session)" yes
 expect "token that is a bare slug: names a session" \
   "$(field "$(names_session "$root" feata)" names_session)" yes
 expect "token that is the first word of a commit-message hint: names no session" \
@@ -370,7 +379,7 @@ if [ -z "$PY" ]; then
   echo "SKIPPED: the field idioms are a python program, and no python interpreter on PATH runs one"
 else
   root=$(new_root fields)
-  id=$(claim "$root" feat-fields-2026-08-06)
+  id=$(claim "$root" feat-fields)
   sj="$root/.ixion/plugin/sessions/$id/session.json"
   rel=".ixion/plugin/sessions/$id/session.json"
   seed_fields() {
@@ -437,7 +446,7 @@ if [ -z "$PY" ]; then
   echo "SKIPPED: pointer fallback and session validation read their fields with the python idiom"
 else
   root=$(new_root pointer)
-  id=$(claim "$root" feat-baz-2026-08-06)
+  id=$(claim "$root" feat-baz)
   seed_session "$root" "$id" 1 active
   printf '{"schema_version": 1, "session_id": "%s"}\n' "$id" > "$root/.ixion/plugin/active.json"
   out=$(resolve "$root" "" "")
@@ -502,7 +511,7 @@ else
   git -C "$main" worktree add -q "$wta" -b feata
   git -C "$main" worktree add -q "$wtb" -b featb
 
-  ida=$(claim "$wta" feata-2026-08-01 "$(repo_root "$wta")")
+  ida=$(claim "$wta" feata "$(repo_root "$wta")")
   expect "claim from a worktree: the directory lands under the main checkout" \
     "$(ls -d "$mroot/.ixion/plugin/sessions/$ida" 2>/dev/null)" \
     "$mroot/.ixion/plugin/sessions/$ida"
@@ -512,7 +521,7 @@ else
   expect "claim from a worktree: the main checkout validates it usable" \
     "$(field "$(validate "$main" "$ida" exact "$mroot")" state)" usable
 
-  idb=$(claim "$main" featb-2026-08-01 "$mroot")
+  idb=$(claim "$main" featb "$mroot")
   expect "claim from the main checkout: the other worktree resolves it" \
     "$(field "$(resolve "$wtb" "" featb "$(repo_root "$wtb")")" session)" "$idb"
 

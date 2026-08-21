@@ -9,7 +9,8 @@
 # Pass criteria:
 #   - progress.json appears in session A's dir.
 #   - session B's dir gains no progress.json (pointer was not followed).
-#   - pane shows Skill(work) — the skill actually ran (Principle 12).
+#   - pane shows the /work command reached the prompt (Principle 12's
+#     invocation-side evidence for a skill the harness types).
 #
 # Real API calls; single skill on a trivial fixture. Plan on ~3-4 minutes.
 
@@ -142,10 +143,13 @@ else
   echo "----- progress.json -----"; cat "$DIR_A/progress.json"; echo "----- end -----"
 fi
 
-if pane_has_skill_invocation "$SESSION" "work"; then
-  note_pass "pane shows Skill(work) invocation"
+# Typed by the harness, so no Skill() tool call is emitted — the artifact
+# assertions above are what prove the skill executed. This checks only that
+# the command reached the prompt. See pane_has_skill_invocation's note.
+if pane_ran_command "$SESSION" "work"; then
+  note_pass "pane shows the work command reached the prompt"
 else
-  note_fail "no Skill(work) marker in pane — skill may have been compressed inline"
+  note_fail "no /work command echoed in pane — the keystroke never landed"
 fi
 
 finalize

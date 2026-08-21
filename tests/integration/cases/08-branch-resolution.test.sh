@@ -232,10 +232,13 @@ else
   note_fail "base_ref is '$BASE_REF', expected $INTEGRATION's tip $INTEGRATION_TIP"
 fi
 
-if pane_has_skill_invocation "$TWO_SESSION" "work"; then
-  note_pass "pane shows Skill(work) was invoked"
+# The harness types this one, so there is no Skill() tool call to look for —
+# see pane_has_skill_invocation's note. What the pane can still prove is that
+# the command reached the prompt rather than being swallowed by a dialog.
+if pane_ran_command "$TWO_SESSION" "work"; then
+  note_pass "pane shows the work command reached the prompt"
 else
-  note_fail "Skill(work) marker not found in pane — agent may have compressed the skill"
+  note_fail "no /work command echoed in pane — the keystroke never landed"
 fi
 
 # ---- Run 2: single-branch repo, the shape every other case runs in ---------
