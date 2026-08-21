@@ -57,7 +57,14 @@ AJV=(bunx ajv-cli --validate-formats=false --spec=draft2020)
 # per-chunk — `cargo check --locked`. The orchestrator's own verification run
 # is captured as an exit code, not as an entry, so demanding the per-phase
 # flags there would fail a correct run.
-PHASE_GATE_FLAGS=(--all-targets --all-features --locked)
+# `--all-features` is deliberately not in this list, for the reason the
+# session-tier gates below are INFO: the fixture declares no features, so the
+# flag is exactly a no-op on it and language-standards now says to omit it
+# there. Two live runs omitted it and were right to. `--locked` and
+# `--all-targets` are not fixture-dependent — a lockfile exists and a test
+# exists — so they stay hard assertions, and both were genuinely missed once
+# across those same two runs.
+PHASE_GATE_FLAGS=(--all-targets --locked)
 CHUNK_GATE_FLAGS=(--locked)
 
 # Session-tier gates run once from work Phase 3, never per phase.
@@ -203,6 +210,13 @@ else
   json_lines "$SDIR/spec.json" '[p["verification"] for p in doc["phases"]]' || echo "(unreadable)"
   echo "----- end -----"
 fi
+
+# Reported, not asserted, and only meaningful on a fixture with features —
+# which this one does not have. A run that starts carrying it here means the
+# planner is adding the flag where it does nothing, which is the failure in
+# the other direction and worth seeing.
+ALLFEAT=$(json_lines "$SDIR/spec.json" '[p["verification"] for p in doc["phases"]]' | grep -c -e --all-features)
+echo "INFO: phase verifications carrying --all-features: $ALLFEAT (0 is expected for this feature-less fixture)"
 
 # Session-tier gates (cargo audit, cargo machete) belong in success_criteria[],
 # which work Phase 3 checks once. This is INFO, not an assertion, and the reason

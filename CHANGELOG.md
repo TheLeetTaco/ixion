@@ -32,6 +32,8 @@ history — a release pass, not a retitle. -->
 
 - **`work-review` 2.4 names the misroute the ad-hoc destination made possible.** Adding a second write destination gave a recalled Phase 0 somewhere wrong to land: observed 2026-08-21 writing a resolved session's findings to `.ixion/plugin/reviews/<session-id>/` — a path that is neither destination, composed from the session id — where `work` never looks, leaving the session reviewed on paper and unreviewed in fact. 2.4 now says the reviews directory belongs to `branch` and `checkout` alone and that `out=` is the answer, and Phase 0 repeats the paste-don't-recall line `work` Phase 1 carries.
 
+- **`--all-features` is conditional on the crate having features, and the canonical list no longer contradicts itself.** `language-standards` carried `--all-features` unconditionally on the per-phase clippy while restricting the two `cargo check` feature runs to feature-touching phases for a build-cache reason that applies to clippy identically — clippy compiles, so the always-on flag had already paid the cost the restriction existed to avoid. Both now say the same thing: the flag is a no-op on a crate with no `[features]` table and belongs only where features exist. `07` drops it from the hard gate assertions and reports it as INFO, matching how the dependency-free fixture already treats the session-tier gates; `--locked` and `--all-targets` stay hard, because a lockfile and a test do exist and each was genuinely missed once across two live runs.
+
 ### Fixed
 
 - `ixion-conventions`' Spec Quality Bar told the planner to mark a phase `status: deferred`; `spec.schema.json` rejects the field. It now routes the gap to `open_questions[]`.
