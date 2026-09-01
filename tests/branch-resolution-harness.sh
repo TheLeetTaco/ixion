@@ -49,6 +49,7 @@ section() {
 ROLES_BLOCK=$(section "$REFERENCE" "Resolve the branch roles")
 RECORDED_BLOCK=$(section "$REFERENCE" "Verify a recorded integration branch")
 CREATE_BLOCK=$(section "$REFERENCE" "Create or reuse the session worktree")
+MERGED_BLOCK=$(section "$REFERENCE" "Worktrees already contained in the integration branch")
 REMOVE_BLOCK=$(section "$HANDOFF" "Remove the session worktree")
 FETCH_BLOCK=$(section "$SHIP" "Refresh the remote-tracking refs")
 PUSH_BLOCK=$(section "$SHIP" "Push the session branch")
@@ -69,6 +70,7 @@ check_section() {
 check_section "$REFERENCE" "Resolve the branch roles" "$ROLES_BLOCK"
 check_section "$REFERENCE" "Verify a recorded integration branch" "$RECORDED_BLOCK"
 check_section "$REFERENCE" "Create or reuse the session worktree" "$CREATE_BLOCK"
+check_section "$REFERENCE" "Worktrees already contained in the integration branch" "$MERGED_BLOCK"
 check_section "$HANDOFF" "Remove the session worktree" "$REMOVE_BLOCK"
 check_section "$SHIP" "Refresh the remote-tracking refs" "$FETCH_BLOCK"
 check_section "$SHIP" "Push the session branch" "$PUSH_BLOCK"
@@ -203,6 +205,21 @@ remove_worktree() {
   block=$(fill "$block" '<worktree= from the "Derive the session worktree" block>' "$3")
   run_block "$1" "$block" 2>&1
 }
+
+# merged_worktrees <cwd> <integration> <protected> <own> -> the block's output.
+# <own> is passed exactly as `work` passes it — the derive block's
+# `$(cd "$REPO_ROOT/.." && pwd)/${REPO_ROOT##*/}-$SLUG` composition, not git's
+# spelling of it — because normalising the two is what the block does and what
+# the own-tree case exists to prove. git_path spells a path the way
+# `git worktree list` prints it, which is what the merged= lines carry.
+merged_worktrees() {
+  local block
+  block=$(fill "$MERGED_BLOCK" '<integration= from the branch-roles block>' "$2")
+  block=$(fill "$block" '<protected= from the branch-roles block>' "$3")
+  block=$(fill "$block" '<worktree= from the "Derive the session worktree" block>' "$4")
+  run_block "$1" "$block" 2>&1
+}
+git_path() { git -C "$1" rev-parse --show-toplevel; }
 
 repo=$(new_repo two-branch main)
 git -C "$repo" branch dev
@@ -555,5 +572,98 @@ out=$(remove_worktree "$wt" "$repo" "$wt")
 expect "worktree holding uncommitted work: removal refuses" "$(field "$out" removed)" ""
 expect "worktree holding uncommitted work: the tree and the file survive" \
   "$(cat "$wt/scratch.txt" 2>/dev/null)" scratch
+
+# --- t1: worktrees whose branch adds nothing to the integration branch -------
+
+# Containment is one for-each-ref call matched against the porcelain listing, so
+# the block's cost is a fixed three git invocations — resolving the own path,
+# for-each-ref, worktree list — however many worktrees there are.
+expect "the block invokes git three times, none of them once per worktree" \
+  "$(printf '%s\n' "$MERGED_BLOCK" | grep -c 'git ')" 3
+expect "the block never calls merge-base" \
+  "$(printf '%s\n' "$MERGED_BLOCK" | grep -c 'merge-base')" 0
+
+# A single-branch repo: integration is main, and the session branches merged
+# into it are the ones to report — except this session's own.
+repo=$(new_repo contained main)
+wt="$WORK/contained-feata"
+create_worktree "$repo" feata "$wt" main >/dev/null
+printf 'a\n' > "$wt/a.txt"
+git -C "$wt" add a.txt
+git -C "$wt" commit -qm "feata work"
+git -C "$repo" merge -q --no-ff -m "merge feata" feata
+out=$(merged_worktrees "$repo" main main "$WORK/nowhere")
+expect "merged session branch, own tree elsewhere: reported by its path" \
+  "$(field "$out" merged)" "$(git_path "$wt")"
+expect "merged session branch, own tree elsewhere: counted once" "$(field "$out" merged_count)" 1
+
+out=$(merged_worktrees "$repo" main main "$(cd "$repo/.." && pwd)/${repo##*/}-feata")
+expect "own tree is the merged one: not reported" "$(printf '%s\n' "$out" | grep -c '^merged=')" 0
+expect "own tree is the merged one: count is zero" "$(field "$out" merged_count)" 0
+
+wtb="$WORK/contained-featb"
+create_worktree "$repo" featb "$wtb" main >/dev/null
+printf 'b\n' > "$wtb/b.txt"
+git -C "$wtb" add b.txt
+git -C "$wtb" commit -qm "featb work, unmerged"
+out=$(merged_worktrees "$repo" main main "$WORK/nowhere")
+expect "unmerged session branch: not reported" "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$wtb")$")" 0
+expect "unmerged session branch: not counted" "$(field "$out" merged_count)" 1
+
+# A tree cut from integration and never committed to sits at the integration
+# tip, which is containment too: its branch adds nothing, and the block says so.
+wtc="$WORK/contained-featc"
+create_worktree "$repo" featc "$wtc" main >/dev/null
+out=$(merged_worktrees "$repo" main main "$WORK/nowhere")
+expect "zero-commit session branch: reported, its branch adds nothing to integration" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$wtc")$")" 1
+expect "zero-commit session branch: counted with the merged one" "$(field "$out" merged_count)" 2
+
+# The main checkout is wherever the user left it — here a contained branch that
+# is not protected — and it is never a tree to remove, whatever it is on.
+git -C "$repo" switch -q -c spike
+out=$(merged_worktrees "$repo" main main "$WORK/nowhere")
+expect "main checkout on a contained, unprotected branch: not reported" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$repo")$")" 0
+expect "main checkout on a contained, unprotected branch: not counted" "$(field "$out" merged_count)" 2
+
+# A two-branch repo: containment is measured against dev, a tree checked out on
+# dev itself is protected rather than reported, a detached tree has no branch to
+# measure, and a path with a space comes back whole.
+repo=$(new_repo contained-dev main)
+git -C "$repo" branch dev
+roles=$(run_block "$repo" "$ROLES_BLOCK")
+integration=$(field "$roles" integration)
+protected=$(field "$roles" protected)
+git -C "$repo" worktree add -q "$WORK/contained-dev-devtree" dev
+git -C "$repo" worktree add -q --detach "$WORK/contained-dev-detached"
+wt="$WORK/contained-dev-feata"
+create_worktree "$repo" feata "$wt" "$integration" >/dev/null
+printf 'a\n' > "$wt/a.txt"
+git -C "$wt" add a.txt
+git -C "$wt" commit -qm "feata work"
+git -C "$WORK/contained-dev-devtree" merge -q --no-ff -m "merge feata" feata
+wtb="$WORK/contained-dev featb"
+create_worktree "$repo" featb "$wtb" "$integration" >/dev/null
+printf 'b\n' > "$wtb/b.txt"
+git -C "$wtb" add b.txt
+git -C "$wtb" commit -qm "featb work"
+git -C "$WORK/contained-dev-devtree" merge -q --no-ff -m "merge featb" featb
+out=$(merged_worktrees "$repo" "$integration" "$protected" "$WORK/nowhere")
+expect "two-branch repo: the branch merged into dev is not in main" \
+  "$(git -C "$repo" merge-base --is-ancestor feata main && echo yes || echo no)" no
+expect "branch merged into dev but not main: reported" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$wt")$")" 1
+expect "worktree path with a space: printed whole" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$wtb")$")" 1
+expect "two merged trees, own tree neither: merged_count is 2" "$(field "$out" merged_count)" 2
+expect "two merged trees, own tree neither: two merged= lines" \
+  "$(printf '%s\n' "$out" | grep -c '^merged=')" 2
+expect "linked worktree on the integration branch: protected, so not reported" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$WORK/contained-dev-devtree")$")" 0
+expect "detached worktree: not reported" \
+  "$(printf '%s\n' "$out" | grep -c "^merged=$(git_path "$WORK/contained-dev-detached")$")" 0
+expect "detached worktree: the block prints nothing but its own lines" \
+  "$(printf '%s\n' "$out" | grep -vc '^merged\(_count\)\?=')" 0
 
 finalize

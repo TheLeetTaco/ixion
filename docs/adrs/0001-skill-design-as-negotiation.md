@@ -171,7 +171,7 @@ One blind spot, stated plainly because it is easy to overclaim: `tests/integrati
 
 ### Amendments
 
-Changes to the decision above land in [`0001-amendments.md`](0001-amendments.md), oldest first: `/yolo` retired; python for `jq`, a worktree per session, a merge instead of a PR; back to a PR, and the borrowed checkout deleted with it; `ship` arms auto-merge, and the probe that makes arming honest; the worktree is outside the project directory, and the blocks stand in it by name; `ship` compounds before it pushes, and this document splits; the resume command is what stops the orchestrator; the PR carries the session record.
+Changes to the decision above land in [`0001-amendments.md`](0001-amendments.md), oldest first: `/yolo` retired; python for `jq`, a worktree per session, a merge instead of a PR; back to a PR, and the borrowed checkout deleted with it; `ship` arms auto-merge, and the probe that makes arming honest; the worktree is outside the project directory, and the blocks stand in it by name; `ship` compounds before it pushes, and this document splits; the resume command is what stops the orchestrator; the PR carries the session record; `work` hands over the retirement command too, and names the trees that add nothing.
 
 Read it before changing a mechanism — it carries the evidence each shape was chosen on, and the alternatives already rejected. What binds at runtime is the fourteen principles above and the standing rejections below.
 
