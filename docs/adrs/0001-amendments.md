@@ -211,3 +211,23 @@ Nothing changed yet, and the options are worth recording because the obvious one
 Neither is being done on one occurrence. The honest position is that the failure is understood and the fix is not yet earned: `07` fails loudly when it happens, and a second occurrence makes the wording change worth spending. What should not happen in the meantime is the first rejected option — it is the one that looks most like a real fix and would put a flag in the pipeline to paper over a property of how skills load.
 
 One thing this run did settle, separately: `plan-creation` emitted the canonical Rust gate chain character-for-character, against 0 for 2 before the template stopped telling the planner it might be wrong. The entry above records that sequence; this one records where the same run died instead.
+
+### Amendment: the PR carries the session record
+
+Set against Anthropic's AI-native SDLC playbook (2026-09-01), Ixion already covered its Plan through Deploy stages with stricter mechanisms than the playbook proposes. Two gaps were real. The playbook's central claim is that the committed artifact chain *is* the audit trail — who asked for what, what the agent produced, and who approved it — and Ixion's chain never reached the repository: `.ixion/` is gitignored, and the PR body was a Summary and a Changes list. A reviewer could not see which review suggestions consolidation had declined on the user's authority, or which runtime claims the empirical gate had refuted. And the playbook attaches a measurement to every stage where Ixion measured nothing across runs, leaving the question the ADR keeps circling — whether six reviewers pay for their tokens — with no data to answer it.
+
+Three edits, each one line of record where it was previously console-only:
+
+- `plan-consolidation` appends its `Rejected:` rationale to `context.constraints[]`, beside the `Decision:` lines Phase 4 already put there. Phase 6 deletes `review.findings.json`, so this was the one outcome of consolidation that left no trace. The same line does runtime work: `work-review`'s reviewers read `constraints[]`, and without it they re-propose the suggestion against the code.
+- `work-review` writes its Phase 3 gate counts into `open_questions[]` as a `Gate:` line, the marker-in-text convention `Refuted and dropped:` established. Zeros are written, because a gate with nothing to check and a gate that was skipped have to read differently.
+- `ship` composes a `## Session` section from those files and the PR body carries it verbatim: session id, plan date, whether a fix pass ran, surviving findings by severity, the `Gate:` and `Refuted and dropped:` lines, the `Rejected:` lines. Ad-hoc ships print nothing and carry no section.
+
+The measurement is then `gh pr list --state merged --json body --jq '.[].body' | grep '^Gate:'`. No new artifact, no schema change: `open_questions[]` and `constraints[]` are both freeform string arrays, and the ajv assertions in `07` are untouched.
+
+*Rejected: committing `.ixion/` itself.* That is the playbook's shape for a team that needs provenance on every artifact, and it puts session churn in every PR. The three lines above are the part of the record a reader acts on.
+
+*Rejected: a `gate` object in the findings schema.* Structurally cleaner than a prefixed string, and it changes `additionalProperties: false` under a file the chain test validates with `ajv`, so it ripples into the test for a value nothing programmatic consumes — Principle 4's ceremony column.
+
+*Rejected: deriving the counts at ship time from the findings file.* Refuted and unproven are derivable from prefixes; reproduced is not, and re-authoring the counting in a second skill is the drift Principle 8 exists to end. The skill that has the numbers writes them.
+
+Four playbook gaps were judged not worth closing, and the reasoning is recorded so it is not re-derived: a hook protecting test files during fix-findings waits on an observed instance, per Principle 1's bar; scheduled evals of the plugin's own configuration presume concurrent editors and cost real tokens per run; a Stage 6 maintenance loop needs a runtime Ixion does not have; and a per-project review policy is the reviewer-narrowing already declined under "Considered and deferred".

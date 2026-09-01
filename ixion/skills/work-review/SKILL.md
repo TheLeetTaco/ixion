@@ -284,6 +284,8 @@ I spend at most **12 commands per round**, and I spend them a pass at a time: on
 
 The 12 is a starting value, not a measurement: no round has been counted yet. The Phase 3 summary reports how many qualifying findings I left unattempted alongside how many I checked, so the next person to touch this number sets it from a round that actually ran, and a starved round reads differently from a clean one.
 
+The counts go into the file as well as the console, as one more `open_questions[]` entry: `Gate: <checked> checked → <reproduced> reproduced, <refuted> refuted, <unproven> unproven; <unattempted> unattempted at the budget` — the same line Phase 3 prints, wearing a prefix the same way `Refuted and dropped:` does. The console line scrolls away with the session; the file line is what `ship` copies into the PR body, and `gh pr list --json body` over merged PRs is then the first measurement of whether the reviewers pay for their tokens. A round with no qualifying findings still writes the line with zeros, because "the gate had nothing to check" and "the gate was skipped" must read differently.
+
 Three guardrails. Run only what the Evidence slot names — this is a review, so no editing files, no fixing anything, no `git` mutations. Run it with `cd '<tree= from Phase 0>' &&` in front, because the tree under review is not where a Bash call starts. And if a command hangs or wants input, kill it and treat that as "won't run" rather than burning the round on it.
 
 ### 2.4 Structure into schema and write
@@ -304,7 +306,7 @@ Compose the final JSON, conforming to `${CLAUDE_PLUGIN_ROOT}/schemas/findings.sc
       "fix": "<concrete proposed change>"
     }
   ],
-  "open_questions": [ /* union across reviewers, plus one "Refuted and dropped:" record per finding the gate killed */ ]
+  "open_questions": [ /* union across reviewers, plus one "Refuted and dropped:" record per finding the gate killed, plus the one "Gate:" count line */ ]
 }
 ```
 
