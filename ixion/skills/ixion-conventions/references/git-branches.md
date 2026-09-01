@@ -79,11 +79,12 @@ INTEGRATION='<integration= from the branch-roles block>'
 PROTECTED='<protected= from the branch-roles block>'
 OWN='<worktree= from the "Derive the session worktree" block>'
 
-MERGED=$(git for-each-ref --format='%(refname)' --merged "$INTEGRATION" refs/heads | tr '\n' ' ')
+OWN=$(git -C "$OWN" rev-parse --show-toplevel 2>/dev/null)
+MERGED=$(git for-each-ref --format='%(refname)' --merged "$INTEGRATION" refs/heads)
 PROTECTED_REFS=
 for branch in $PROTECTED; do PROTECTED_REFS="$PROTECTED_REFS refs/heads/$branch"; done
 
-git worktree list --porcelain | awk -v own="$OWN" -v merged=" $MERGED " -v protected=" $PROTECTED_REFS " '
+git worktree list --porcelain | awk -v own="$OWN" -v merged=" ${MERGED//$'\n'/ } " -v protected=" $PROTECTED_REFS " '
   /^worktree / { stanza++; tree = substr($0, 10); branch = "" }
   /^branch /   { branch = substr($0, 8) }
   /^$/ && stanza > 1 && branch != "" && tree != own \
@@ -95,7 +96,7 @@ git worktree list --porcelain | awk -v own="$OWN" -v merged=" $MERGED " -v prote
 
 Containment is one `for-each-ref --merged` call: every local branch whose tip is an ancestor of the integration tip, or is that tip, in one answer that the porcelain parse matches each stanza against in memory. Both sides carry the full `refs/heads/<name>`, and `protected=` is short names, so those are prefixed before the comparison; a worktree checked out on the integration branch itself would otherwise be reported, since a branch always contains its own tip.
 
-A tip equal to the integration tip is what a freshly cut session branch has before its first commit — this session's own, on a fresh run, included — which is why the own tree is excluded by path unconditionally. Any other zero-commit tree is reported, because containment is what the block proves and a branch never committed to is contained: the statement `work` prints says its branch *adds nothing to* the integration branch, not that it was merged.
+A tip equal to the integration tip is what a freshly cut session branch has before its first commit — this session's own, on a fresh run, included — which is why the own tree is excluded by path unconditionally. That exclusion is a string comparison, and the two strings come from different derivations: `worktree=` is composed with `pwd`, the porcelain listing is git's own spelling, and on Windows those read `/d/repo-feata` and `D:/repo-feata`. So the incoming path is put through `rev-parse --show-toplevel` and both sides are compared in git's spelling; a path that is not a worktree resolves to empty and excludes nothing, which is the answer for a caller whose own tree is elsewhere. Any other zero-commit tree is reported, because containment is what the block proves and a branch never committed to is contained: the statement `work` prints says its branch *adds nothing to* the integration branch, not that it was merged.
 
 The first stanza is the main checkout, skipped whether it is on a branch, detached, or a bare repository — a `bare` line describes a main working tree and appears nowhere else — and a stanza with no `branch ` line is a detached tree with nothing to measure. Local refs only, as the roles block reads them: an integration branch behind its remote leaves a merged branch unreported, which is the safe direction for a report the user acts on by deleting things.
 

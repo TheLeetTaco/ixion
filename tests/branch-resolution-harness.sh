@@ -207,10 +207,11 @@ remove_worktree() {
 }
 
 # merged_worktrees <cwd> <integration> <protected> <own> -> the block's output.
-# The block compares <own> against paths as `git worktree list` prints them, by
-# plain string equality, so <own> has to be spelled the way git spells it — on
-# Windows that is `C:/Users/...` where this harness's own $WORK reads `/tmp/...`.
-# git_path gives a case that spelling for a tree it created.
+# <own> is passed exactly as `work` passes it — the derive block's
+# `$(cd "$REPO_ROOT/.." && pwd)/${REPO_ROOT##*/}-$SLUG` composition, not git's
+# spelling of it — because normalising the two is what the block does and what
+# the own-tree case exists to prove. git_path spells a path the way
+# `git worktree list` prints it, which is what the merged= lines carry.
 merged_worktrees() {
   local block
   block=$(fill "$MERGED_BLOCK" '<integration= from the branch-roles block>' "$2")
@@ -575,9 +576,10 @@ expect "worktree holding uncommitted work: the tree and the file survive" \
 # --- t1: worktrees whose branch adds nothing to the integration branch -------
 
 # Containment is one for-each-ref call matched against the porcelain listing, so
-# the block's cost is two git invocations however many worktrees there are.
-expect "the block invokes git exactly twice: for-each-ref and worktree list" \
-  "$(printf '%s\n' "$MERGED_BLOCK" | grep -c 'git ')" 2
+# the block's cost is a fixed three git invocations — resolving the own path,
+# for-each-ref, worktree list — however many worktrees there are.
+expect "the block invokes git three times, none of them once per worktree" \
+  "$(printf '%s\n' "$MERGED_BLOCK" | grep -c 'git ')" 3
 expect "the block never calls merge-base" \
   "$(printf '%s\n' "$MERGED_BLOCK" | grep -c 'merge-base')" 0
 
@@ -595,7 +597,7 @@ expect "merged session branch, own tree elsewhere: reported by its path" \
   "$(field "$out" merged)" "$(git_path "$wt")"
 expect "merged session branch, own tree elsewhere: counted once" "$(field "$out" merged_count)" 1
 
-out=$(merged_worktrees "$repo" main main "$(git_path "$wt")")
+out=$(merged_worktrees "$repo" main main "$(cd "$repo/.." && pwd)/${repo##*/}-feata")
 expect "own tree is the merged one: not reported" "$(printf '%s\n' "$out" | grep -c '^merged=')" 0
 expect "own tree is the merged one: count is zero" "$(field "$out" merged_count)" 0
 
