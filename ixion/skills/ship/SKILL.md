@@ -283,6 +283,25 @@ printf 'repo=%s\n' "$REPO"
 
 `origin` is the remote the push above published to, so it is the repository the PR belongs on. Naming it is not tidiness: where a repo has a second remote and no `gh` default recorded, `gh pr create` chooses one itself, and a repository the branch was never pushed to answers with `No commits between ...` — which names neither the cause nor the remote it chose. Do not settle it with `gh repo set-default`; that writes persistent configuration into the user's repository to spare this one command an argument.
 
+### Compose the session record
+
+The session directory is gitignored, so once the worktree is retired the PR is the only place the reviewed record survives. This block prints it; the PR body below carries it verbatim.
+
+```bash
+SDIR='<dir= from Phase 0>'
+if [ -n "$SDIR" ]; then
+  for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+  printf '## Session\n'
+  "$PY" -c 'import json, sys; s = json.load(open(sys.argv[1])); print("`%s`, planned %s, %s" % (s["session_id"], s["started_at"][:10], "fix pass ran" if sys.argv[2] == "yes" else "no fix pass"))' "$SDIR/session.json" "$([ -f "$SDIR/progress.json.plan-mode" ] && echo yes || echo no)"
+  [ -f "$SDIR/review.findings.json" ] && "$PY" -c 'import json, sys; d = json.load(open(sys.argv[1])); f = d["findings"]; print("Findings surviving review: " + ", ".join("%s=%d" % (s, sum(1 for x in f if x["severity"] == s)) for s in ("P1", "P2", "P3"))); [print(q) for q in d["open_questions"] if q.startswith(("Gate:", "Refuted and dropped:"))]' "$SDIR/review.findings.json"
+  [ -f "$SDIR/spec.json" ] && "$PY" -c 'import json, sys; [print(c) for c in json.load(open(sys.argv[1]))["context"]["constraints"] if c.startswith("Rejected:")]' "$SDIR/spec.json"
+fi
+```
+
+Empty `SDIR` prints nothing: an ad-hoc ship has no record, and the PR body carries no `## Session` section.
+
+Each line is a fact a later reader cannot recover any other way. The `Gate:` and `Refuted and dropped:` lines are what `work-review` 2.3c ran and killed; the `Rejected:` lines are the review suggestions `plan-consolidation` declined on the user's authority. `review.findings.json` is the last round's file, so a session reviewed twice reports the round the fix pass answered, not the union. Across merged PRs, `gh pr list --state merged --json body --jq '.[].body' | grep '^Gate:'` is a measurement of the review gate over time — the first one there is, which is why the section is machine-shaped rather than prose.
+
 ### Create the PR
 
 ```bash
@@ -305,9 +324,11 @@ Without `--base`, `gh` targets `origin/HEAD` — production — so a branch cut 
 
 ## Changes
 <bulleted list of key changes>
+
+<the "Compose the session record" output, verbatim, when it printed anything>
 ```
 
-Keep it concise. No filler, no boilerplate sections, no AI disclaimers.
+Keep the prose concise. No filler, no boilerplate sections, no AI disclaimers. The `## Session` section is not prose and is not yours to edit: paste what the block printed, every line of it, or a reviewer reads a gate that "checked 7" as one that checked 7 and finds no record of what it dropped.
 
 `url=` is how the user sees the PR and how every step below addresses it.
 

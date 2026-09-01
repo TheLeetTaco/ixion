@@ -144,6 +144,8 @@ Only integrate findings whose fix is consistent with the user's verbatim descrip
 
 There is no deferral tier. The consistency check is the only gate: contradictions are rejected with their one-line `Rejected:` rationale; everything else goes into the spec.
 
+**Append each `Rejected:` line to `context.constraints[]`**, the same way Phase 4 appends its `Decision:` lines. Phase 6 deletes `review.findings.json`, so the rejected finding's body is gone after this skill runs and this line is its only trace. It earns its place in `constraints[]` twice over: `work-review`'s reviewers read `constraints[]` and would otherwise re-propose the same suggestion against the code, and `ship` copies these lines into the PR body so a reader of the PR sees which review suggestions were declined and on whose authority.
+
 - Fold `fix` language into the affected task's `description`
 - Add test scenarios that cover the failure described in `failure`
 - If the finding does not map to an existing task: add a new task to the relevant phase
