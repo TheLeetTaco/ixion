@@ -1,6 +1,6 @@
 # Branch roles (shared by work, work-review and ship)
 
-One resolution block, two error states, and the command that cuts a session's worktree off the integration branch — all used by `work`, `work-review` and `ship`. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a ship bases its PR on).
+One resolution block, two error states, and the command that cuts a session's worktree off the integration branch — all used by `work`, `work-review` and `ship` — and one block read by `work` alone on entry, "Worktrees already contained in the integration branch", which reports the session worktrees whose branch adds nothing to it. Modifying branch-resolution behavior means editing this file — the callers hold only their scope-specific tails (when to branch, what to measure a diff against, what a ship bases its PR on).
 
 A caller consumes a section by reading its text and issuing it as the caller's own Bash call. There is no cross-file source mechanism in this pipeline and this path is not executable — pasting the block *is* the mechanism. Each block assigns every variable it reads, because Claude Code Bash calls share no shell state, and each block prints what it resolved: printed output is the only thing that survives from one call to the next.
 
@@ -69,6 +69,35 @@ Anything else is a failure to surface with git's own message, which the `add` ha
 The `add` passes an explicit start point, so nothing is checked out or switched in the checkout the skill was invoked from. That tree is never touched, which is why a session can start while it is dirty.
 
 Every worktree pays for its own dependency install and build output — `node_modules`, `target/`, a virtualenv — and under unconditional worktrees every session pays it rather than only the large ones. Remind the user to install dependencies in the new tree.
+
+## Worktrees already contained in the integration branch
+
+Session worktrees outlive the PRs that merge them, because removal is the user's command and nothing prompts it. This block names the ones whose branch adds nothing to the integration branch any more, so `work` can say so once on entry. It reports; it removes nothing.
+
+```bash
+INTEGRATION='<integration= from the branch-roles block>'
+PROTECTED='<protected= from the branch-roles block>'
+OWN='<worktree= from the "Derive the session worktree" block>'
+
+MERGED=$(git for-each-ref --format='%(refname)' --merged "$INTEGRATION" refs/heads | tr '\n' ' ')
+PROTECTED_REFS=
+for branch in $PROTECTED; do PROTECTED_REFS="$PROTECTED_REFS refs/heads/$branch"; done
+
+git worktree list --porcelain | awk -v own="$OWN" -v merged=" $MERGED " -v protected=" $PROTECTED_REFS " '
+  /^worktree / { stanza++; tree = substr($0, 10); branch = "" }
+  /^branch /   { branch = substr($0, 8) }
+  /^$/ && stanza > 1 && branch != "" && tree != own \
+    && index(protected, " " branch " ") == 0 && index(merged, " " branch " ") {
+    print "merged=" tree; count++
+  }
+  END { print "merged_count=" count + 0 }'
+```
+
+Containment is one `for-each-ref --merged` call: every local branch whose tip is an ancestor of the integration tip, or is that tip, in one answer that the porcelain parse matches each stanza against in memory. Both sides carry the full `refs/heads/<name>`, and `protected=` is short names, so those are prefixed before the comparison; a worktree checked out on the integration branch itself would otherwise be reported, since a branch always contains its own tip.
+
+A tip equal to the integration tip is what a freshly cut session branch has before its first commit — this session's own, on a fresh run, included — which is why the own tree is excluded by path unconditionally. Any other zero-commit tree is reported, because containment is what the block proves and a branch never committed to is contained: the statement `work` prints says its branch *adds nothing to* the integration branch, not that it was merged.
+
+The first stanza is the main checkout, skipped whether it is on a branch, detached, or a bare repository — a `bare` line describes a main working tree and appears nowhere else — and a stanza with no `branch ` line is a detached tree with nothing to measure. Local refs only, as the roles block reads them: an integration branch behind its remote leaves a merged branch unreported, which is the safe direction for a report the user acts on by deleting things.
 
 ## Error states
 
