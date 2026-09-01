@@ -66,3 +66,17 @@ Two things generalise beyond this one binary:
 - **A mutation test that reports "all pass" is itself the signal to check the mutation applied.** That is the expected-failure case; a green suite there is the one outcome that means the run told you nothing. Make the mutation step *assert* it changed something (`assert s2 != s`) rather than trusting the edit landed.
 
 
+
+### The limit of this pattern: a discriminating assertion can still be fed the wrong input
+
+Session `worktree-retirement-hints-2026-09-01` had an assertion this pattern would have certified. Break the thing it guarded and it failed, loudly, naming itself — so it discriminated. It still covered a live bug for the whole life of the change, because its *input* was composed by the test rather than by the code that produces it in production.
+
+The block under test compared a worktree path against `git worktree list --porcelain` output. Production supplies that path from a `cd .. && pwd` composition; the harness supplied it from `git rev-parse --show-toplevel`. Those agree on Linux and disagree on Windows (`/d/repo` versus `D:/repo`), so the comparison the assertion existed to prove was never actually exercised, and the suite stayed green on the host where it failed.
+
+Mutation testing cannot see this. Mutating the code makes a correct-input test fail, which is exactly what a wrong-input test does too — both directions look identical from the outside. So the mutation is necessary and not sufficient, and the extra question is about the fixture rather than the assertion:
+
+> For each input this check feeds the code: what produces this value in production, and did I run *that*?
+
+Where the answer is "I built it by hand because the real composition is awkward here", that awkwardness is the finding. In this case a comment in the harness had already written the divergence down and treated it as something the test must accommodate — which is the same fact, read in the wrong direction.
+
+Full write-up: `docs/solutions/mistakes/two-spellings-of-one-path-compare-unequal-System-20260901.md`.
