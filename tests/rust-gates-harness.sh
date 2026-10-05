@@ -136,12 +136,13 @@ expect "cargo deny failing fresh: the retry checks advisories only" "$(printf '%
 # --- dependency age ----------------------------------------------------------
 
 # age <case> <requirement> <num:days-ago[:yanked]...> -> runs the age block for
-# crate "demo" against canned versions dated relative to now.
+# crate "demo" against canned versions dated relative to now. NEXT_PAGE, when
+# set, is the page's meta.next_page: crates.io's sign that older releases exist.
 age() {
   local name=$1 req=$2 block dir
   shift 2
   dir=$(new_case "age-$name" curl)
-  "$PY" -c 'import datetime, json, sys; now = datetime.datetime.now(datetime.timezone.utc); print(json.dumps({"versions": [{"num": n, "created_at": (now - datetime.timedelta(days=int(d))).strftime("%Y-%m-%dT%H:%M:%S.%fZ"), "yanked": y == "yanked"} for n, d, y in ((s + "::").split(":")[:3] for s in sys.argv[1:])]}))' "$@" \
+  "$PY" -c 'import datetime, json, os, sys; now = datetime.datetime.now(datetime.timezone.utc); print(json.dumps({"versions": [{"num": n, "created_at": (now - datetime.timedelta(days=int(d))).strftime("%Y-%m-%dT%H:%M:%S.%fZ"), "yanked": y == "yanked"} for n, d, y in ((s + "::").split(":")[:3] for s in sys.argv[1:])], "meta": {"next_page": os.environ.get("NEXT_PAGE")}}))' "$@" \
     > "$dir/versions.json"
   block=$(printf '%s\n' "$AGE_BLOCK" | sed "s|<the crate name>|demo|; s|<the current requirement, e.g. 1.4; empty when adding the dependency>|$req|")
   run "$dir" "$block"
@@ -159,6 +160,16 @@ else
 
   age bump 1 2.1.0:30 1.5.0:3 1.4.2:20
   matches "age: a bump stays inside the current requirement" "$OUT" 'demo@1.4.2 *'
+
+  age tilde '~1.4' 1.5.0:20 1.4.2:20
+  matches "age: a tilde requirement holds the minor" "$OUT" 'demo@1.4.2 *'
+
+  age range '>=1.2, <1.5' 1.4.2:20
+  expect "age: a requirement it cannot honour exits 4, not a traceback" "$RC" 4
+
+  NEXT_PAGE='?per_page=100&seek=older' age truncated 1 2.1.0:30 2.0.0:30
+  expect "age: nothing eligible on a page with older releases behind it exits 5" "$RC" 5
+  matches "age: a truncated page names the next page to fetch" "$OUT" '*next page: ?per_page=100&seek=older*'
 
   age too-young "" 1.5.0:3 1.4.2:13
   none=$RC

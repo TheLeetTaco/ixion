@@ -248,6 +248,10 @@ The fetch fallback fails closed, and that was measured rather than assumed: `car
 
 *Rejected: Cargo's `registry.global-min-publish-age = "14 days"` for the dependency cooldown.* It is the right mechanism and it is nightly-only, behind `-Zmin-publish-age`, with RFC 3923 still under review. The Dependency Age section names it as what replaces its lookup block once stable.
 
+*Rejected: paging inside the Dependency Age block.* crates.io pages its versions endpoint by an opaque `seek` token in `meta.next_page` (measured: `page=2` is a 400), so following it means a loop around curl or HTTP inside the python program, and the block stops being one copyable pipe. Exit 5 with the next page printed costs a re-run on the rare crate with more than a hundred releases and an old-major requirement — serde `0.9` needs two — and never answers "no release qualifies" from a page it did not read.
+
+*Rejected: keying the advisory exception on the session-tier Advisory gate.* That run comes after every chunk, so no chunk choosing a version could consult it. The chunk that claims the exception runs the gate itself; it is already on the network for the lookup, so the tier placement's reason does not reach it.
+
 *Rejected: a minimum of two regression tests per bug fix.* An agent pads to a count. "The reproducing test plus the nearest edge case of the same defect" yields a second test only where a distinct edge exists, and otherwise asks the implementer to say in one sentence that none does.
 
 *Rejected: a finding field marking a finding as a bug fix.* The finding already says so: a Failure asserting runtime misbehaviour carries Evidence, a command or `unproven:`, and that is the definition the regression-test rule uses. A field would be a second copy of a fact the Evidence slot holds, under a schema `07` validates with `ajv`.

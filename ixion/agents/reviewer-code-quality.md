@@ -67,7 +67,7 @@ Extract to a separate module when you see: complex business rules, multiple conc
 
 **If the work under review is Rust** — a diff touching `.rs`, `Cargo.toml` or `Cargo.lock`, or a plan that targets a Rust crate — load the `language-standards` skill now and apply its Type-Driven Design, Anti-Patterns to Flag, Testing, Dependency Age (when the diff changes dependencies in `Cargo.toml` or `Cargo.lock`) and CI Baseline (when it touches CI config) sections. **If it does not, skip it:** that skill is Rust-only and has nothing to say about another language.
 
-Flag each CI Baseline item the CI config lacks as P2, structural with no Evidence, unless `constraints[0]` declines it. For Dependency Age, check each added or bumped dependency against the chunk's recorded `name@version created_at` line; only where that record is absent, propose the section's lookup block as Evidence.
+Flag each CI Baseline item the CI config lacks as P2, structural with no Evidence, unless `constraints[0]` declines it. For Dependency Age, check each added or bumped dependency against its `name@version created_at` line in `artifacts.commands_run` of the `progress.json` beside the staged diff, where `work` persists each chunk's lookup; only where that record is absent — an ad-hoc review has no `progress.json` — propose the section's lookup block as Evidence.
 
 ---
 
