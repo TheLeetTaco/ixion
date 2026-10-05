@@ -174,11 +174,13 @@ If Phase 3 recorded "Single obvious shape — no alternative considered," use on
 
 A single criterion that applies uniformly across the whole spec is sufficient. The criterion makes elegance a verifiable acceptance bar, not a hope.
 
-**Session-tier gates belong in `success_criteria[]`, not in any phase's `verification`.** Some gates are worth running once at the end rather than after every wave — in Rust, `cargo audit` and `cargo machete --with-metadata`. Per-phase placement taxes every wave and, for `cargo audit`, makes every phase depend on reaching the advisory database. `work` Phase 3 checks `success_criteria[]` once and records each as a `{command, exit_code}` entry in `progress.artifacts.commands_run` — so where a session gate actually ran is provable afterwards rather than asserted.
+**Session-tier gates belong in `success_criteria[]`, not in any phase's `verification`.** Some gates are worth running once at the end rather than after every wave — in Rust, the advisory gate and `cargo machete --with-metadata`. Per-phase placement taxes every wave and, for the advisory gate, makes every phase depend on reaching the advisory database. `work` Phase 3 checks `success_criteria[]` once and records each as a `{command, exit_code}` entry in `progress.artifacts.commands_run` — so where a session gate actually ran is provable afterwards rather than asserted.
 
-`success_criteria[]` entries are natural-language claims, and Phase 3 derives the command it runs from the claim's wording. A criterion reading "no known advisories" yields a bare `cargo audit`, which exits non-zero when it merely *failed to fetch* the database — turning a network hiccup into a failed criterion. The criterion text must therefore carry the runnable form and its failure semantics:
+`success_criteria[]` entries are natural-language claims, and Phase 3 derives the command it runs from the claim's wording. A criterion reading "no known advisories" yields a bare `cargo audit`, which exits non-zero when it merely *failed to fetch* the database — turning a network hiccup into a failed criterion — and runs even where the project has handed advisories to cargo-deny. The criterion text must therefore carry the runnable form and its failure semantics. For advisories that form is the **Advisory gate** block in `language-standards`' Tooling Gates. **Copy that block.**
 
-> Advisories checked via `cargo audit || cargo audit --stale`; only a reported advisory fails this criterion — a failure to fetch the advisory database does not.
+> Advisories checked by running this block and recording its output verbatim; only a reported advisory or policy violation fails this criterion — a fetch failure against a cached database does not: <paste the "Advisory gate" block from ${CLAUDE_PLUGIN_ROOT}/skills/language-standards/SKILL.md verbatim>
+
+The block picks cargo-deny or cargo audit when it runs, because a phase of this same spec may create `deny.toml`; choosing between them here, from the tree as it stands at plan time, is how the criterion goes stale. Recomposing it from memory is the mistake the Rust verification chain below warns against.
 
 A gate whose binary may be absent probes for it and skips with a zero exit, because a gate that hard-fails on a missing binary gets deleted by the first person it blocks. This is the smoke-command idiom above — exit cleanly, leave a readable trace — not the pre-flight abort in `tests/integration/run.sh:33-42`, which sets `fail_pre=1` and is right to, because missing test infrastructure means the suite cannot run at all:
 
@@ -190,7 +192,9 @@ else
 fi
 ```
 
-`cargo audit || cargo audit --stale` takes the same wrapper under `command -v cargo-audit`. Skip and pass both exit zero, so the `SKIPPED:` prefix is the only thing distinguishing them; `commands_run` accepts any shape, so a summarized "machete clean" would be indistinguishable from a real pass. Require in the criterion that the prefix be recorded verbatim. This path fires on every non-Rust repo, permanently — routine `SKIPPED:` lines are expected, not gate flakiness.
+The Advisory gate block already carries this probe for both of its tools. Skip and pass both exit zero, so the `SKIPPED:` prefix is the only thing distinguishing them; `commands_run` accepts any shape, so a summarized "machete clean" would be indistinguishable from a real pass. Require in the criterion that the prefix be recorded verbatim. This path fires on every non-Rust repo, permanently — routine `SKIPPED:` lines are expected, not gate flakiness.
+
+**When the feature creates or edits CI config in a Rust project** — `.github/workflows/`, `.github/dependabot.yml` or `renovate.json` — read `language-standards`' CI Baseline section and `${CLAUDE_PLUGIN_ROOT}/skills/language-standards/references/ci-baseline.md`, and fold each item the project's CI lacks into that phase's `tasks[]` and `test_scenarios[]`. An item `context.constraints[0]` declines is left out, not argued with; 80% and 14 days are defaults, never questions.
 
 ### Step 6: Write `spec.json`
 
