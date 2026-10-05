@@ -46,6 +46,7 @@ Fix-findings addendum:
 - If the cleaner shape requires touching files outside the findings list, take it — note the drift in your `outcomes` summary.
 
 ## Constraints
+- For each finding that asserts runtime misbehaviour, write its regression test first — RED → GREEN → REFACTOR as in work 2.2a, per ixion-conventions "Bug fixes carry a regression test"; record each test's before/after exit codes in commands_run. Structural findings are exempt.
 - Run tests after the change set; capture exit_code.
 - No `git checkout <path>`, `git restore`, `git reset --hard`, `git stash`, or `git clean`. The tree holds uncommitted work from earlier phases and possibly concurrent wave siblings, and you can't tell which of it is yours — even inside your own declared files, so path arguments don't make these safe.
 - To mutation-test (break code deliberately to prove a test really fails), use **copy-mutate-restore**: `cp x.rs x.rs.bak`, mutate, restore from the copy, delete the copy. Never revert via git.

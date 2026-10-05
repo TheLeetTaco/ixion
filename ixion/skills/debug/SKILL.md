@@ -88,6 +88,10 @@ ITERATION = 0
 STRIKES = {}  # track failures per hypothesis
 CURRENT_HYPOTHESIS = <highest-likelihood hypothesis>
 
+Before iteration 1: write the reproducing test per ixion-conventions
+"Bug fixes carry a regression test" and run it — it must fail on the current tree.
+MANUAL_MODE does not exempt it when the project has a test harness.
+
 For each iteration (1 to 10):
 
   1. Implement ONE targeted fix
@@ -95,11 +99,12 @@ For each iteration (1 to 10):
      - If fix requires >5 lines, explain why before implementing
 
   2. Verify:
+     - Run the regression test
      - Automated mode: run verification command, truncate to last 2000 chars
      - Manual mode: ask the verification question below
 
   3. Evaluate:
-     - If FIXED → go to Phase 3
+     - If FIXED (regression test passes too) → add the edge-case test, go to Phase 3
      - If NOT FIXED → analyze new output, adjust approach
 
   4. Track strikes:
@@ -153,6 +158,7 @@ Provide a clear summary:
 - **Root cause**: What was wrong
 - **Fix applied**: What changed and why
 - **Verification**: Confirmation that the verification command passes
+- **Regression tests**: The test(s) written, or the stated reason none was written
 
 If the root cause was non-obvious — a surprising interaction, a misleading symptom, a fix that future debuggers would want to know about — offer to capture it while the details are fresh:
 
