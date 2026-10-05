@@ -65,4 +65,17 @@ Two things generalise beyond this one binary:
 - **The interpreter probe is not only for the shipped blocks.** Every ad-hoc command typed during verification needs it too. Here the correct idiom was already in context — pasted into six earlier calls in the same session — and the wrong one still got used the moment the command was improvised rather than cited.
 - **A mutation test that reports "all pass" is itself the signal to check the mutation applied.** That is the expected-failure case; a green suite there is the one outcome that means the run told you nothing. Make the mutation step *assert* it changed something (`assert s2 != s`) rather than trusting the edit landed.
 
+### A prefix match that the failure mode itself satisfies
+
+Session `rust-quality-gates-2026-10-05`. `tests/rust-gates-harness.sh` filtered the host `PATH` with `ls "$d"/cargo-deny* "$d"/cargo-audit* || keep "$d"`. The `ls` exits non-zero whenever *either* glob misses, so a directory holding only one real advisory binary stayed on `PATH`. On a host with a real `cargo-audit`, the "neither binary installed" case actually ran it. The leak went unnoticed because the assertion was `matches "$OUT" 'SKIPPED:*'`: the leaked run *also* starts with a `SKIPPED:` line (`SKIPPED: cargo-deny not installed; deny.toml asks for it`) before running audit.
+
+Breaking the check is not enough when the assertion is loose enough for the failure mode to satisfy it. Before trusting a prefix or glob assertion, write down what the *wrong* run prints and confirm the pattern rejects it.
+
+The fix had two parts:
+
+- **An exact assertion.** The case now matches the one line only the intended branch prints, `SKIPPED: no advisory gate installed`.
+- **A case `PATH` built from scratch.** It holds the case's fake bin plus a private directory with one exec-wrapper per tool the blocks need. These are wrappers, not symlinks: Git Bash's `ln -s` copies the file, and a copied msys executable can no longer find `msys-2.0.dll`.
+
+Re-adding the host `PATH` as a mutation then failed 4 assertions, which proves the new check can fail.
+
 
