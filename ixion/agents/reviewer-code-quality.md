@@ -35,6 +35,7 @@ For implementation changes, verify:
 
 Flag as P1 if: New code with zero tests
 Flag as P2 if: Tests exist but skip key paths, or `.skip`/`.only` present
+Flag as P2 if: A bug fix lands without the regression test ixion-conventions "Bug fixes carry a regression test" requires
 
 ### 5. CRITICAL DELETIONS & REGRESSIONS
 For each deletion, verify: Was this intentional? Does removing this break an existing workflow? Are there tests that will fail? Is logic moved elsewhere or completely removed?
@@ -64,7 +65,9 @@ Extract to a separate module when you see: complex business rules, multiple conc
 
 ## Language-Specific Guidance
 
-**If the work under review is Rust** — a diff touching `.rs` or `Cargo.toml`, or a plan that targets a Rust crate — load the `language-standards` skill now and apply its Type-Driven Design, Anti-Patterns to Flag, and Testing sections. **If it does not, skip it:** that skill is Rust-only and has nothing to say about another language.
+**If the work under review is Rust** — a diff touching `.rs`, `Cargo.toml` or `Cargo.lock`, or a plan that targets a Rust crate — load the `language-standards` skill now and apply its Type-Driven Design, Anti-Patterns to Flag, Testing, Dependency Age (when the diff changes dependencies in `Cargo.toml` or `Cargo.lock`) and CI Baseline (when it touches CI config) sections. **If it does not, skip it:** that skill is Rust-only and has nothing to say about another language.
+
+Flag each CI Baseline item the CI config lacks as P2, structural with no Evidence, unless `constraints[0]` declines it. For Dependency Age, check each added or bumped dependency against the chunk's recorded `name@version created_at` line; only where that record is absent, propose the section's lookup block as Evidence.
 
 ---
 
