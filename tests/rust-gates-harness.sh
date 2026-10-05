@@ -130,8 +130,7 @@ DENY_EXIT=1 run "$dir" "$GATE_BLOCK"
 [ "$RC" != 0 ] && note_pass "cargo deny failing fresh and cached: the gate fails" \
   || note_fail "cargo deny failing fresh and cached: the gate fails (exit $RC)"
 expect "cargo deny failing fresh: the cached-database retry ran" "$(ran deny)" 2
-expect "cargo deny failing fresh: the retry checks advisories only" "$(printf '%s
-' "$CALLS" | tail -1)" "deny deny check advisories --disable-fetch"
+expect "cargo deny failing fresh: the retry checks advisories only" "$(printf '%s\n' "$CALLS" | tail -1)" "deny deny check advisories --disable-fetch"
 
 # --- dependency age ----------------------------------------------------------
 
