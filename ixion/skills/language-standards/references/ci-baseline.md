@@ -4,7 +4,7 @@ The concrete form of the **CI Baseline** section in `language-standards`. Fold i
 
 ## `.github/workflows/ci.yml`
 
-Keep the `deny` job only when `deny.toml` declares an `[advisories]` table — the same condition as the **Advisory gate**. It does not build, so it carries no cache.
+Keep the `deny` job only when `deny.toml` declares an `[advisories]` table — the same condition and the same `check advisories` as the **Advisory gate**. It does not build, so it carries no cache.
 
 ```yaml
 name: CI
@@ -58,6 +58,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories
 ```
 
 `cargo llvm-cov` is the test step — running `cargo test` beside it would build and run the suite twice — and it skips doc-tests, which the last step covers.

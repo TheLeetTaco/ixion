@@ -178,7 +178,7 @@ A single criterion that applies uniformly across the whole spec is sufficient. T
 
 `success_criteria[]` entries are natural-language claims, and Phase 3 derives the command it runs from the claim's wording. A criterion reading "no known advisories" yields a bare `cargo audit`, which exits non-zero when it merely *failed to fetch* the database — turning a network hiccup into a failed criterion — and runs even where the project has handed advisories to cargo-deny. The criterion text must therefore carry the runnable form and its failure semantics. For advisories that form is the **Advisory gate** block in `language-standards`' Tooling Gates. **Copy that block.**
 
-> Advisories checked by running this block and recording its output verbatim; only a reported advisory or policy violation fails this criterion — a fetch failure against a cached database does not: <paste the "Advisory gate" block from ${CLAUDE_PLUGIN_ROOT}/skills/language-standards/SKILL.md verbatim>
+> Advisories checked by running this block and recording its output verbatim; only a reported advisory fails this criterion — a fetch failure against a cached database does not: <paste the "Advisory gate" block from ${CLAUDE_PLUGIN_ROOT}/skills/language-standards/SKILL.md verbatim>
 
 The block picks cargo-deny or cargo audit when it runs, because a phase of this same spec may create `deny.toml`; choosing between them here, from the tree as it stands at plan time, is how the criterion goes stale. Recomposing it from memory is the mistake the Rust verification chain below warns against.
 

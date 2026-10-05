@@ -98,6 +98,7 @@ printf '%s\n' "$ADVISORIES" > "$dir/deny.toml"
 run "$dir" "$GATE_BLOCK"
 expect "deny.toml with [advisories]: cargo deny ran" "$(ran deny)" 1
 expect "deny.toml with [advisories]: cargo audit did not run" "$(ran audit)" 0
+expect "deny.toml with [advisories]: cargo deny checks advisories only" "$CALLS" "deny deny check advisories"
 matches "deny.toml with [advisories]: output names cargo deny" "$OUT" '*cargo deny*'
 
 dir=$(new_case deny-without-advisories cargo-deny cargo-audit)
@@ -129,6 +130,8 @@ DENY_EXIT=1 run "$dir" "$GATE_BLOCK"
 [ "$RC" != 0 ] && note_pass "cargo deny failing fresh and cached: the gate fails" \
   || note_fail "cargo deny failing fresh and cached: the gate fails (exit $RC)"
 expect "cargo deny failing fresh: the cached-database retry ran" "$(ran deny)" 2
+expect "cargo deny failing fresh: the retry checks advisories only" "$(printf '%s
+' "$CALLS" | tail -1)" "deny deny check advisories --disable-fetch"
 
 # --- dependency age ----------------------------------------------------------
 
