@@ -95,6 +95,19 @@ Further checks:
 - A recomputed value must be stable across resume. If the computation can move forward while the session is in flight, recomputation is a bug even when it looks deterministic.
 - Make the new field optional so pre-existing artifacts keep validating, then guard for its absence at every consumer.
 
+## Recurrence: a chunk's free-form return is not a persisted home (2026-10-05)
+
+Session `rust-quality-gates-2026-10-05` rebuilt the same defect with a different value. The Dependency Age rule in `ixion/skills/language-standards/SKILL.md` told the implementing chunk to put `name@version created_at` "in the chunk's return", and `ixion/agents/reviewer-code-quality.md` told the reviewer to check each dependency against "the chunk's recorded line". Both producer and consumer were written, and they met at no artifact:
+
+- `work` keeps only `files_modified[]` and `commands_run[]` from a chunk's return; the rest of the return dies with the orchestrator's context.
+- `work-review` dispatches reviewers with `review.diff` and the spec, never with the chunk returns.
+
+So the reviewer's "record absent" fallback was the only branch that could ever fire, and every dependency change would have re-run a live crates.io lookup as Evidence. Six plan reviewers and consolidation passed it. `work-review` caught it as **Hidden Cross-Component Contract**.
+
+The fix sent the line through a field that already persists: the chunk records the lookup and its printed line in `commands_run[]`, `work` writes that list to `progress.json`, and `progress.json` sits in the session dir next to `review.diff`, where a reviewer with `Read` can open it. No schema change, and no edit to `work` or the reviewer dispatch.
+
+Extension to the Prevention list: **"the chunk's return", "the orchestrator's context" and "what the subagent reported" are not homes.** When one skill's text tells a reader in another invocation to check something, name the file and field the reader opens. Then confirm two things: the reader's dispatch actually gives it that file, and the writer's persistence step actually keeps that field. If either is missing, the contract exists only in the prose.
+
 ## Related Issues
 
 - `docs/adrs/0001-skill-design-as-negotiation.md` — Principle 4 (load-bearing vs ceremony), Principle 8 (one source of truth for shared text).

@@ -107,6 +107,12 @@ When the Failure asserts the code misbehaves *when it runs* — wrong output, pa
 
 Structural findings need no Evidence — a God Class is visible in the source. Plan review has no code to run, so the slot doesn't apply there at all.
 
+### Bug fixes carry a regression test
+
+This extends work 2.2a's TDD cycle. A bug fix is a finding whose Failure asserts runtime misbehaviour — it carries Evidence, a command or `unproven:` — or a debug target describing wrong behaviour; its RED is a test that reproduces the bug, failing before the fix and passing after. The Evidence command is a starting point to translate into that test; for `unproven:`, derive the test from the Failure's Observation.
+
+Add a test for the nearest edge case of the same defect, or say in one sentence that none exists. A project with no test harness is exempt and says so.
+
 ---
 
 ## Spec Quality Bar

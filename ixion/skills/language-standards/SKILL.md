@@ -63,10 +63,64 @@ A gate whose binary is missing skips loudly rather than failing the phase, and t
 - `cargo fmt --check` — per-phase. Do not add `--all`: measured on a two-member workspace, `cargo fmt` already flags every member from any working directory (rustfmt #2488), so the flag would be ceremony.
 - `cargo test --locked` — per-phase; includes doc-tests. Do not add `--all-targets` here — it silently drops the `Doc-tests` runner (cargo #11015, #6669); `cargo test --doc` is the companion when you want doc-tests alone.
 - `cargo check --all-features --locked` and `cargo check --no-default-features --locked` — per-phase, but only on a crate that declares features, and there only on the final phase and on any phase whose `files[]` includes `Cargo.toml` or a feature-gated module: each feature set defeats the build cache, so running both unconditionally costs about four compilations per phase, roughly forty on a ten-phase spec. `--all-features` catches code rotting behind a feature nobody enables by default; `--no-default-features` catches code that only compiles because a default feature happened to be on.
-- `cargo audit || cargo audit --stale` — session, because the fetch is networked and per-phase would make every phase network-dependent. The fallback form checks fresh advisories and falls back to the cached database only when the fetch fails; unconditional `--stale` would report clean against a frozen advisory set indefinitely.
+- The **Advisory gate** block below — session, because the fetch is networked and per-phase would make every phase network-dependent. It runs `cargo deny check advisories` only when `deny.toml` declares an `[advisories]` table, because that table is the project saying deny owns advisories; the subcommand keeps deny to that, since a bare `cargo deny check` also judges licences, bans and sources the table never configured (measured: cargo-deny 0.19.6 exits 4, `licenses FAILED`, on a fresh crate whether `deny.toml` is absent or holds only `[advisories]`); otherwise `cargo audit` runs, never both, so one ignore list governs. It decides when it runs rather than when the spec is written, since a phase of the same spec may create `deny.toml`. Each tool checks fresh advisories and falls back to the cached database only when the fetch fails; unconditional `--stale` would report clean against a frozen advisory set indefinitely, and `--disable-fetch` with no cached database exits 1 rather than passing against nothing.
 - `cargo machete --with-metadata` — session, because it is noisy enough that repeating it per wave trains the reader to ignore it. Finds unused dependencies; `--with-metadata` cuts false positives. (`cargo udeps` rejected: nightly-only.)
 
-Never, at any tier: `cargo deny`, MSRV checks, coverage thresholds, benchmarks, cross-compilation — CI's job, not a wave's.
+Never, at any tier: MSRV checks, coverage thresholds, benchmarks, cross-compilation — CI's job, not a wave's; **CI Baseline** below says what that job runs.
+
+### Advisory gate
+
+```bash
+DENY_ADVISORIES=$(grep -s '^\[advisories\]' deny.toml)
+if [ -n "$DENY_ADVISORIES" ] && command -v cargo-deny >/dev/null 2>&1; then
+  echo "advisories: cargo deny"
+  cargo deny check advisories || cargo deny check advisories --disable-fetch
+elif command -v cargo-audit >/dev/null 2>&1; then
+  [ -z "$DENY_ADVISORIES" ] || echo "SKIPPED: cargo-deny not installed; deny.toml asks for it"
+  echo "advisories: cargo audit"
+  cargo audit || cargo audit --stale
+else
+  echo "SKIPPED: no advisory gate installed"
+fi
+```
+
+Record its output verbatim: the first line names which tool ran, and `SKIPPED:` is the only thing telling a skip from a pass.
+
+## Dependency Age
+
+Applies when a chunk adds or bumps a direct dependency, in `Cargo.toml` or in `Cargo.lock` alone (`cargo update -p` changes only the lock). Never tree-wide: transitive freshness is the dependency bot's job under **CI Baseline**. Lock the newest stable, non-yanked release published at least 14 days ago, because malicious releases are mostly caught and yanked within days and the cooldown lets that happen before you install one. A bump must also satisfy the current requirement, which the block takes as written in `Cargo.toml` when it is a bare, caret (`^`) or tilde (`~`) version; a new major version is outside this rule.
+
+```bash
+for PY in python3 python; do "$PY" -c '' 2>/dev/null && break; done
+NAME='<the crate name>'
+REQ='<the current requirement, e.g. 1.4; empty when adding the dependency>'
+PAGE='?per_page=100'
+curl -fsS --retry 1 -A 'ixion-dependency-age (https://github.com/TheLeetTaco/ixion)' "https://crates.io/api/v1/crates/$NAME/versions$PAGE" \
+  | "$PY" -c 'import datetime, json, re, sys; name, req = sys.argv[1:3]; num = lambda s: tuple(map(int, s.split("+")[0].split("."))); m = re.fullmatch(r"([~^]?)(\d+(?:\.\d+){0,2})", req.replace(" ", "")); req and not m and sys.exit(4); floor = num(m[2]) if req else (); prefix = floor[:2] if req and m[1] == "~" else floor[:next((i + 1 for i, x in enumerate(floor) if x), len(floor))]; cut = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=14)).strftime("%Y-%m-%dT%H:%M:%S"); page = json.loads(sys.stdin.read() or "{}"); versions = page.get("versions") or sys.exit(2); more = (page.get("meta") or {}).get("next_page"); ok = [v for v in versions if not v["yanked"] and "-" not in v["num"] and v["created_at"] <= cut and num(v["num"])[:len(prefix)] == prefix and num(v["num"]) >= floor] or sys.exit(print("next page: " + more, file=sys.stderr) or 5 if more else 3); best = max(ok, key=lambda v: num(v["num"])); print(name + "@" + best["num"], best["created_at"])' "$NAME" "$REQ"
+```
+
+It prints one line, `name@version created_at`. Exit 3 means no release qualifies; exit 2 means the lookup failed, with curl's reason on stderr (`--retry 1` covers one 429 or 5xx). Exit 4 means the requirement is a range, `=`, a wildcard or anything else it cannot honour: stop and report it rather than choosing a version past the project's own bound. Exit 5 means nothing on this page qualified and crates.io holds older releases — newest are listed first, so an older major's releases can all sit past the first hundred: run it again with `PAGE` set, quoted, to the `next page:` it printed. crates.io refuses a request with no User-Agent; keep it naming the tool, never a person or an email.
+
+Pin what it printed:
+
+- `cargo add <name>@<version>`, or set a bumped requirement to `<version>`, then `cargo update -p <name> --precise <version>`. A requirement is only a floor — Cargo resolves it to the newest compatible release, which is the one the cooldown rejected. An exact `@=<version>` requirement is for binaries only; in a library it forces that version on every dependent.
+- Confirm `Cargo.lock` carries exactly `<version>` and `git diff Cargo.lock` adds only the crate and its new transitive dependencies, then commit `Cargo.lock` with the change.
+
+A younger release is allowed only on a bump, when an advisory stands against the locked version and the release falls inside that advisory's patched range. The chunk learns both by running the **Advisory gate** block itself after the lookup, and takes the patched range from its output: the gate's session run comes after every chunk, too late to license a choice, and this chunk already needs the network for the lookup. If no release satisfies both, or the lookup fails while the advisory stands, stop and report it unresolved rather than choosing. A lookup failure with no advisory keeps the locked version on a bump; a new dependency is added and reported `age unverified`.
+
+The chunk's `commands_run[]` carries, per dependency, the lookup with the line it printed, `age unverified`, or the advisory id that licensed a younger release — `work` persists that list to the session's `progress.json`, which is where a reviewer checks the lock against it. Cargo's `registry.global-min-publish-age` replaces this lookup once it leaves nightly (`-Zmin-publish-age`).
+
+## CI Baseline
+
+Applies when a spec or diff creates or edits CI config in a Rust project: `.github/workflows/`, `.github/dependabot.yml` or `renovate.json`. The pipeline runs:
+
+- `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings`
+- `cargo llvm-cov --locked --fail-under-lines 80` as the test step (tarpaulin if the project already uses it), plus `cargo test --doc --locked` for the doc-tests llvm-cov skips
+- cargo-deny when `deny.toml` declares `[advisories]` — the **Advisory gate**'s condition
+- a scheduled advisory audit, so advisories published against unchanged code still surface
+- Renovate `minimumReleaseAge` or Dependabot `cooldown` at 14 days, covering `github-actions` too — the tree-wide half of **Dependency Age**
+
+80% and 14 days are defaults, not questions; the user's explicit choices override any item. The workflow and bot config to copy are in `references/ci-baseline.md`.
 
 ## Anti-Patterns to Flag
 

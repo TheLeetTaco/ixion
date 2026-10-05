@@ -34,7 +34,7 @@ These phrases skip the verify step. They turn an unverified claim into a forward
 |-------|----------------|
 | Tests pass | Test output: 0 failures, exit code 0 |
 | Build works | Exit code 0 from build command |
-| Bug fixed | Red→green cycle: test failed before, passes now |
+| Bug fixed | Red→green on a regression test, plus the edge-case test (ixion-conventions "Bug fixes carry a regression test") |
 | Feature implemented | Test exists AND test output shows pass |
 | Phase complete | All `verification` commands ran fresh and passed |
 | Success criteria met | Each criterion has a cited command output OR a line from the session's cumulative diff (Phase 3) proving it |
