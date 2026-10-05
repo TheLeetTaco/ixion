@@ -68,7 +68,7 @@ PHASE_GATE_FLAGS=(--all-targets --locked)
 CHUNK_GATE_FLAGS=(--locked)
 
 # Session-tier gates run once from work Phase 3, never per phase.
-SESSION_GATE_RE="cargo (audit|machete)"
+SESSION_GATE_RE="cargo (audit|machete|deny)"
 
 # unflagged_gates <expression> <file> <flag>... — prints the flags that no
 # command string <expression> yields carries; empty output means every flag

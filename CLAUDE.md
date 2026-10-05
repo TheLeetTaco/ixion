@@ -54,6 +54,8 @@ Smaller tests:
 
 `tests/finding-synthesis-harness.sh` does the same for `references/finding-synthesis.md`: it catches a re-authored copy of the shared synthesis text left behind in one review skill, and the retired `Deferred` tier vocabulary coming back. Credential-free and seconds long — run it after any edit to `finding-synthesis.md` or to either review skill's Phase 2.
 
+`tests/rust-gates-harness.sh` does the same for `language-standards`' Advisory gate and Dependency Age blocks: it runs them verbatim against throwaway crates with fake `cargo-deny`, `cargo-audit` and `curl` shadowing the real ones on `PATH`, and canned crates.io JSON in place of the network. Credential-free and seconds long — run it after any edit to either block.
+
 ## Monitoring a long-running test
 
 Don't sit and watch the log. Use the Monitor tool with a script that emits events on milestones, deadlocks, and silent stops. Skeleton:

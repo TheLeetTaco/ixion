@@ -231,3 +231,25 @@ The measurement is then `gh pr list --state merged --json body --jq '.[].body' |
 *Rejected: deriving the counts at ship time from the findings file.* Refuted and unproven are derivable from prefixes; reproduced is not, and re-authoring the counting in a second skill is the drift Principle 8 exists to end. The skill that has the numbers writes them.
 
 Four playbook gaps were judged not worth closing, and the reasoning is recorded so it is not re-derived: a hook protecting test files during fix-findings waits on an observed instance, per Principle 1's bar; scheduled evals of the plugin's own configuration presume concurrent editors and cost real tokens per run; a Stage 6 maintenance loop needs a runtime Ixion does not have; and a per-project review policy is the reviewer-narrowing already declined under "Considered and deferred".
+
+### Amendment: cargo deny leaves the never list
+
+`language-standards` ended Tooling Gates with "Never, at any tier: `cargo deny`, MSRV checks, coverage thresholds, benchmarks, cross-compilation — CI's job, not a wave's." The user reversed the first item: `cargo deny` now runs at the session tier, as the **Advisory gate** block. The rest of the line stands, and now points at the CI Baseline section that says what CI's job runs.
+
+The exclusion was right about the case it pictured, and the measurement shows it: cargo-deny 0.19.6 run against a freshly generated crate with no `deny.toml` exits 4, `licenses FAILED`. A gate that fails correct work on every project without a policy file is deleted by the first person it blocks. What the exclusion missed is the project that *has* written the policy — there, `deny.toml` is the project's own statement of which advisories, licences and sources it accepts, and a session that ignores it checks against a weaker bar than the project set. So deny runs only when `deny.toml` declares an `[advisories]` table. Existence of the file is not enough: the `[advisories]` table is the project saying deny owns advisories, and a `deny.toml` written only for licences or bans has not said it — keying on the file alone would hand the advisories gate to a tool the project never configured for advisories, and report its pass as theirs.
+
+**Deny replaces `cargo audit` there rather than joining it.** Both read the same RustSec database, so running both adds no coverage — it adds a second fetch and a second ignore list, and an advisory the project has accepted in `deny.toml` would still fail the gate through audit. One tool per run, chosen by the block when the gate runs rather than when the spec is written, because a phase of the same spec may be the one that creates `deny.toml`. Where `deny.toml` asks for deny and only `cargo-audit` is installed, audit runs and the block says deny was skipped; where neither is installed, the block prints `SKIPPED:` and nothing passes silently.
+
+The fetch fallback fails closed, and that was measured rather than assumed: `cargo deny check --disable-fetch` with no local advisory database exits 1, so a session whose fetch fails and which has never fetched is a failed gate, not a clean one. `tests/rust-gates-harness.sh` holds the selection to exactly one advisory tool per case, against fake `cargo-deny`, `cargo-audit` and `cargo` on `PATH`.
+
+*Rejected: run `cargo deny check` alongside `cargo audit` when `deny.toml` exists.* Two advisory sources, two ignore lists, two fetches of one database — and the two disagree exactly when the project has accepted an advisory in one of them.
+
+*Rejected: run `cargo deny` unconditionally.* The exit-4 measurement above. The policy file is what turns deny from a failure into a gate.
+
+*Rejected: Cargo's `registry.global-min-publish-age = "14 days"` for the dependency cooldown.* It is the right mechanism and it is nightly-only, behind `-Zmin-publish-age`, with RFC 3923 still under review. The Dependency Age section names it as what replaces its lookup block once stable.
+
+*Rejected: a minimum of two regression tests per bug fix.* An agent pads to a count. "The reproducing test plus the nearest edge case of the same defect" yields a second test only where a distinct edge exists, and otherwise asks the implementer to say in one sentence that none does.
+
+*Rejected: a finding field marking a finding as a bug fix.* The finding already says so: a Failure asserting runtime misbehaviour carries Evidence, a command or `unproven:`, and that is the definition the regression-test rule uses. A field would be a second copy of a fact the Evidence slot holds, under a schema `07` validates with `ajv`.
+
+Reopen if a project with `deny.toml` is observed with the deny gate passing while advisories went unchecked, or if the fail-closed fallback is observed blocking correct work — a fetch failing on a machine that has never fetched, in a session that otherwise passed.
