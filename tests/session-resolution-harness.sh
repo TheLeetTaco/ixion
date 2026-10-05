@@ -30,6 +30,7 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md"
 . "$ROOT/tests/integration/lib/assert.sh"
+. "$ROOT/tests/integration/lib/section.sh"
 # sandbox.sh for fixture_git_config, the settings the resume block's git fixtures
 # need before they can commit. Same selective reuse tests/branch-resolution-harness.sh
 # makes: sandbox.sh sources nothing and shells out to nothing but git, so this
@@ -38,30 +39,15 @@ REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md"
 
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
 
-# section <heading title> -> the bash block under that heading, at any level.
-section() {
-  awk -v title="$1" '
-    /^#/ {
-      h = $0; sub(/^#+[ \t]+/, "", h)
-      if (insec) exit
-      if (h == title) insec = 1
-      next
-    }
-    insec && /^```bash/ { inblk = 1; next }
-    inblk && /^```/ { exit }
-    inblk { print }
-  ' "$REFERENCE"
-}
-
-ROOT_BLOCK=$(section "Resolve the session root")
-CLAIM_BLOCK=$(section "Claim a session id")
-READ_BLOCK=$(section "Read a session field")
-WRITE_BLOCK=$(section "Set session fields")
-RESOLVE_BLOCK=$(section "Resolve the session")
-NAMES_BLOCK=$(section "Does a token name a session?")
-VALIDATE_BLOCK=$(section "Validate the resolved session")
-DERIVE_BLOCK=$(section "Derive the session worktree")
-RESUME_BLOCK=$(section "Resume command")
+ROOT_BLOCK=$(section "$REFERENCE" "Resolve the session root")
+CLAIM_BLOCK=$(section "$REFERENCE" "Claim a session id")
+READ_BLOCK=$(section "$REFERENCE" "Read a session field")
+WRITE_BLOCK=$(section "$REFERENCE" "Set session fields")
+RESOLVE_BLOCK=$(section "$REFERENCE" "Resolve the session")
+NAMES_BLOCK=$(section "$REFERENCE" "Does a token name a session?")
+VALIDATE_BLOCK=$(section "$REFERENCE" "Validate the resolved session")
+DERIVE_BLOCK=$(section "$REFERENCE" "Derive the session worktree")
+RESUME_BLOCK=$(section "$REFERENCE" "Resume command")
 
 check_section() {
   [ -n "$2" ] || note_fail "no bash block under section \"$1\" in $REFERENCE"

@@ -8,8 +8,7 @@
 # cargo-deny, cargo-audit and curl are shadowed by fakes first on PATH that log
 # their argv, which is what lets a case assert *which* advisory tool ran rather
 # than only what the block printed (docs/solutions/patterns/shadow-the-binary-
-# instead-of-seaming-the-caller-System-20260820.md). Directories holding a real
-# cargo-deny or cargo-audit are dropped from PATH so "absent" means absent.
+# instead-of-seaming-the-caller-System-20260820.md).
 #
 # python: the age block filters crates.io's JSON with a single-line python
 # program, and the canned JSON is dated relative to now by one too. Without an
@@ -19,24 +18,10 @@ set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SKILL="$ROOT/ixion/skills/language-standards/SKILL.md"
 . "$ROOT/tests/integration/lib/assert.sh"
+. "$ROOT/tests/integration/lib/section.sh"
 
-# section <heading title> -> the first bash block under that heading.
-section() {
-  awk -v title="$1" '
-    /^#/ {
-      h = $0; sub(/^#+[ \t]+/, "", h)
-      if (insec) exit
-      if (h == title) insec = 1
-      next
-    }
-    insec && /^```bash/ { inblk = 1; next }
-    inblk && /^```/ { exit }
-    inblk { print }
-  ' "$SKILL"
-}
-
-GATE_BLOCK=$(section "Advisory gate")
-AGE_BLOCK=$(section "Dependency Age")
+GATE_BLOCK=$(section "$SKILL" "Advisory gate")
+AGE_BLOCK=$(section "$SKILL" "Dependency Age")
 [ -n "$GATE_BLOCK" ] || note_fail "no bash block under section \"Advisory gate\" in $SKILL"
 [ -n "$AGE_BLOCK" ] || note_fail "no bash block under section \"Dependency Age\" in $SKILL"
 [ "$fail" = 0 ] || finalize
@@ -47,10 +32,15 @@ trap 'rm -rf "$WORK"' EXIT
 PY=
 for py in python3 python; do "$py" -c '' 2>/dev/null && { PY=$py; break; }; done
 
-BASE_PATH=
-IFS=: read -r -a path_dirs <<< "$PATH"
-for d in "${path_dirs[@]}"; do
-  ls "$d"/cargo-deny* "$d"/cargo-audit* >/dev/null 2>&1 || BASE_PATH="$BASE_PATH${BASE_PATH:+:}$d"
+# The case PATH carries none of the host's directories, only a wrapper per tool
+# the blocks and fakes call, each exec'ing the host's copy by absolute path. A
+# real cargo-audit beside curl or python cannot come along with them, so
+# "absent" means absent whatever the host's PATH layout.
+TOOLS="$WORK/tools"
+mkdir "$TOOLS"
+for tool in bash cat grep $PY; do
+  printf '#!%s\nexec %q "$@"\n' "$BASH" "$(command -v "$tool")" > "$TOOLS/$tool"
+  chmod +x "$TOOLS/$tool"
 done
 
 # stub <case dir> <name> <body> -> an executable fake on that case's PATH.
@@ -80,7 +70,7 @@ new_case() {
 
 # run <case dir> <block> -> OUT, RC and CALLS for that run.
 run() {
-  OUT=$(cd "$1" && printf '%s\n' "$2" | PATH="$1/bin:$BASE_PATH" CALLS="$1/calls" VERSIONS="$1/versions.json" bash 2>&1)
+  OUT=$(cd "$1" && printf '%s\n' "$2" | PATH="$1/bin:$TOOLS" CALLS="$1/calls" VERSIONS="$1/versions.json" bash 2>&1)
   RC=$?
   CALLS=$(cat "$1/calls")
 }
@@ -130,7 +120,7 @@ matches "[advisories] but no cargo-deny: the skipped deny gate is named" "$OUT" 
 dir=$(new_case neither)
 printf '%s\n' "$ADVISORIES" > "$dir/deny.toml"
 run "$dir" "$GATE_BLOCK"
-matches "neither binary: output starts with SKIPPED:" "$OUT" 'SKIPPED:*'
+matches "neither binary: no advisory gate ran" "$OUT" 'SKIPPED: no advisory gate installed'
 expect "neither binary: exit 0" "$RC" 0
 
 dir=$(new_case deny-violation cargo-deny cargo-audit)

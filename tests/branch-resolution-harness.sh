@@ -22,6 +22,7 @@ REFERENCE="$ROOT/ixion/skills/ixion-conventions/references/git-branches.md"
 HANDOFF="$ROOT/ixion/skills/ixion-conventions/references/session-handoff.md"
 SHIP="$ROOT/ixion/skills/ship/SKILL.md"
 . "$ROOT/tests/integration/lib/assert.sh"
+. "$ROOT/tests/integration/lib/section.sh"
 # sandbox.sh for fixture_git_config and add_bare_origin. It sources nothing and
 # shells out to nothing but git, so sharing the recipe costs this harness none of
 # the tmux or credential dependencies the rest of lib/ carries.
@@ -30,21 +31,6 @@ SHIP="$ROOT/ixion/skills/ship/SKILL.md"
 [ -f "$REFERENCE" ] || { note_fail "reference not found: $REFERENCE"; finalize; }
 [ -f "$HANDOFF" ] || { note_fail "reference not found: $HANDOFF"; finalize; }
 [ -f "$SHIP" ] || { note_fail "skill not found: $SHIP"; finalize; }
-
-# section <file> <heading title> -> the bash block under that heading, at any level.
-section() {
-  awk -v title="$2" '
-    /^#/ {
-      h = $0; sub(/^#+[ \t]+/, "", h)
-      if (insec) exit
-      if (h == title) insec = 1
-      next
-    }
-    insec && /^```bash/ { inblk = 1; next }
-    inblk && /^```/ { exit }
-    inblk { print }
-  ' "$1"
-}
 
 ROLES_BLOCK=$(section "$REFERENCE" "Resolve the branch roles")
 RECORDED_BLOCK=$(section "$REFERENCE" "Verify a recorded integration branch")
