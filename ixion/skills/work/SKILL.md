@@ -127,6 +127,14 @@ Steps 2, 3, 4, 6 and 7 each write a session artifact, and every one of them is t
 
    Every one of those is derived, and the derivation is the blocks' rather than yours. If you find yourself parking the tree under a `.worktrees/` subdirectory, prefixing the branch with `work/`, appending a timestamp to keep it unique, or recording either value anywhere — those are other tools' conventions, and reaching for one is this step being skipped rather than pasted. Step 6 lists every field `work` writes to `session.json` and neither value is among them, because every later reader re-derives `<repo>-<slug>`: a tree parked anywhere else is reported missing for the rest of the session, whatever a recorded path says.
 
+   The same three values name the worktrees of sessions already landed:
+
+   ```bash
+   <paste the "Worktrees already contained in the integration branch" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/git-branches.md verbatim, with INTEGRATION set to integration= and PROTECTED set to protected= from the branch-roles block above, and OWN set to worktree= from the derive block above>
+   ```
+
+   When `merged_count=` is above zero, print `N worktree(s) whose branch adds nothing to <integration=> (merged, or never committed to):` with one `merged=` path per line under it; when it is zero, print nothing. That is a statement, not an action: a listed tree may be mid-review, and removing one is the user's command — the "Remove the session worktree" section of `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md`.
+
    `branch=` matching `slug=` is the go-ahead: the whole rest of the session runs in `worktree=` — every phase below, and `work-review` and `ship` after it. It is a sibling of the repository root, so a `cd` into it does not survive to the next Bash call and a dispatched subagent does not start there — `session-handoff.md`'s "Derive the session worktree" section says why. So every block below that reads HEAD or the working tree begins with `cd '<worktree= from this step>' || exit 1`, the dispatch in 2.2 carries the absolute path, and nothing relies on a `cd` issued earlier. A resumed session finds the tree already built and reuses it; that is the same printed answer and needs no branch of its own here.
 
    Nothing about the session is copied into it. The sessions tree hangs off the repository root every checkout of this repo shares, so `dir=` from Phase 0 names the same directory from the worktree as it does from the checkout you started in, and there is one record of this session rather than one per tree.
@@ -395,13 +403,21 @@ What's next?
 3. "You pick what's best" - Let me decide
 ```
 
+Then, above the onward commands:
+
+```
+Once <branch> has landed on <integration= from Phase 1 step 5> — by ship's PR or a direct merge — the session worktree is done; retire it with:
+```
+
+followed by the "Remove the session worktree" block from `${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md` with Phase 0's `repo_root=` and step 5's `worktree=` substituted in. Print it; do not run it.
+
 Print both onward commands under it, so choosing later — after a `/clear` — costs nothing:
 
 ```bash
 <paste the "Resume command" block from ${CLAUDE_PLUGIN_ROOT}/skills/ixion-conventions/references/session-handoff.md verbatim, with SKILLS='work-review ship'>
 ```
 
-After the user's choice, Phase 1's trap clears `session.json.active_skill` on exit. `ship` handles `session.status = "completed"`; the worktree stays standing, because ship's PR is not yet merged and review changes belong on this branch.
+After the user's choice, Phase 1's trap clears `session.json.active_skill` on exit. `ship` handles `session.status = "completed"`; the worktree stays standing until the user runs that command, because review changes belong on this branch.
 
 ---
 

@@ -281,6 +281,21 @@ else
   echo "----- worktrees -----"; git -C "$SBOX" worktree list 2>/dev/null || true; echo "----- end -----"
 fi
 
+# That tree outlives the session and only the user retires it, so `work` has to
+# hand the command over — a user who merges the branch directly and never runs
+# `ship` is otherwise never offered it. The path is what makes the assertion
+# mean something: a block still carrying its `<worktree=...>` placeholder has
+# the words and names no tree. Full scrollback (-S -) the way pane_ran_command
+# reads it, since the closing block is long since scrolled past; the path is
+# looked for in the surrounding lines because the block may assign it above the
+# command rather than spell it inside.
+if tmux capture-pane -t "$SESSION" -p -S - 2>/dev/null \
+     | grep -F -B 6 -A 2 'git worktree remove' | grep -Fq "$WORKTREE"; then
+  note_pass "work printed the command that retires $WORKTREE"
+else
+  note_fail "no 'git worktree remove' naming $WORKTREE in the pane — work's closing block never handed the retirement command over"
+fi
+
 # Composing a gate is not running one. A subagent that loaded the per-chunk
 # gate as written leaves its flagged command text here; one that settled for a
 # bare `cargo check` does not. Entries are ceremony and may be objects or bare

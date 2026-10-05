@@ -171,7 +171,7 @@ A branch has to be checked out in some worktree to be reviewable. The empirical 
 
 ### A worktree per session
 
-`/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/ship` leaves the worktree standing — its PR is not yet merged, and review changes belong on that branch — and prints the one command that retires it once the PR lands.
+`/work` gives every session a git worktree of its own — a checkout at `<repo>-<slug>` beside the repository root, on the session's branch, created from the integration branch. Nothing is switched or stashed in the checkout you invoked from, so a session can start while that tree is dirty, and two sessions can build and test at once without fighting over one working directory. `/work` and `/ship` both leave the worktree standing — a session's PR is not yet merged, and review changes belong on that branch — and both close by printing the one command that retires it, for you to run once the branch has landed. `/work` also names, on entry, every session worktree whose branch adds nothing to the integration branch any more — it lists their paths and touches none of them.
 
 The path is derived from the session id, never recorded, so any skill can recompute it. What that costs is real: **each worktree installs its own dependencies and produces its own build output.** Ixion does not configure a shared build cache — `docs/adrs/0001-skill-design-as-negotiation.md` records why.
 
